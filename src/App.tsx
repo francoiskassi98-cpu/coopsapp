@@ -3,8 +3,14 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
+import AppLayout from "@/components/AppLayout";
+import Dashboard from "@/pages/Dashboard";
+import Producers from "@/pages/Producers";
+import ImportProducers from "@/pages/ImportProducers";
+import CreateShipment from "@/pages/CreateShipment";
+import ExportPage from "@/pages/ExportPage";
+import Cancellations from "@/pages/Cancellations";
+import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -15,8 +21,14 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/producteurs" element={<Producers />} />
+            <Route path="/import" element={<ImportProducers />} />
+            <Route path="/chargements" element={<CreateShipment />} />
+            <Route path="/export" element={<ExportPage />} />
+            <Route path="/annulations" element={<Cancellations />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
