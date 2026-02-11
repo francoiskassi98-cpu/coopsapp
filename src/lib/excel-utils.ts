@@ -21,31 +21,30 @@ export interface ImportError {
   message: string;
 }
 
-const COLUMN_MAP: Record<string, keyof ProducerRow> = {
-  "coopérative": "cooperative",
-  "cooperative": "cooperative",
-  "nom complet": "full_name",
-  "nom": "full_name",
-  "n° producteur": "producer_number",
-  "numero producteur": "producer_number",
-  "cni": "national_id",
-  "code producteur": "producer_code",
-  "section": "section",
-  "surface cacao totale": "total_cocoa_area",
-  "surface cacao": "total_cocoa_area",
-  "nombre parcelles": "num_plots",
-  "parcelles": "num_plots",
-  "code plantation": "plantation_code",
-  "potentiel livraison": "delivery_potential",
-  "potentiel livraison (kg)": "delivery_potential",
-  "potentiel": "delivery_potential",
-  "surface plantation": "plantation_area",
-  "latitude": "latitude",
-  "longitude": "longitude",
-};
-
 function normalizeHeader(header: string): string {
   return header.toLowerCase().trim().replace(/[_\-]/g, " ").replace(/\s+/g, " ");
+}
+
+// Exact template column headers
+export const TEMPLATE_COLUMNS: { header: string; field: keyof ProducerRow }[] = [
+  { header: "Coopérative", field: "cooperative" },
+  { header: "Nom et prenom du producteur", field: "full_name" },
+  { header: "Numero du producteur", field: "producer_number" },
+  { header: "N° identification nationale du producteur", field: "national_id" },
+  { header: "Code du producteur", field: "producer_code" },
+  { header: "Section", field: "section" },
+  { header: "Superficie total cacao", field: "total_cocoa_area" },
+  { header: "Nombre de champ de cacao", field: "num_plots" },
+  { header: "Code de la plantation", field: "plantation_code" },
+  { header: "Potentiel de livraison", field: "delivery_potential" },
+  { header: "Superficie", field: "plantation_area" },
+  { header: "Latitude polygone", field: "latitude" },
+  { header: "Longitude polygone", field: "longitude" },
+];
+
+const COLUMN_MAP: Record<string, keyof ProducerRow> = {};
+for (const col of TEMPLATE_COLUMNS) {
+  COLUMN_MAP[normalizeHeader(col.header)] = col.field;
 }
 
 export function parseExcelFile(data: ArrayBuffer): { rows: ProducerRow[]; errors: ImportError[] } {
@@ -135,4 +134,16 @@ export function exportToExcel(
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
   XLSX.writeFile(wb, filename);
+}
+
+export function downloadImportTemplate() {
+  const headers = TEMPLATE_COLUMNS.map((c) => c.header);
+  const ws = XLSX.utils.aoa_to_sheet([headers]);
+
+  // Set column widths
+  ws["!cols"] = headers.map((h) => ({ wch: Math.max(h.length + 2, 18) }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Registre");
+  XLSX.writeFile(wb, "Knf-Modèle-COOPS APP.xlsx");
 }

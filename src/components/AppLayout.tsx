@@ -16,7 +16,7 @@ export default function AppLayout() {
     <div className="flex min-h-screen">
       <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
         <div className="p-5 border-b border-sidebar-border">
-          <h1 className="text-lg font-bold text-sidebar-primary">🍫 CacaoTrack</h1>
+          <h1 className="text-lg font-bold text-sidebar-primary">🍫 COOPS APP</h1>
           <p className="text-xs text-sidebar-foreground/60 mt-1">Gestion des chargements</p>
         </div>
         <nav className="flex-1 p-3 space-y-1">

@@ -2,8 +2,8 @@ import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { parseExcelFile, type ProducerRow, type ImportError } from "@/lib/excel-utils";
-import { Upload, CheckCircle, AlertCircle, FileSpreadsheet } from "lucide-react";
+import { parseExcelFile, downloadImportTemplate, type ProducerRow, type ImportError } from "@/lib/excel-utils";
+import { Upload, CheckCircle, AlertCircle, FileSpreadsheet, Download } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 
@@ -89,7 +89,13 @@ export default function ImportProducers() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Importation des producteurs</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Importation des producteurs</h1>
+        <Button variant="outline" onClick={downloadImportTemplate}>
+          <Download className="h-4 w-4 mr-2" />
+          Télécharger le modèle Excel
+        </Button>
+      </div>
 
       {/* Drop zone */}
       <Card>
