@@ -394,7 +394,7 @@ export default function ImportShipments() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.slice(0, 100).map((r, i) => (
+                  {rows.map((r, i) => (
                     <TableRow key={i}>
                       <TableCell className="font-mono text-xs">{r.numero_recu}</TableCell>
                       <TableCell>{r.connaissement || "—"}</TableCell>
@@ -411,11 +411,6 @@ export default function ImportShipments() {
                   ))}
                 </TableBody>
               </Table>
-              {rows.length > 100 && (
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  Affichage des 100 premières lignes sur {rows.length}
-                </p>
-              )}
             </div>
           </CardContent>
         </Card>
