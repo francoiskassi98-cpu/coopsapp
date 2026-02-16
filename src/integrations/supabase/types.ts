@@ -135,6 +135,7 @@ export type Database = {
           producer_number: string | null
           remaining_potential: number
           section: string
+          sexe: string | null
           total_cocoa_area: number | null
           updated_at: string
         }
@@ -154,6 +155,7 @@ export type Database = {
           producer_number?: string | null
           remaining_potential?: number
           section: string
+          sexe?: string | null
           total_cocoa_area?: number | null
           updated_at?: string
         }
@@ -173,6 +175,7 @@ export type Database = {
           producer_number?: string | null
           remaining_potential?: number
           section?: string
+          sexe?: string | null
           total_cocoa_area?: number | null
           updated_at?: string
         }

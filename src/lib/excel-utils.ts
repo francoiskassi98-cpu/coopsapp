@@ -6,6 +6,7 @@ export interface ProducerRow {
   producer_number: string;
   national_id: string;
   producer_code: string;
+  sexe: string;
   section: string;
   total_cocoa_area: number;
   num_plots: number;
@@ -32,6 +33,7 @@ export const TEMPLATE_COLUMNS: { header: string; field: keyof ProducerRow }[] = 
   { header: "Numero du producteur", field: "producer_number" },
   { header: "N° identification nationale du producteur", field: "national_id" },
   { header: "Code du producteur", field: "producer_code" },
+  { header: "Sexe", field: "sexe" },
   { header: "Section", field: "section" },
   { header: "Superficie total cacao", field: "total_cocoa_area" },
   { header: "Nombre de champ de cacao", field: "num_plots" },
@@ -111,6 +113,7 @@ export function parseExcelFile(data: ArrayBuffer): { rows: ProducerRow[]; errors
       producer_number: String(row.producer_number || "").trim(),
       national_id: String(row.national_id || "").trim(),
       producer_code: String(row.producer_code || "").trim(),
+      sexe: String(row.sexe || "").trim(),
       section: String(row.section).trim(),
       total_cocoa_area: Number(row.total_cocoa_area) || 0,
       num_plots: Number(row.num_plots) || 0,
