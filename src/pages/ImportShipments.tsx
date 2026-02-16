@@ -382,6 +382,7 @@ export default function ImportShipments() {
                   <TableRow>
                     <TableHead>N° Reçu</TableHead>
                     <TableHead>Connaissement</TableHead>
+                    <TableHead>Partenaire</TableHead>
                     <TableHead>Producteur</TableHead>
                     <TableHead>Code plantation</TableHead>
                     <TableHead>Section</TableHead>
@@ -398,6 +399,7 @@ export default function ImportShipments() {
                     <TableRow key={i}>
                       <TableCell className="font-mono text-xs">{r.numero_recu}</TableCell>
                       <TableCell>{r.connaissement || "—"}</TableCell>
+                      <TableCell>{r.partenaire || "—"}</TableCell>
                       <TableCell>{r.nom_producteur}</TableCell>
                       <TableCell>{r.code_plantation}</TableCell>
                       <TableCell>{r.section}</TableCell>

@@ -206,9 +206,14 @@ export default function CreateShipment() {
   };
 
   const handleDownloadPreview = () => {
+    const partnerName = partners.find((p) => p.id === partnerId)?.name || "";
     const rows = preview.map((d, i) => ({
       "N°": i + 1,
       "N° Reçu": d.receipt_number,
+      "Connaissement": connaissement || "",
+      "Projet": project,
+      "Partenaire": partnerName,
+      "Zone": zone || "",
       "Nom": d.full_name,
       "Section": d.section,
       "Poids net (kg)": Math.round(d.allocated_weight),
@@ -216,10 +221,13 @@ export default function CreateShipment() {
       "Date de livraison": d.delivery_date,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [{ wch: 6 }, { wch: 12 }, { wch: 30 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
+    ws["!cols"] = [{ wch: 6 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Chargement");
-    const fileName = connaissement ? `Chargement-${connaissement}.xlsx` : "Chargement.xlsx";
+    const parts = ["Chargement"];
+    if (connaissement) parts.push(connaissement);
+    if (zone) parts.push(zone);
+    const fileName = `${parts.join("-")}.xlsx`;
     XLSX.writeFile(wb, fileName);
   };
 
