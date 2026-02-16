@@ -124,6 +124,16 @@ export function parseShipmentExcel(data: ArrayBuffer): { rows: ShipmentImportRow
     }
   }
 
+  const VALID_DESTINATIONS = ["Abidjan", "San-Pedro"];
+  const VALID_PROJECTS = ["Fairtrade", "Rainforest Alliance", "Ordinaire"];
+
+  function matchOrDefault<T extends string>(value: string, validList: T[], defaultVal: T): T {
+    if (!value) return defaultVal;
+    const lower = value.toLowerCase().trim();
+    const found = validList.find((v) => v.toLowerCase() === lower);
+    return found || defaultVal;
+  }
+
   const errors: ShipmentImportError[] = [];
   const rows: ShipmentImportRow[] = [];
 
@@ -153,12 +163,15 @@ export function parseShipmentExcel(data: ArrayBuffer): { rows: ShipmentImportRow
       continue;
     }
 
+    const rawDestination = String(row.destination || "").trim();
+    const rawProjet = String(row.projet || "").trim();
+
     rows.push({
       connaissement: String(row.connaissement || "").trim(),
-      projet: String(row.projet || "").trim(),
+      projet: matchOrDefault(rawProjet, VALID_PROJECTS, "Ordinaire"),
       partenaire: String(row.partenaire || "").trim(),
       zone: String(row.zone || "").trim(),
-      destination: String(row.destination || "").trim(),
+      destination: matchOrDefault(rawDestination, VALID_DESTINATIONS, "Abidjan"),
       nom_producteur: String(row.nom_producteur).trim(),
       code_plantation: String(row.code_plantation).trim(),
       section: String(row.section || "").trim(),
