@@ -12,8 +12,9 @@ import {
   detectCampaignFromDate,
   type ShipmentImportRow,
   type ShipmentImportError,
+  type MatchedProducer,
 } from "@/lib/shipment-excel-utils";
-import { Upload, Download, FileSpreadsheet, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, Download, FileSpreadsheet, CheckCircle2, AlertCircle, User } from "lucide-react";
 
 export default function ImportShipments() {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -21,7 +22,7 @@ export default function ImportShipments() {
   const [errors, setErrors] = useState<ShipmentImportError[]>([]);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
-  const [matchResults, setMatchResults] = useState<{ matched: number; unmatched: string[] }>({ matched: 0, unmatched: [] });
+  const [matchedProducers, setMatchedProducers] = useState<MatchedProducer[]>([]);
   const [potentialWarnings, setPotentialWarnings] = useState<string[]>([]);
   const [delayWarnings, setDelayWarnings] = useState<string[]>([]);
 
@@ -29,7 +30,7 @@ export default function ImportShipments() {
     const file = e.target.files?.[0];
     if (!file) return;
     setDone(false);
-    setMatchResults({ matched: 0, unmatched: [] });
+    setMatchedProducers([]);
     setPotentialWarnings([]);
     setDelayWarnings([]);
 
@@ -42,13 +43,28 @@ export default function ImportShipments() {
       const codes = [...new Set(result.rows.map((r) => r.code_plantation))];
       const { data: producers } = await supabase
         .from("producers")
-        .select("plantation_code, remaining_potential")
+        .select("plantation_code, full_name, section, cooperative, remaining_potential")
         .in("plantation_code", codes);
 
-      const producerMap = new Map((producers || []).map((p) => [p.plantation_code, Number(p.remaining_potential)]));
-      const foundCodes = new Set((producers || []).map((p) => p.plantation_code));
-      const unmatched = codes.filter((c) => !foundCodes.has(c));
-      setMatchResults({ matched: codes.length - unmatched.length, unmatched });
+      const producerMap = new Map(
+        (producers || []).map((p) => [p.plantation_code, p])
+      );
+
+      // Build matched producers list with registry data
+      const matched: MatchedProducer[] = codes.map((code) => {
+        const dbProducer = producerMap.get(code);
+        const fileRow = result.rows.find((r) => r.code_plantation === code);
+        return {
+          code_plantation: code,
+          db_full_name: dbProducer?.full_name || "",
+          db_section: dbProducer?.section || "",
+          db_cooperative: dbProducer?.cooperative || "",
+          db_remaining_potential: Number(dbProducer?.remaining_potential || 0),
+          file_nom_producteur: fileRow?.nom_producteur || "",
+          matched: !!dbProducer,
+        };
+      });
+      setMatchedProducers(matched);
 
       // Check potential exceeded
       const weightByCode: Record<string, number> = {};
@@ -57,14 +73,14 @@ export default function ImportShipments() {
       }
       const potWarn: string[] = [];
       for (const [code, totalW] of Object.entries(weightByCode)) {
-        const potential = producerMap.get(code);
-        if (potential !== undefined && totalW > potential) {
-          potWarn.push(`${code} (${totalW.toLocaleString("fr-FR")} kg > potentiel ${potential.toLocaleString("fr-FR")} kg)`);
+        const potential = producerMap.get(code)?.remaining_potential;
+        if (potential !== undefined && totalW > Number(potential)) {
+          potWarn.push(`${code} (${totalW.toLocaleString("fr-FR")} kg > potentiel ${Number(potential).toLocaleString("fr-FR")} kg)`);
         }
       }
       setPotentialWarnings(potWarn);
 
-      // Check 2-week delay between shipments for same producer
+      // Check 2-week delay
       const datesByCode: Record<string, string[]> = {};
       for (const r of result.rows) {
         if (!datesByCode[r.code_plantation]) datesByCode[r.code_plantation] = [];
@@ -82,11 +98,12 @@ export default function ImportShipments() {
       }
       setDelayWarnings(delWarn);
 
-      if (result.errors.length === 0 && unmatched.length === 0 && potWarn.length === 0) {
+      const unmatchedCount = matched.filter((m) => !m.matched).length;
+      if (result.errors.length === 0 && unmatchedCount === 0 && potWarn.length === 0) {
         toast({ title: "Fichier valide", description: `${result.rows.length} lignes prêtes à importer.` });
       }
-      if (unmatched.length > 0) {
-        toast({ title: "Producteurs non trouvés", description: `${unmatched.length} code(s) plantation non trouvé(s).`, variant: "destructive" });
+      if (unmatchedCount > 0) {
+        toast({ title: "Producteurs non trouvés", description: `${unmatchedCount} code(s) plantation non trouvé(s) dans le registre.`, variant: "destructive" });
       }
       if (potWarn.length > 0) {
         toast({ title: "Dépassement de potentiel", description: `${potWarn.length} producteur(s) dépassent leur estimation.`, variant: "destructive" });
@@ -98,7 +115,8 @@ export default function ImportShipments() {
     }
   };
 
-  const canImport = rows.length > 0 && matchResults.unmatched.length === 0 && potentialWarnings.length === 0;
+  const unmatchedCount = matchedProducers.filter((m) => !m.matched).length;
+  const canImport = rows.length > 0 && unmatchedCount === 0 && potentialWarnings.length === 0;
 
   const handleImport = async () => {
     if (!canImport) return;
@@ -140,8 +158,8 @@ export default function ImportShipments() {
           }
         }
 
-        const totalWeight = first.poids_total || group.reduce((s, r) => s + r.poids_net, 0);
-        const totalBags = first.nombre_sacs || group.reduce((s, r) => s + r.nombre_sacs_producteur, 0);
+        const totalWeight = group.reduce((s, r) => s + r.poids_net, 0);
+        const totalBags = group.reduce((s, r) => s + r.nombre_sacs, 0);
 
         const dates = group.map((r) => r.date_livraison).filter(Boolean).sort();
         const deliveryStart = dates[0] || first.date_livraison;
@@ -176,7 +194,7 @@ export default function ImportShipments() {
             receipt_number: r.numero_recu,
             delivery_date: r.date_livraison || deliveryStart,
             net_weight: r.poids_net,
-            num_bags: r.nombre_sacs_producteur,
+            num_bags: r.nombre_sacs,
           }));
 
         if (deliveries.length > 0) {
@@ -222,7 +240,7 @@ export default function ImportShipments() {
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
             Téléchargez le modèle Excel, remplissez-le avec les données de vos anciens chargements, puis importez le fichier.
-            La campagne est détectée automatiquement à partir de la date de livraison. Un délai de 2 semaines entre chargements par producteur est vérifié.
+            Le système fait correspondre chaque code plantation avec le registre producteurs importé dans l'analyse des données.
           </p>
           <div className="flex gap-3 flex-wrap">
             <Button variant="outline" onClick={downloadShipmentTemplate}>
@@ -259,28 +277,58 @@ export default function ImportShipments() {
         </div>
       )}
 
-      {/* Matching status */}
-      {rows.length > 0 && (
+      {/* Producer matching with registry details */}
+      {matchedProducers.length > 0 && (
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3 mb-3">
-              {matchResults.unmatched.length === 0 ? (
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
-              ) : (
-                <AlertCircle className="h-5 w-5 text-destructive" />
-              )}
-              <span className="text-sm font-medium">
-                {matchResults.matched} producteur(s) trouvé(s)
-                {matchResults.unmatched.length > 0 && ` — ${matchResults.unmatched.length} non trouvé(s)`}
-              </span>
-            </div>
-            {matchResults.unmatched.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {matchResults.unmatched.map((code) => (
-                  <Badge key={code} variant="destructive" className="text-xs">{code}</Badge>
-                ))}
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <User className="h-5 w-5" /> Correspondance avec le registre producteurs ({matchedProducers.filter((m) => m.matched).length}/{matchedProducers.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {unmatchedCount === 0 ? (
+              <div className="flex items-center gap-2 text-sm text-green-600 mb-3">
+                <CheckCircle2 className="h-4 w-4" />
+                Tous les producteurs correspondent au registre.
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-destructive mb-3">
+                <AlertCircle className="h-4 w-4" />
+                {unmatchedCount} producteur(s) non trouvé(s) dans le registre. Importez-les d'abord via « Analyse des données ».
               </div>
             )}
+            <div className="max-h-60 overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Code plantation</TableHead>
+                    <TableHead>Nom (fichier)</TableHead>
+                    <TableHead>Nom (registre)</TableHead>
+                    <TableHead>Section</TableHead>
+                    <TableHead>Coopérative</TableHead>
+                    <TableHead>Potentiel restant</TableHead>
+                    <TableHead>Statut</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {matchedProducers.map((m) => (
+                    <TableRow key={m.code_plantation} className={!m.matched ? "bg-destructive/5" : ""}>
+                      <TableCell className="font-mono text-xs">{m.code_plantation}</TableCell>
+                      <TableCell>{m.file_nom_producteur}</TableCell>
+                      <TableCell>{m.matched ? m.db_full_name : "—"}</TableCell>
+                      <TableCell>{m.matched ? m.db_section : "—"}</TableCell>
+                      <TableCell>{m.matched ? m.db_cooperative : "—"}</TableCell>
+                      <TableCell>{m.matched ? `${m.db_remaining_potential.toLocaleString("fr-FR")} kg` : "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant={m.matched ? "default" : "destructive"} className="text-xs">
+                          {m.matched ? "Trouvé" : "Non trouvé"}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -353,7 +401,7 @@ export default function ImportShipments() {
                     <TableHead>Producteur</TableHead>
                     <TableHead>Code plantation</TableHead>
                     <TableHead>Section</TableHead>
-                    <TableHead>Poids net</TableHead>
+                    <TableHead>Poids net (kg)</TableHead>
                     <TableHead>Sacs</TableHead>
                     <TableHead>Date livraison</TableHead>
                     <TableHead>Campagne</TableHead>
@@ -370,7 +418,7 @@ export default function ImportShipments() {
                       <TableCell>{r.code_plantation}</TableCell>
                       <TableCell>{r.section}</TableCell>
                       <TableCell>{r.poids_net.toLocaleString("fr-FR")}</TableCell>
-                      <TableCell>{r.nombre_sacs_producteur}</TableCell>
+                      <TableCell>{r.nombre_sacs}</TableCell>
                       <TableCell>{r.date_livraison}</TableCell>
                       <TableCell className="text-xs">{detectCampaignFromDate(r.date_livraison)}</TableCell>
                       <TableCell>{r.projet}</TableCell>
