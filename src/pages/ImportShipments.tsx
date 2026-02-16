@@ -80,23 +80,7 @@ export default function ImportShipments() {
       }
       setPotentialWarnings(potWarn);
 
-      // Check 2-week delay
-      const datesByCode: Record<string, string[]> = {};
-      for (const r of result.rows) {
-        if (!datesByCode[r.code_plantation]) datesByCode[r.code_plantation] = [];
-        if (r.date_livraison) datesByCode[r.code_plantation].push(r.date_livraison);
-      }
-      const delWarn: string[] = [];
-      for (const [code, dates] of Object.entries(datesByCode)) {
-        const sorted = dates.sort();
-        for (let i = 1; i < sorted.length; i++) {
-          const diff = (new Date(sorted[i]).getTime() - new Date(sorted[i - 1]).getTime()) / (1000 * 60 * 60 * 24);
-          if (diff < 14) {
-            delWarn.push(`${code} : ${sorted[i - 1]} → ${sorted[i]} (${Math.round(diff)}j < 14j)`);
-          }
-        }
-      }
-      setDelayWarnings(delWarn);
+      // No 2-week delay check for historical imports
 
       const unmatchedCount = matched.filter((m) => !m.matched).length;
       if (result.errors.length === 0 && unmatchedCount === 0 && potWarn.length === 0) {
