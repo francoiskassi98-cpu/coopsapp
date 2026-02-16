@@ -6,13 +6,11 @@ export interface ShipmentImportRow {
   partenaire: string;
   zone: string;
   destination: string;
-  poids_total: number;
-  nombre_sacs: number;
   nom_producteur: string;
   code_plantation: string;
   section: string;
   poids_net: number;
-  nombre_sacs_producteur: number;
+  nombre_sacs: number;
   date_livraison: string;
   numero_recu: string;
 }
@@ -22,19 +20,27 @@ export interface ShipmentImportError {
   message: string;
 }
 
+export interface MatchedProducer {
+  code_plantation: string;
+  db_full_name: string;
+  db_section: string;
+  db_cooperative: string;
+  db_remaining_potential: number;
+  file_nom_producteur: string;
+  matched: boolean;
+}
+
 export const SHIPMENT_TEMPLATE_COLUMNS: { header: string; field: keyof ShipmentImportRow }[] = [
   { header: "Connaissement", field: "connaissement" },
   { header: "Projet", field: "projet" },
   { header: "Partenaire", field: "partenaire" },
   { header: "Zone", field: "zone" },
   { header: "Destination", field: "destination" },
-  { header: "Poids total (kg)", field: "poids_total" },
-  { header: "Nombre de sacs", field: "nombre_sacs" },
   { header: "Nom du producteur", field: "nom_producteur" },
   { header: "Code plantation", field: "code_plantation" },
   { header: "Section", field: "section" },
   { header: "Poids net (kg)", field: "poids_net" },
-  { header: "Nombre de sacs producteur", field: "nombre_sacs_producteur" },
+  { header: "Nombre de sacs", field: "nombre_sacs" },
   { header: "Date de livraison", field: "date_livraison" },
   { header: "N° Reçu", field: "numero_recu" },
 ];
@@ -53,27 +59,39 @@ export function detectCampaignFromDate(dateStr: string): string {
 }
 
 function normalizeHeader(header: string): string {
-  return header.toLowerCase().trim().replace(/[_\-°]/g, " ").replace(/\s+/g, " ");
+  return header
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[_\-°]/g, " ")
+    .replace(/\s+/g, " ");
 }
 
 const SHIPMENT_COLUMN_MAP: Record<string, keyof ShipmentImportRow> = {};
 for (const col of SHIPMENT_TEMPLATE_COLUMNS) {
   SHIPMENT_COLUMN_MAP[normalizeHeader(col.header)] = col.field;
 }
+// Add aliases for flexible matching
+SHIPMENT_COLUMN_MAP["poids net"] = "poids_net";
+SHIPMENT_COLUMN_MAP["poids net kg"] = "poids_net";
+SHIPMENT_COLUMN_MAP["poids (kg)"] = "poids_net";
+SHIPMENT_COLUMN_MAP["nombre de sacs"] = "nombre_sacs";
+SHIPMENT_COLUMN_MAP["nb sacs"] = "nombre_sacs";
+SHIPMENT_COLUMN_MAP["sacs"] = "nombre_sacs";
+SHIPMENT_COLUMN_MAP["n recu"] = "numero_recu";
+SHIPMENT_COLUMN_MAP["numero recu"] = "numero_recu";
 
 function parseExcelDate(value: any): string {
   if (!value) return "";
   if (typeof value === "number") {
-    // Excel serial date
     const date = XLSX.SSF.parse_date_code(value);
     if (date) {
       return `${date.y}-${String(date.m).padStart(2, "0")}-${String(date.d).padStart(2, "0")}`;
     }
   }
   const str = String(value).trim();
-  // Try yyyy-mm-dd
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-  // Try dd/mm/yyyy
   const match = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (match) return `${match[3]}-${match[2]}-${match[1]}`;
   return str;
@@ -92,8 +110,17 @@ export function parseShipmentExcel(data: ArrayBuffer): { rows: ShipmentImportRow
   const headerMap: Record<string, keyof ShipmentImportRow> = {};
   for (const key of firstRowKeys) {
     const normalized = normalizeHeader(key);
+    // Exact match
     if (SHIPMENT_COLUMN_MAP[normalized]) {
       headerMap[key] = SHIPMENT_COLUMN_MAP[normalized];
+      continue;
+    }
+    // Starts-with match
+    for (const [mapKey, field] of Object.entries(SHIPMENT_COLUMN_MAP)) {
+      if (normalized.startsWith(mapKey) || mapKey.startsWith(normalized)) {
+        headerMap[key] = field;
+        break;
+      }
     }
   }
 
@@ -109,7 +136,6 @@ export function parseShipmentExcel(data: ArrayBuffer): { rows: ShipmentImportRow
       (row as any)[fieldKey] = raw[excelKey];
     }
 
-    // Validate required fields
     if (!row.nom_producteur) {
       errors.push({ row: rowNum, message: "Nom du producteur manquant" });
       continue;
@@ -133,13 +159,11 @@ export function parseShipmentExcel(data: ArrayBuffer): { rows: ShipmentImportRow
       partenaire: String(row.partenaire || "").trim(),
       zone: String(row.zone || "").trim(),
       destination: String(row.destination || "").trim(),
-      poids_total: Number(row.poids_total) || 0,
-      nombre_sacs: Number(row.nombre_sacs) || 0,
       nom_producteur: String(row.nom_producteur).trim(),
       code_plantation: String(row.code_plantation).trim(),
       section: String(row.section || "").trim(),
       poids_net: Number(row.poids_net) || 0,
-      nombre_sacs_producteur: Number(row.nombre_sacs_producteur) || 0,
+      nombre_sacs: Number(row.nombre_sacs) || 0,
       date_livraison: parseExcelDate(row.date_livraison),
       numero_recu: String(row.numero_recu).trim(),
     });
