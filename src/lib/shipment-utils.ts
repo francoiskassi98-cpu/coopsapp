@@ -68,7 +68,6 @@ export function distributeShipment(
 
   // Scale allocations to match exact total weight
   const scaleFactor = totalWeight / totalAllocated;
-  rawAllocations.forEach((a) => (a.weight = a.weight * scaleFactor));
 
   // Phase 2: Calculate bags per producer (round, then adjust to match total)
   let bags = rawAllocations.map((a) => ({
@@ -110,20 +109,35 @@ export function distributeShipment(
   // Phase 4: Assign receipt numbers
   let receiptCounter = lastReceiptNumber;
 
-  return bags.map((b, i) => {
+  // Calculate weights ensuring total matches exactly
+  const results: DistributionResult[] = [];
+  let weightAssigned = 0;
+
+  for (let i = 0; i < bags.length; i++) {
     receiptCounter++;
     const deliveryDate = addDays(startDate, Math.round(i * dateStep));
-    return {
-      producer_id: b.producer.id,
-      full_name: b.producer.full_name,
-      section: b.producer.section,
-      plantation_code: b.producer.plantation_code,
-      allocated_weight: Math.round(b.bags * avgBagWeight),
-      num_bags: b.bags,
+    let weight: number;
+    if (i === bags.length - 1) {
+      // Last producer gets the remainder to ensure exact total
+      weight = totalWeight - weightAssigned;
+    } else {
+      weight = Math.round(bags[i].weight * scaleFactor);
+    }
+    weightAssigned += weight;
+
+    results.push({
+      producer_id: bags[i].producer.id,
+      full_name: bags[i].producer.full_name,
+      section: bags[i].producer.section,
+      plantation_code: bags[i].producer.plantation_code,
+      allocated_weight: weight,
+      num_bags: bags[i].bags,
       delivery_date: format(deliveryDate, "yyyy-MM-dd"),
       receipt_number: String(receiptCounter).padStart(6, "0"),
-    };
-  });
+    });
+  }
+
+  return results;
 }
 
 export function getCurrentCampaign(): string {

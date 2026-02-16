@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { distributeShipment, getCurrentCampaign, type DistributionResult } from "@/lib/shipment-utils";
 import { toast } from "@/hooks/use-toast";
-import { Truck, Plus, Download } from "lucide-react";
+import { Truck, Plus, Download, Pencil, Check, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ImportShipments from "@/pages/ImportShipments";
@@ -31,6 +31,9 @@ export default function CreateShipment() {
   const [preview, setPreview] = useState<DistributionResult[]>([]);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editWeight, setEditWeight] = useState("");
+  const [editBags, setEditBags] = useState("");
 
   useEffect(() => {
     supabase.from("partners").select("*").order("name").then(({ data }) => setPartners(data || []));
@@ -148,6 +151,58 @@ export default function CreateShipment() {
       setNewPartnerName("");
       setDialogOpen(false);
     }
+  };
+
+  const handleStartEdit = (index: number) => {
+    setEditingIndex(index);
+    setEditWeight(String(preview[index].allocated_weight));
+    setEditBags(String(preview[index].num_bags));
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+    setEditWeight("");
+    setEditBags("");
+  };
+
+  const handleSaveEdit = (index: number) => {
+    const newWeight = parseInt(editWeight, 10);
+    const newBags = parseInt(editBags, 10);
+    if (isNaN(newWeight) || newWeight <= 0 || isNaN(newBags) || newBags <= 0) {
+      toast({ title: "Valeurs invalides", variant: "destructive" });
+      return;
+    }
+    if (newWeight / newBags > 90) {
+      toast({ title: "Poids par sac trop élevé", description: "Maximum 90 kg par sac.", variant: "destructive" });
+      return;
+    }
+
+    const updated = [...preview];
+    const oldWeight = updated[index].allocated_weight;
+    const weightDiff = newWeight - oldWeight;
+
+    updated[index] = { ...updated[index], allocated_weight: newWeight, num_bags: newBags };
+
+    // Redistribute the weight difference across other producers proportionally
+    if (weightDiff !== 0 && updated.length > 1) {
+      const othersTotal = updated.reduce((s, d, i) => i !== index ? s + d.allocated_weight : s, 0);
+      let remaining = -weightDiff;
+      for (let i = 0; i < updated.length; i++) {
+        if (i === index) continue;
+        if (i === updated.length - 1 || (i === updated.length - 2 && index === updated.length - 1)) {
+          // Last other producer gets the remainder
+          updated[i] = { ...updated[i], allocated_weight: updated[i].allocated_weight + remaining };
+          remaining = 0;
+        } else {
+          const share = Math.round((updated[i].allocated_weight / othersTotal) * (-weightDiff));
+          updated[i] = { ...updated[i], allocated_weight: updated[i].allocated_weight + share };
+          remaining -= share;
+        }
+      }
+    }
+
+    setPreview(updated);
+    setEditingIndex(null);
   };
 
   const handleDownloadPreview = () => {
@@ -323,6 +378,7 @@ export default function CreateShipment() {
                             <TableHead>Poids (kg)</TableHead>
                             <TableHead>Sacs</TableHead>
                             <TableHead>Date</TableHead>
+                            <TableHead className="w-16">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -332,9 +388,38 @@ export default function CreateShipment() {
                               <TableCell className="font-mono text-xs">{d.receipt_number}</TableCell>
                               <TableCell>{d.full_name}</TableCell>
                               <TableCell>{d.section}</TableCell>
-                              <TableCell>{Math.round(d.allocated_weight).toLocaleString("fr-FR")}</TableCell>
-                              <TableCell>{d.num_bags}</TableCell>
+                              {editingIndex === index ? (
+                                <>
+                                  <TableCell>
+                                    <Input type="number" value={editWeight} onChange={(e) => setEditWeight(e.target.value)} className="h-7 w-20" />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input type="number" value={editBags} onChange={(e) => setEditBags(e.target.value)} className="h-7 w-16" />
+                                  </TableCell>
+                                </>
+                              ) : (
+                                <>
+                                  <TableCell>{Math.round(d.allocated_weight).toLocaleString("fr-FR")}</TableCell>
+                                  <TableCell>{d.num_bags}</TableCell>
+                                </>
+                              )}
                               <TableCell>{d.delivery_date}</TableCell>
+                              <TableCell>
+                                {editingIndex === index ? (
+                                  <div className="flex gap-1">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleSaveEdit(index)}>
+                                      <Check className="h-3 w-3" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit}>
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleStartEdit(index)}>
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
