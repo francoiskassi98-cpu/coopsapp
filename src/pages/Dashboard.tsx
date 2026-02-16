@@ -23,23 +23,37 @@ export default function Dashboard() {
     loadData();
   }, []);
 
+  async function fetchAllRows(query: any) {
+    let allData: any[] = [];
+    let from = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data, error } = await query.range(from, from + pageSize - 1);
+      if (error || !data || data.length === 0) break;
+      allData = allData.concat(data);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    return allData;
+  }
+
   async function loadData() {
-    // Get producer stats
-    const { data: producers } = await supabase.from("producers").select("delivery_potential, remaining_potential");
-    if (producers) {
-      const totalPotential = producers.reduce((s, p) => s + Number(p.delivery_potential), 0);
-      const remaining = producers.reduce((s, p) => s + Number(p.remaining_potential), 0);
+    // Get all producer stats (no limit)
+    const producers = await fetchAllRows(
+      supabase.from("producers").select("delivery_potential, remaining_potential")
+    );
+    if (producers.length > 0) {
+      const totalPotential = producers.reduce((s: number, p: any) => s + Number(p.delivery_potential), 0);
+      const remaining = producers.reduce((s: number, p: any) => s + Number(p.remaining_potential), 0);
       setStats({ totalPotential, totalDelivered: totalPotential - remaining, remaining });
     }
 
-    // Get shipments with partner info
-    const { data: shipmentsData } = await supabase
-      .from("shipments")
-      .select("*, partners(name)")
-      .eq("status", "active")
-      .order("created_at", { ascending: false });
+    // Get all shipments with partner info (no limit)
+    const shipmentsData = await fetchAllRows(
+      supabase.from("shipments").select("*, partners(name)").eq("status", "active").order("created_at", { ascending: false })
+    );
 
-    if (shipmentsData) {
+    if (shipmentsData.length > 0) {
       setShipments(shipmentsData);
 
       // By project
