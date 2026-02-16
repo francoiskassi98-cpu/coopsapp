@@ -6,11 +6,8 @@ export interface ShipmentImportRow {
   partenaire: string;
   zone: string;
   destination: string;
-  campagne: string;
   poids_total: number;
   nombre_sacs: number;
-  date_debut_livraison: string;
-  date_fin_livraison: string;
   nom_producteur: string;
   code_plantation: string;
   section: string;
@@ -31,11 +28,8 @@ export const SHIPMENT_TEMPLATE_COLUMNS: { header: string; field: keyof ShipmentI
   { header: "Partenaire", field: "partenaire" },
   { header: "Zone", field: "zone" },
   { header: "Destination", field: "destination" },
-  { header: "Campagne", field: "campagne" },
   { header: "Poids total (kg)", field: "poids_total" },
   { header: "Nombre de sacs", field: "nombre_sacs" },
-  { header: "Date début livraison", field: "date_debut_livraison" },
-  { header: "Date fin livraison", field: "date_fin_livraison" },
   { header: "Nom du producteur", field: "nom_producteur" },
   { header: "Code plantation", field: "code_plantation" },
   { header: "Section", field: "section" },
@@ -44,6 +38,19 @@ export const SHIPMENT_TEMPLATE_COLUMNS: { header: string; field: keyof ShipmentI
   { header: "Date de livraison", field: "date_livraison" },
   { header: "N° Reçu", field: "numero_recu" },
 ];
+
+/** Detect campaign from a delivery date (Oct 1 - Sep 30 cycle) */
+export function detectCampaignFromDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1;
+  if (month >= 10) {
+    return `${year}–${year + 1}`;
+  }
+  return `${year - 1}–${year}`;
+}
 
 function normalizeHeader(header: string): string {
   return header.toLowerCase().trim().replace(/[_\-°]/g, " ").replace(/\s+/g, " ");
@@ -126,11 +133,8 @@ export function parseShipmentExcel(data: ArrayBuffer): { rows: ShipmentImportRow
       partenaire: String(row.partenaire || "").trim(),
       zone: String(row.zone || "").trim(),
       destination: String(row.destination || "").trim(),
-      campagne: String(row.campagne || "").trim(),
       poids_total: Number(row.poids_total) || 0,
       nombre_sacs: Number(row.nombre_sacs) || 0,
-      date_debut_livraison: parseExcelDate(row.date_debut_livraison),
-      date_fin_livraison: parseExcelDate(row.date_fin_livraison),
       nom_producteur: String(row.nom_producteur).trim(),
       code_plantation: String(row.code_plantation).trim(),
       section: String(row.section || "").trim(),
@@ -157,7 +161,8 @@ export function downloadShipmentTemplate() {
 export function groupByShipment(rows: ShipmentImportRow[]) {
   const groups: Record<string, ShipmentImportRow[]> = {};
   for (const row of rows) {
-    const key = `${row.connaissement}||${row.projet}||${row.destination}||${row.campagne}`;
+    const campaign = detectCampaignFromDate(row.date_livraison);
+    const key = `${row.connaissement}||${row.projet}||${row.destination}||${campaign}`;
     if (!groups[key]) groups[key] = [];
     groups[key].push(row);
   }
