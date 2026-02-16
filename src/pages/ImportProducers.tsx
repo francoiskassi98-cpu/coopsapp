@@ -65,6 +65,7 @@ export default function ImportProducers() {
         const toInsert = newRows.map((r) => ({
           ...r,
           remaining_potential: r.delivery_potential,
+          sexe: r.sexe || null,
         }));
 
         // Insert in batches of 100
@@ -165,8 +166,9 @@ export default function ImportProducers() {
             <div className="max-h-96 overflow-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                 <TableRow>
                     <TableHead>Nom complet</TableHead>
+                    <TableHead>Sexe</TableHead>
                     <TableHead>Section</TableHead>
                     <TableHead>Code plantation</TableHead>
                     <TableHead>Potentiel (kg)</TableHead>
@@ -177,6 +179,7 @@ export default function ImportProducers() {
                   {parsedRows.slice(0, 50).map((r, i) => (
                     <TableRow key={i}>
                       <TableCell>{r.full_name}</TableCell>
+                      <TableCell>{r.sexe || "—"}</TableCell>
                       <TableCell>{r.section}</TableCell>
                       <TableCell className="font-mono text-xs">{r.plantation_code}</TableCell>
                       <TableCell>{r.delivery_potential.toLocaleString("fr-FR")}</TableCell>
