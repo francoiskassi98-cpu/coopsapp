@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { distributeShipment, getCurrentCampaign, type DistributionResult } from "@/lib/shipment-utils";
 import { toast } from "@/hooks/use-toast";
-import { Truck, Plus } from "lucide-react";
+import { Truck, Plus, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ImportShipments from "@/pages/ImportShipments";
 import ShipmentDetails from "@/components/ShipmentDetails";
@@ -149,6 +150,24 @@ export default function CreateShipment() {
     }
   };
 
+  const handleDownloadPreview = () => {
+    const rows = preview.map((d, i) => ({
+      "N°": i + 1,
+      "N° Reçu": d.receipt_number,
+      "Nom": d.full_name,
+      "Section": d.section,
+      "Poids net (kg)": Math.round(d.allocated_weight),
+      "Nombre de sacs": d.num_bags,
+      "Date de livraison": d.delivery_date,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{ wch: 6 }, { wch: 12 }, { wch: 30 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Chargement");
+    const fileName = connaissement ? `Chargement-${connaissement}.xlsx` : "Chargement.xlsx";
+    XLSX.writeFile(wb, fileName);
+  };
+
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -271,9 +290,14 @@ export default function CreateShipment() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">Aperçu du chargement</CardTitle>
                   {preview.length > 0 && (
-                    <Button onClick={handleSave} disabled={saving}>
-                      {saving ? "Enregistrement..." : "Valider et enregistrer"}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={handleDownloadPreview}>
+                        <Download className="h-4 w-4" /> Télécharger
+                      </Button>
+                      <Button onClick={handleSave} disabled={saving}>
+                        {saving ? "Enregistrement..." : "Valider et enregistrer"}
+                      </Button>
+                    </div>
                   )}
                 </div>
               </CardHeader>
@@ -289,9 +313,10 @@ export default function CreateShipment() {
                       {preview.reduce((s, d) => s + d.allocated_weight, 0).toLocaleString("fr-FR")} kg
                     </p>
                     <div className="max-h-[60vh] overflow-auto">
-                      <Table>
+                     <Table>
                         <TableHeader>
                           <TableRow>
+                            <TableHead className="w-12">N°</TableHead>
                             <TableHead>N° Reçu</TableHead>
                             <TableHead>Nom</TableHead>
                             <TableHead>Section</TableHead>
@@ -301,12 +326,13 @@ export default function CreateShipment() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {preview.map((d) => (
+                          {preview.map((d, index) => (
                             <TableRow key={d.receipt_number}>
+                              <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                               <TableCell className="font-mono text-xs">{d.receipt_number}</TableCell>
                               <TableCell>{d.full_name}</TableCell>
                               <TableCell>{d.section}</TableCell>
-                              <TableCell>{d.allocated_weight.toLocaleString("fr-FR")}</TableCell>
+                              <TableCell>{Math.round(d.allocated_weight).toLocaleString("fr-FR")}</TableCell>
                               <TableCell>{d.num_bags}</TableCell>
                               <TableCell>{d.delivery_date}</TableCell>
                             </TableRow>

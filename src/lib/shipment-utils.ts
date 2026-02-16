@@ -118,7 +118,7 @@ export function distributeShipment(
       full_name: b.producer.full_name,
       section: b.producer.section,
       plantation_code: b.producer.plantation_code,
-      allocated_weight: Math.round(b.bags * avgBagWeight * 100) / 100,
+      allocated_weight: Math.round(b.bags * avgBagWeight),
       num_bags: b.bags,
       delivery_date: format(deliveryDate, "yyyy-MM-dd"),
       receipt_number: String(receiptCounter).padStart(6, "0"),
