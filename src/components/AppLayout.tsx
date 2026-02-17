@@ -1,11 +1,10 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, Upload, Truck, FileSpreadsheet, XCircle, Users } from "lucide-react";
+import { BarChart3, Truck, FileSpreadsheet, XCircle, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/", label: "Tableau de bord", icon: BarChart3 },
   { to: "/producteurs", label: "Producteurs", icon: Users },
-  { to: "/import", label: "Importation", icon: Upload },
   { to: "/chargements", label: "Chargements", icon: Truck },
   { to: "/export", label: "Export", icon: FileSpreadsheet },
   { to: "/annulations", label: "Annulations", icon: XCircle },
