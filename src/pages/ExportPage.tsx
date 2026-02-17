@@ -1,81 +1,82 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToExcel } from "@/lib/excel-utils";
 import { toast } from "@/hooks/use-toast";
-import { FileSpreadsheet, Download } from "lucide-react";
+import { FileSpreadsheet, Download, Users, Ship, MapPin, Loader2 } from "lucide-react";
 
 export default function ExportPage() {
-  const [exportType, setExportType] = useState("all");
-  const [connaissement, setConnaissement] = useState("");
   const [shipments, setShipments] = useState<any[]>([]);
+  const [cooperatives, setCooperatives] = useState<string[]>([]);
+  const [selectedCoop, setSelectedCoop] = useState("");
+  const [selectedConnaissement, setSelectedConnaissement] = useState("");
+  const [loading, setLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from("shipments").select("id, connaissement").eq("status", "active").order("created_at", { ascending: false }).then(({ data }) => setShipments(data || []));
+    // Load shipments & cooperatives
+    supabase.from("shipments").select("id, connaissement, zone").eq("status", "active").order("created_at", { ascending: false }).then(({ data }) => setShipments(data || []));
+    supabase.from("producers").select("cooperative").then(({ data }) => {
+      const unique = [...new Set((data || []).map((p) => p.cooperative).filter(Boolean))].sort();
+      setCooperatives(unique);
+    });
   }, []);
 
-  const handleExport = async () => {
+  const exportByCooperative = async () => {
+    if (!selectedCoop) { toast({ title: "Sélectionnez une coopérative", variant: "destructive" }); return; }
+    setLoading("coop");
     try {
-      if (exportType === "potential") {
-        // Export remaining potential per producer
-        const { data: producers } = await supabase.from("producers").select("full_name, section, plantation_code, delivery_potential, remaining_potential, cooperative").order("section");
-        if (!producers || producers.length === 0) {
-          toast({ title: "Aucune donnée", variant: "destructive" });
-          return;
-        }
-        exportToExcel(
-          producers.map((p) => ({
-            "Nom complet": p.full_name,
-            "Section": p.section,
-            "Code plantation": p.plantation_code,
-            "Potentiel initial (kg)": p.delivery_potential,
-            "Potentiel restant (kg)": p.remaining_potential,
-            "Coopérative": p.cooperative,
-          })),
-          "Potentiel-Restant.xlsx",
-          "Potentiel"
-        );
-        toast({ title: "Export réussi" });
-        return;
-      }
+      // Get deliveries for shipments matching this cooperative (zone)
+      const { data: coopShipments } = await supabase.from("shipments").select("id, connaissement, project, destination, campaign, zone, total_weight, total_bags, partner_id, partners(name)").eq("zone", selectedCoop).eq("status", "active");
+      if (!coopShipments || coopShipments.length === 0) { toast({ title: "Aucun chargement pour cette coopérative", variant: "destructive" }); setLoading(null); return; }
 
-      // Build delivery query
-      let query = supabase
-        .from("deliveries")
-        .select("*, producers(full_name, section, plantation_code, cooperative), shipments(connaissement, project, destination, campaign, zone, partners(name))")
-        .order("receipt_number");
+      const shipmentIds = coopShipments.map((s) => s.id);
+      const { data: deliveries } = await supabase.from("deliveries").select("*, producers(full_name, section, plantation_code, cooperative)").in("shipment_id", shipmentIds).order("receipt_number");
 
-      if (exportType === "byConnaissement" && connaissement) {
-        // Find shipment by connaissement
-        const { data: shipment } = await supabase.from("shipments").select("id").eq("connaissement", connaissement).eq("status", "active").maybeSingle();
-        if (!shipment) {
-          toast({ title: "Connaissement introuvable", variant: "destructive" });
-          return;
-        }
+      const shipmentMap = Object.fromEntries(coopShipments.map((s) => [s.id, s]));
+      const rows = (deliveries || []).map((d) => {
+        const s = shipmentMap[d.shipment_id] || {};
+        return {
+          "Connaissement": (s as any)?.connaissement || "",
+          "Nom complet": (d.producers as any)?.full_name || "",
+          "N° Reçu": d.receipt_number,
+          "Section": (d.producers as any)?.section || "",
+          "Code plantation": (d.producers as any)?.plantation_code || "",
+          "Date livraison": d.delivery_date,
+          "Poids net (kg)": d.net_weight,
+          "Nombre de sacs": d.num_bags,
+          "Projet": (s as any)?.project || "",
+          "Partenaire": (s as any)?.partners?.name || "",
+          "Zone": (s as any)?.zone || "",
+          "Destination": (s as any)?.destination || "",
+          "Campagne": (s as any)?.campaign || "",
+        };
+      });
+
+      if (rows.length === 0) { toast({ title: "Aucune livraison trouvée", variant: "destructive" }); setLoading(null); return; }
+      exportToExcel(rows, `Chargements-${selectedCoop}.xlsx`, "Chargement");
+      toast({ title: "Export réussi" });
+    } catch (err: any) { toast({ title: "Erreur", description: err.message, variant: "destructive" }); }
+    setLoading(null);
+  };
+
+  const exportAllOrByConnaissement = async (mode: "all" | "connaissement") => {
+    setLoading(mode);
+    try {
+      let query = supabase.from("deliveries").select("*, producers(full_name, section, plantation_code, cooperative), shipments(connaissement, project, destination, campaign, zone, partners(name))").order("receipt_number");
+
+      if (mode === "connaissement") {
+        if (!selectedConnaissement) { toast({ title: "Sélectionnez un connaissement", variant: "destructive" }); setLoading(null); return; }
+        const { data: shipment } = await supabase.from("shipments").select("id").eq("connaissement", selectedConnaissement).eq("status", "active").maybeSingle();
+        if (!shipment) { toast({ title: "Connaissement introuvable", variant: "destructive" }); setLoading(null); return; }
         query = query.eq("shipment_id", shipment.id);
       }
 
       const { data: deliveries, error } = await query;
       if (error) throw error;
-      if (!deliveries || deliveries.length === 0) {
-        toast({ title: "Aucune donnée à exporter", variant: "destructive" });
-        return;
-      }
-
-      // Validate: check all producers exist in registry
-      const missingProducers = deliveries.filter((d) => !(d.producers as any)?.full_name);
-      if (missingProducers.length > 0) {
-        toast({
-          title: "Export rejeté",
-          description: `${missingProducers.length} producteur(s) non trouvé(s) dans le registre.`,
-          variant: "destructive",
-        });
-        return;
-      }
+      if (!deliveries || deliveries.length === 0) { toast({ title: "Aucune donnée à exporter", variant: "destructive" }); setLoading(null); return; }
 
       const rows = deliveries.map((d) => ({
         "Connaissement": (d.shipments as any)?.connaissement || "",
@@ -93,42 +94,87 @@ export default function ExportPage() {
         "Campagne": (d.shipments as any)?.campaign || "",
       }));
 
-      const filename = exportType === "byConnaissement" ? `Chargement-${connaissement}.xlsx` : "Knf-Modèle-FA.xlsx";
+      const filename = mode === "connaissement" ? `Chargement-${selectedConnaissement}.xlsx` : "Knf-Modèle-FA.xlsx";
       exportToExcel(rows, filename, "Chargement");
       toast({ title: "Export réussi" });
-    } catch (err: any) {
-      toast({ title: "Erreur d'export", description: err.message, variant: "destructive" });
-    }
+    } catch (err: any) { toast({ title: "Erreur", description: err.message, variant: "destructive" }); }
+    setLoading(null);
+  };
+
+  const exportPotentialByZone = async () => {
+    setLoading("potential");
+    try {
+      const { data: producers } = await supabase.from("producers").select("full_name, section, plantation_code, delivery_potential, remaining_potential, cooperative").order("cooperative").order("section");
+      if (!producers || producers.length === 0) { toast({ title: "Aucune donnée", variant: "destructive" }); setLoading(null); return; }
+
+      const rows = producers.map((p) => ({
+        "Coopérative / Zone": p.cooperative,
+        "Nom complet": p.full_name,
+        "Section": p.section,
+        "Code plantation": p.plantation_code,
+        "Potentiel initial (kg)": p.delivery_potential,
+        "Potentiel restant (kg)": p.remaining_potential,
+      }));
+
+      exportToExcel(rows, "Potentiel-Restant-Par-Zone.xlsx", "Potentiel");
+      toast({ title: "Export réussi" });
+    } catch (err: any) { toast({ title: "Erreur", description: err.message, variant: "destructive" }); }
+    setLoading(null);
   };
 
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold flex items-center gap-2">
-        <FileSpreadsheet className="h-6 w-6" /> Export Excel
+        <FileSpreadsheet className="h-6 w-6 text-primary" /> Export Excel
       </h1>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Options d'export</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Type d'export</Label>
-            <Select value={exportType} onValueChange={setExportType}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les chargements</SelectItem>
-                <SelectItem value="byConnaissement">Par connaissement</SelectItem>
-                <SelectItem value="potential">Potentiel restant par producteur</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Export par coopérative */}
+        <Card className="flex flex-col">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Users className="h-5 w-5 text-primary" />
+              </div>
+              <CardTitle className="text-base">Par coopérative</CardTitle>
+            </div>
+            <CardDescription>Exporter tous les chargements d'une coopérative</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 flex-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Coopérative</Label>
+              <Select value={selectedCoop} onValueChange={setSelectedCoop}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
+                <SelectContent>
+                  {cooperatives.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={exportByCooperative} disabled={loading === "coop"} className="mt-auto w-full">
+              {loading === "coop" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+              Exporter
+            </Button>
+          </CardContent>
+        </Card>
 
-          {exportType === "byConnaissement" && (
-            <div className="space-y-2">
-              <Label>N° Connaissement</Label>
-              <Select value={connaissement} onValueChange={setConnaissement}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner un connaissement" /></SelectTrigger>
+        {/* Export tous / par connaissement */}
+        <Card className="flex flex-col">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Ship className="h-5 w-5 text-primary" />
+              </div>
+              <CardTitle className="text-base">Chargements</CardTitle>
+            </div>
+            <CardDescription>Tous les chargements ou filtrer par connaissement</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 flex-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Connaissement (optionnel)</Label>
+              <Select value={selectedConnaissement} onValueChange={setSelectedConnaissement}>
+                <SelectTrigger><SelectValue placeholder="Tous les chargements" /></SelectTrigger>
                 <SelectContent>
                   {shipments.filter((s) => s.connaissement).map((s) => (
                     <SelectItem key={s.id} value={s.connaissement}>{s.connaissement}</SelectItem>
@@ -136,13 +182,41 @@ export default function ExportPage() {
                 </SelectContent>
               </Select>
             </div>
-          )}
+            <div className="flex gap-2 mt-auto">
+              <Button onClick={() => exportAllOrByConnaissement("all")} disabled={!!loading} variant="outline" className="flex-1">
+                {loading === "all" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                Tout
+              </Button>
+              <Button onClick={() => exportAllOrByConnaissement("connaissement")} disabled={!!loading || !selectedConnaissement} className="flex-1">
+                {loading === "connaissement" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                Par n°
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-          <Button onClick={handleExport} className="w-full">
-            <Download className="h-4 w-4 mr-2" /> Exporter
-          </Button>
-        </CardContent>
-      </Card>
+        {/* Potentiel restant par zone */}
+        <Card className="flex flex-col">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <MapPin className="h-5 w-5 text-primary" />
+              </div>
+              <CardTitle className="text-base">Potentiel par zone</CardTitle>
+            </div>
+            <CardDescription>Potentiel restant de chaque producteur par coopérative</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 flex-1">
+            <p className="text-xs text-muted-foreground flex-1">
+              Export complet du potentiel initial et restant, regroupé par coopérative / zone.
+            </p>
+            <Button onClick={exportPotentialByZone} disabled={loading === "potential"} className="w-full mt-auto">
+              {loading === "potential" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+              Exporter
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
