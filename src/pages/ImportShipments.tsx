@@ -14,17 +14,7 @@ import {
   type ShipmentImportError,
   type MatchedProducer,
 } from "@/lib/shipment-excel-utils";
-import { Upload, Download, FileSpreadsheet, CheckCircle2, AlertCircle, User, Copy } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Upload, Download, FileSpreadsheet, CheckCircle2, AlertCircle, User } from "lucide-react";
 
 export default function ImportShipments() {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -35,8 +25,6 @@ export default function ImportShipments() {
   const [matchedProducers, setMatchedProducers] = useState<MatchedProducer[]>([]);
   const [potentialWarnings, setPotentialWarnings] = useState<string[]>([]);
   const [delayWarnings, setDelayWarnings] = useState<string[]>([]);
-  const [duplicateRows, setDuplicateRows] = useState<{ row: number; key: string }[]>([]);
-  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -45,7 +33,7 @@ export default function ImportShipments() {
     setMatchedProducers([]);
     setPotentialWarnings([]);
     setDelayWarnings([]);
-    setDuplicateRows([]);
+    
 
     const buffer = await file.arrayBuffer();
     const result = parseShipmentExcel(buffer);
@@ -95,24 +83,10 @@ export default function ImportShipments() {
 
       // No 2-week delay check for historical imports
 
-      // Check for duplicates in existing deliveries
-      const receiptNumbers = result.rows.map((r) => r.numero_recu).filter(Boolean);
-      const { data: existingDeliveries } = await supabase
-        .from("deliveries")
-        .select("receipt_number")
-        .in("receipt_number", receiptNumbers);
-
-      const existingReceipts = new Set((existingDeliveries || []).map((d) => d.receipt_number));
-      const dupes: { row: number; key: string }[] = [];
-      for (let i = 0; i < result.rows.length; i++) {
-        if (existingReceipts.has(result.rows[i].numero_recu)) {
-          dupes.push({ row: i + 2, key: result.rows[i].numero_recu });
-        }
-      }
-      setDuplicateRows(dupes);
+      // No duplicate check for historical imports
 
       const unmatchedCount = matched.filter((m) => !m.matched).length;
-      if (result.errors.length === 0 && unmatchedCount === 0 && potWarn.length === 0 && dupes.length === 0) {
+      if (result.errors.length === 0 && unmatchedCount === 0 && potWarn.length === 0) {
         toast({ title: "Fichier valide", description: `${result.rows.length} lignes prêtes à importer.` });
       }
       if (unmatchedCount > 0) {
@@ -120,9 +94,6 @@ export default function ImportShipments() {
       }
       if (potWarn.length > 0) {
         toast({ title: "Dépassement de potentiel", description: `${potWarn.length} producteur(s) dépassent leur estimation.`, variant: "destructive" });
-      }
-      if (dupes.length > 0) {
-        toast({ title: "Doublons détectés", description: `${dupes.length} ligne(s) déjà présente(s) dans la base.`, variant: "destructive" });
       }
     }
 
@@ -136,22 +107,7 @@ export default function ImportShipments() {
 
   const handleImportClick = () => {
     if (!canImport) return;
-    if (duplicateRows.length > 0) {
-      setShowDuplicateConfirm(true);
-      return;
-    }
     executeImport(rows);
-  };
-
-  const handleConfirmWithoutDuplicates = () => {
-    setShowDuplicateConfirm(false);
-    const dupeReceipts = new Set(duplicateRows.map((d) => d.key));
-    const filtered = rows.filter((r) => !dupeReceipts.has(r.numero_recu));
-    if (filtered.length === 0) {
-      toast({ title: "Aucune ligne à importer", description: "Toutes les lignes sont des doublons.", variant: "destructive" });
-      return;
-    }
-    executeImport(filtered);
   };
 
   const executeImport = async (importRows: ShipmentImportRow[]) => {
@@ -385,25 +341,6 @@ export default function ImportShipments() {
         </Card>
       )}
 
-      {/* Duplicate warnings */}
-      {duplicateRows.length > 0 && (
-        <Card className="border-orange-500">
-          <CardHeader>
-            <CardTitle className="text-base text-orange-600 flex items-center gap-2">
-              <Copy className="h-5 w-5" /> Doublons détectés ({duplicateRows.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-2">
-              Ces N° Reçu existent déjà dans la base. Ils seront exclus lors de l'importation.
-            </p>
-            <ul className="text-sm space-y-1">
-              {duplicateRows.slice(0, 20).map((d, i) => <li key={i}>Ligne {d.row} — N° Reçu : {d.key}</li>)}
-              {duplicateRows.length > 20 && <li className="text-muted-foreground">... et {duplicateRows.length - 20} autres</li>}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
 
       {/* 2-week delay warnings */}
       {delayWarnings.length > 0 && (
@@ -467,14 +404,9 @@ export default function ImportShipments() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((r, i) => {
-                    const isDupe = duplicateRows.some((d) => d.key === r.numero_recu);
-                    return (
-                    <TableRow key={i} className={isDupe ? "bg-orange-50 dark:bg-orange-950/20" : ""}>
-                      <TableCell className="font-mono text-xs">
-                        {r.numero_recu}
-                        {isDupe && <Badge variant="outline" className="ml-2 text-orange-600 border-orange-300 text-[10px]">Doublon</Badge>}
-                      </TableCell>
+                  {rows.map((r, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-mono text-xs">{r.numero_recu}</TableCell>
                       <TableCell>{r.connaissement || "—"}</TableCell>
                       <TableCell>{r.partenaire || "—"}</TableCell>
                       <TableCell>{r.nom_producteur}</TableCell>
@@ -487,8 +419,7 @@ export default function ImportShipments() {
                       <TableCell>{r.projet}</TableCell>
                       <TableCell>{r.destination}</TableCell>
                     </TableRow>
-                    );
-                  })}
+                  ))}
                 </TableBody>
               </Table>
             </div>
@@ -505,23 +436,6 @@ export default function ImportShipments() {
         </Card>
       )}
 
-      <AlertDialog open={showDuplicateConfirm} onOpenChange={setShowDuplicateConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Doublons détectés</AlertDialogTitle>
-            <AlertDialogDescription>
-              {duplicateRows.length} ligne(s) existent déjà dans la base (même N° Reçu).
-              Voulez-vous importer uniquement les {rows.length - duplicateRows.length} ligne(s) non dupliquées ?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmWithoutDuplicates}>
-              Importer sans doublons
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
