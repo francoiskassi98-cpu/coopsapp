@@ -52,6 +52,24 @@ export type Database = {
           },
         ]
       }
+      cooperatives: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       deliveries: {
         Row: {
           created_at: string
@@ -210,6 +228,7 @@ export type Database = {
           avg_bag_weight: number
           campaign: string
           connaissement: string | null
+          cooperative_id: string | null
           created_at: string
           delivery_end: string
           delivery_start: string
@@ -226,6 +245,7 @@ export type Database = {
           avg_bag_weight: number
           campaign: string
           connaissement?: string | null
+          cooperative_id?: string | null
           created_at?: string
           delivery_end: string
           delivery_start: string
@@ -242,6 +262,7 @@ export type Database = {
           avg_bag_weight?: number
           campaign?: string
           connaissement?: string | null
+          cooperative_id?: string | null
           created_at?: string
           delivery_end?: string
           delivery_start?: string
@@ -255,6 +276,13 @@ export type Database = {
           zone?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "shipments_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shipments_partner_id_fkey"
             columns: ["partner_id"]

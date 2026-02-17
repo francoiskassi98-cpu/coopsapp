@@ -35,10 +35,11 @@ export default function CreateShipment() {
   const [editWeight, setEditWeight] = useState("");
   const [editBags, setEditBags] = useState("");
 
-  const [cooperatives, setCooperatives] = useState<string[]>([]);
+  const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
   const [coopDelivered, setCoopDelivered] = useState<Record<string, number>>({});
   const [coopPotential, setCoopPotential] = useState<Record<string, { potentiel: number; remaining: number }>>({});
   const [nextReceiptNumber, setNextReceiptNumber] = useState<string>("");
+  const [selectedCoopId, setSelectedCoopId] = useState<string>("");
 
   useEffect(() => {
     supabase.from("partners").select("*").order("name").then(({ data }) => setPartners(data || []));
@@ -46,7 +47,12 @@ export default function CreateShipment() {
   }, []);
 
   async function loadCooperatives() {
-    // Get distinct cooperatives from producers
+    // Load cooperatives from cooperatives table
+    const { data: coopData } = await supabase.from("cooperatives").select("id, name").order("name");
+    const coopList = coopData || [];
+    setCooperatives(coopList);
+
+    // Get producer stats by cooperative name
     let allProducers: any[] = [];
     let from = 0;
     const PAGE = 1000;
@@ -57,17 +63,14 @@ export default function CreateShipment() {
       if (data.length < PAGE) break;
       from += PAGE;
     }
-    const coopSet = new Set<string>();
     const potMap: Record<string, { potentiel: number; remaining: number }> = {};
     allProducers.forEach((p) => {
       if (p.cooperative) {
-        coopSet.add(p.cooperative);
         if (!potMap[p.cooperative]) potMap[p.cooperative] = { potentiel: 0, remaining: 0 };
         potMap[p.cooperative].potentiel += Number(p.delivery_potential);
         potMap[p.cooperative].remaining += Number(p.remaining_potential);
       }
     });
-    setCooperatives(Array.from(coopSet).sort());
     setCoopPotential(potMap);
 
     // Get delivered by zone from active shipments
@@ -87,17 +90,19 @@ export default function CreateShipment() {
     setCoopDelivered(delMap);
   }
 
-  async function loadNextReceiptForCooperative(cooperative: string) {
-    if (!cooperative) { setNextReceiptNumber(""); return; }
-    // Get all shipment IDs for this cooperative
-    let shipmentIds: string[] = [];
+  async function loadNextReceiptForCooperative(cooperativeId: string) {
+    if (!cooperativeId) { setNextReceiptNumber(""); return; }
+    // Get max receipt_number from deliveries linked to shipments with this cooperative_id
+    let maxNum = 0;
     let from = 0;
     const PAGE = 1000;
+    // Get shipment IDs for this cooperative_id
+    let shipmentIds: string[] = [];
     while (true) {
       const { data } = await supabase
         .from("shipments")
         .select("id")
-        .eq("zone", cooperative)
+        .eq("cooperative_id", cooperativeId)
         .range(from, from + PAGE - 1);
       if (!data || data.length === 0) break;
       shipmentIds.push(...data.map((s: any) => s.id));
@@ -108,8 +113,6 @@ export default function CreateShipment() {
       setNextReceiptNumber("000001");
       return;
     }
-    // Fetch all receipt_numbers for these shipments in chunks
-    let maxNum = 0;
     const CHUNK = 500;
     for (let i = 0; i < shipmentIds.length; i += CHUNK) {
       const chunk = shipmentIds.slice(i, i + CHUNK);
@@ -132,9 +135,11 @@ export default function CreateShipment() {
     setNextReceiptNumber(String(maxNum + 1).padStart(6, "0"));
   }
 
-  const handleZoneChange = (value: string) => {
-    setZone(value);
-    loadNextReceiptForCooperative(value);
+  const handleZoneChange = (coopId: string) => {
+    setSelectedCoopId(coopId);
+    const coop = cooperatives.find(c => c.id === coopId);
+    setZone(coop?.name || "");
+    loadNextReceiptForCooperative(coopId);
   };
 
   const selectedCoopStats = useMemo(() => {
@@ -214,6 +219,7 @@ export default function CreateShipment() {
           project,
           partner_id: partnerId || null,
           zone: zone || null,
+          cooperative_id: selectedCoopId || null,
           destination,
           campaign: `${campaign} ${getCurrentCampaign()}`,
           delivery_start: startDate,
@@ -437,11 +443,11 @@ export default function CreateShipment() {
 
                 <div className="space-y-2">
                   <Label>Coopérative *</Label>
-                  <Select value={zone} onValueChange={handleZoneChange}>
+                  <Select value={selectedCoopId} onValueChange={handleZoneChange}>
                     <SelectTrigger><SelectValue placeholder="Sélectionner une coopérative" /></SelectTrigger>
                     <SelectContent>
                       {cooperatives.map((c) => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
