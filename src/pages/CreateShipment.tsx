@@ -458,7 +458,16 @@ export default function CreateShipment() {
                 {nextReceiptNumber && (
                   <div className="space-y-2">
                     <Label>Prochain N° Reçu</Label>
-                    <Input value={nextReceiptNumber} readOnly className="bg-muted font-mono" />
+                    <Input
+                      value={nextReceiptNumber}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "");
+                        setNextReceiptNumber(val.padStart(6, "0").slice(-6));
+                      }}
+                      className="font-mono"
+                      maxLength={6}
+                    />
+                    <p className="text-xs text-muted-foreground">Modifiable — les suivants seront générés à partir de ce numéro.</p>
                   </div>
                 )}
 
