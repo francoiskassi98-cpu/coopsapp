@@ -3,11 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle } from "lucide-react";
+import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle, ShieldOff } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { parseExcelFile, downloadImportTemplate, exportToExcel, type ProducerRow, type ImportError } from "@/lib/excel-utils";
 
@@ -79,6 +81,40 @@ export default function Producers() {
   });
 
   // --- Edit / Delete (existing) ---
+  // Disabled sections state
+  const [disabledSections, setDisabledSections] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    loadDisabledSections();
+  }, []);
+
+  async function loadDisabledSections() {
+    const { data } = await supabase.from("disabled_sections").select("section_name");
+    setDisabledSections(new Set((data || []).map((d: any) => d.section_name)));
+  }
+
+  async function toggleSection(sectionName: string, cooperative: string) {
+    if (disabledSections.has(sectionName)) {
+      await supabase.from("disabled_sections").delete().eq("section_name", sectionName);
+      toast({ title: `Section "${sectionName}" réactivée` });
+    } else {
+      await supabase.from("disabled_sections").insert({ section_name: sectionName, cooperative });
+      toast({ title: `Section "${sectionName}" désactivée` });
+    }
+    loadDisabledSections();
+  }
+
+  // Get unique sections for the current filter
+  const sections = useMemo(() => {
+    const map = new Map<string, string>();
+    producers.forEach((p) => {
+      if (coopFilter === "all" || p.cooperative === coopFilter) {
+        if (!map.has(p.section)) map.set(p.section, p.cooperative);
+      }
+    });
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [producers, coopFilter]);
+
   function openEdit(p: any) {
     setEditForm({
       full_name: p.full_name,
@@ -88,6 +124,7 @@ export default function Producers() {
       sexe: p.sexe || "",
       delivery_potential: p.delivery_potential,
       remaining_potential: p.remaining_potential,
+      is_active: p.is_active !== false,
     });
     setEditProducer(p);
   }
@@ -336,6 +373,41 @@ export default function Producers() {
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Exporter
           </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <ShieldOff className="h-4 w-4 mr-2" />
+                Gérer sections
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[80vh] overflow-auto">
+              <DialogHeader>
+                <DialogTitle>Activer / Désactiver des sections</DialogTitle>
+                <DialogDescription>Les sections désactivées seront exclues de la création de chargements.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2">
+                {sections.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Aucune section trouvée</p>
+                ) : (
+                  sections.map(([name, coop]) => (
+                    <div key={name} className="flex items-center justify-between rounded-md border p-2">
+                      <div>
+                        <p className="text-sm font-medium">{name}</p>
+                        <p className="text-xs text-muted-foreground">{coop}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{disabledSections.has(name) ? "Inactive" : "Active"}</span>
+                        <Switch
+                          checked={!disabledSections.has(name)}
+                          onCheckedChange={() => toggleSection(name, coop)}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -377,6 +449,7 @@ export default function Producers() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                     <TableHead>Statut</TableHead>
                     <TableHead>Nom complet</TableHead>
                     <TableHead>Sexe</TableHead>
                     <TableHead>Section</TableHead>
@@ -390,13 +463,22 @@ export default function Producers() {
                 <TableBody>
                   {filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center text-muted-foreground">
                         Aucun producteur trouvé
                       </TableCell>
                     </TableRow>
                   ) : (
                     filtered.map((p) => (
-                      <TableRow key={p.id}>
+                      <TableRow key={p.id} className={p.is_active === false || disabledSections.has(p.section) ? "opacity-50" : ""}>
+                        <TableCell>
+                          {p.is_active === false ? (
+                            <Badge variant="destructive" className="text-xs">Inactif</Badge>
+                          ) : disabledSections.has(p.section) ? (
+                            <Badge variant="secondary" className="text-xs">Section off</Badge>
+                          ) : (
+                            <Badge variant="default" className="text-xs bg-green-600">Actif</Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium">{p.full_name}</TableCell>
                         <TableCell>{p.sexe || "—"}</TableCell>
                         <TableCell>{p.section}</TableCell>
@@ -621,6 +703,13 @@ export default function Producers() {
                 <Label>Potentiel restant (kg)</Label>
                 <Input type="number" value={editForm.remaining_potential || 0} onChange={(e) => setEditForm({ ...editForm, remaining_potential: Number(e.target.value) })} />
               </div>
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <Label>Producteur actif</Label>
+              <Switch
+                checked={editForm.is_active !== false}
+                onCheckedChange={(checked) => setEditForm({ ...editForm, is_active: checked })}
+              />
             </div>
           </div>
           <DialogFooter>

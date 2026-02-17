@@ -130,11 +130,30 @@ export default function CreateShipment() {
       return;
     }
 
-    const { data: producers } = await supabase
-      .from("producers")
-      .select("id, full_name, section, plantation_code, remaining_potential")
-      .gt("remaining_potential", 0)
-      .order("section");
+    // Fetch disabled sections
+    const { data: disabledSectionsData } = await supabase.from("disabled_sections").select("section_name");
+    const disabledSectionNames = new Set((disabledSectionsData || []).map((d: any) => d.section_name));
+
+    // Fetch only active producers with remaining potential, exclude disabled sections
+    let allActiveProducers: any[] = [];
+    let fetchFrom = 0;
+    const FETCH_PAGE = 1000;
+    while (true) {
+      const { data } = await supabase
+        .from("producers")
+        .select("id, full_name, section, plantation_code, remaining_potential")
+        .eq("is_active", true)
+        .gt("remaining_potential", 0)
+        .order("section")
+        .range(fetchFrom, fetchFrom + FETCH_PAGE - 1);
+      if (!data || data.length === 0) break;
+      allActiveProducers = allActiveProducers.concat(data);
+      if (data.length < FETCH_PAGE) break;
+      fetchFrom += FETCH_PAGE;
+    }
+
+    // Filter out producers from disabled sections
+    const producers = allActiveProducers.filter((p: any) => !disabledSectionNames.has(p.section));
 
     if (!producers || producers.length === 0) {
       toast({ title: "Aucun producteur disponible", description: "Importez d'abord des producteurs avec un potentiel restant.", variant: "destructive" });

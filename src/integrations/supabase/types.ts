@@ -100,6 +100,27 @@ export type Database = {
           },
         ]
       }
+      disabled_sections: {
+        Row: {
+          cooperative: string
+          disabled_at: string
+          id: string
+          section_name: string
+        }
+        Insert: {
+          cooperative: string
+          disabled_at?: string
+          id?: string
+          section_name: string
+        }
+        Update: {
+          cooperative?: string
+          disabled_at?: string
+          id?: string
+          section_name?: string
+        }
+        Relationships: []
+      }
       partners: {
         Row: {
           created_at: string
@@ -125,6 +146,7 @@ export type Database = {
           delivery_potential: number
           full_name: string
           id: string
+          is_active: boolean
           latitude: number | null
           longitude: number | null
           national_id: string | null
@@ -145,6 +167,7 @@ export type Database = {
           delivery_potential?: number
           full_name: string
           id?: string
+          is_active?: boolean
           latitude?: number | null
           longitude?: number | null
           national_id?: string | null
@@ -165,6 +188,7 @@ export type Database = {
           delivery_potential?: number
           full_name?: string
           id?: string
+          is_active?: boolean
           latitude?: number | null
           longitude?: number | null
           national_id?: string | null
