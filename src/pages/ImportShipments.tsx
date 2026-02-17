@@ -100,7 +100,7 @@ export default function ImportShipments() {
   };
 
   const unmatchedCount = matchedProducers.filter((m) => !m.matched).length;
-  const canImport = rows.length > 0 && unmatchedCount === 0 && potentialWarnings.length === 0;
+  const canImport = rows.length > 0 && unmatchedCount === 0;
 
   const handleImport = async () => {
     if (!canImport) return;
