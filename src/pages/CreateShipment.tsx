@@ -269,13 +269,14 @@ export default function CreateShipment() {
       "Partenaire": partnerName,
       "Zone": zone || "",
       "Nom": d.full_name,
+      "Code plantation": d.plantation_code,
       "Section": d.section,
       "Poids net (kg)": Math.round(d.allocated_weight),
       "Nombre de sacs": d.num_bags,
       "Date de livraison": d.delivery_date,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [{ wch: 6 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
+    ws["!cols"] = [{ wch: 6 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Chargement");
     const parts = ["Chargement"];
@@ -463,6 +464,7 @@ export default function CreateShipment() {
                             <TableHead className="w-12">N°</TableHead>
                             <TableHead>N° Reçu</TableHead>
                             <TableHead>Nom</TableHead>
+                            <TableHead>Code plantation</TableHead>
                             <TableHead>Section</TableHead>
                             <TableHead>Poids (kg)</TableHead>
                             <TableHead>Sacs</TableHead>
@@ -476,6 +478,7 @@ export default function CreateShipment() {
                               <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                               <TableCell className="font-mono text-xs">{d.receipt_number}</TableCell>
                               <TableCell>{d.full_name}</TableCell>
+                              <TableCell className="font-mono text-xs">{d.plantation_code}</TableCell>
                               <TableCell>{d.section}</TableCell>
                               {editingIndex === index ? (
                                 <>
