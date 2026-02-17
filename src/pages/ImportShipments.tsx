@@ -26,6 +26,30 @@ export default function ImportShipments() {
   const [potentialWarnings, setPotentialWarnings] = useState<string[]>([]);
   const [delayWarnings, setDelayWarnings] = useState<string[]>([]);
 
+  // Helper: chunked insert for deliveries
+  async function chunkedInsertDeliveries(rows: any[], chunkSize = 500) {
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      const { error } = await supabase.from("deliveries").insert(chunk);
+      if (error) throw error;
+    }
+  }
+
+  // Helper: chunked .in() for producers
+  async function chunkedProducerLookup(
+    selectCols: string,
+    codes: string[],
+    chunkSize = 500
+  ) {
+    const results: any[] = [];
+    for (let i = 0; i < codes.length; i += chunkSize) {
+      const chunk = codes.slice(i, i + chunkSize);
+      const { data } = await supabase.from("producers").select(selectCols).in("plantation_code", chunk);
+      if (data) results.push(...data);
+    }
+    return results;
+  }
+
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -33,6 +57,7 @@ export default function ImportShipments() {
     setMatchedProducers([]);
     setPotentialWarnings([]);
     setDelayWarnings([]);
+    
 
     const buffer = await file.arrayBuffer();
     const result = parseShipmentExcel(buffer);
@@ -41,10 +66,10 @@ export default function ImportShipments() {
 
     if (result.rows.length > 0) {
       const codes = [...new Set(result.rows.map((r) => r.code_plantation))];
-      const { data: producers } = await supabase
-        .from("producers")
-        .select("plantation_code, full_name, section, cooperative, remaining_potential")
-        .in("plantation_code", codes);
+      const producers = await chunkedProducerLookup(
+        "plantation_code, full_name, section, cooperative, remaining_potential",
+        codes
+      );
 
       const producerMap = new Map(
         (producers || []).map((p) => [p.plantation_code, p])
@@ -82,6 +107,8 @@ export default function ImportShipments() {
 
       // No 2-week delay check for historical imports
 
+      // No duplicate check for historical imports
+
       const unmatchedCount = matched.filter((m) => !m.matched).length;
       if (result.errors.length === 0 && unmatchedCount === 0 && potWarn.length === 0) {
         toast({ title: "Fichier valide", description: `${result.rows.length} lignes prêtes à importer.` });
@@ -100,25 +127,27 @@ export default function ImportShipments() {
   };
 
   const unmatchedCount = matchedProducers.filter((m) => !m.matched).length;
-  const canImport = rows.length > 0 && unmatchedCount === 0 && potentialWarnings.length === 0;
+  const canImport = rows.length > 0 && unmatchedCount === 0;
 
-  const handleImport = async () => {
+  const handleImportClick = () => {
     if (!canImport) return;
+    executeImport(rows);
+  };
+
+  const executeImport = async (importRows: ShipmentImportRow[]) => {
+    if (importRows.length === 0) return;
     setSaving(true);
 
     try {
-      const allCodes = [...new Set(rows.map((r) => r.code_plantation))];
-      const { data: producers } = await supabase
-        .from("producers")
-        .select("id, plantation_code, remaining_potential")
-        .in("plantation_code", allCodes);
+      const allCodes = [...new Set(importRows.map((r) => r.code_plantation))];
+      const producers = await chunkedProducerLookup("id, plantation_code, remaining_potential", allCodes);
 
-      const producerMap = new Map((producers || []).map((p) => [p.plantation_code, p]));
+      const producerMap = new Map((producers || []).map((p: any) => [p.plantation_code, p]));
 
       const { data: existingPartners } = await supabase.from("partners").select("id, name");
       const partnerMap = new Map((existingPartners || []).map((p) => [p.name.toLowerCase(), p.id]));
 
-      const groups = groupByShipment(rows);
+      const groups = groupByShipment(importRows);
       let totalDeliveries = 0;
       let totalShipments = 0;
 
@@ -182,8 +211,7 @@ export default function ImportShipments() {
           }));
 
         if (deliveries.length > 0) {
-          const { error: delErr } = await supabase.from("deliveries").insert(deliveries);
-          if (delErr) throw delErr;
+          await chunkedInsertDeliveries(deliveries);
           totalDeliveries += deliveries.length;
         }
 
@@ -333,6 +361,7 @@ export default function ImportShipments() {
         </Card>
       )}
 
+
       {/* 2-week delay warnings */}
       {delayWarnings.length > 0 && (
         <Card className="border-yellow-500">
@@ -370,7 +399,7 @@ export default function ImportShipments() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Aperçu des données</CardTitle>
-              <Button onClick={handleImport} disabled={saving || !canImport}>
+              <Button onClick={handleImportClick} disabled={saving || !canImport}>
                 {saving ? "Importation..." : "Valider et importer"}
               </Button>
             </div>
@@ -382,6 +411,7 @@ export default function ImportShipments() {
                   <TableRow>
                     <TableHead>N° Reçu</TableHead>
                     <TableHead>Connaissement</TableHead>
+                    <TableHead>Partenaire</TableHead>
                     <TableHead>Producteur</TableHead>
                     <TableHead>Code plantation</TableHead>
                     <TableHead>Section</TableHead>
@@ -398,6 +428,7 @@ export default function ImportShipments() {
                     <TableRow key={i}>
                       <TableCell className="font-mono text-xs">{r.numero_recu}</TableCell>
                       <TableCell>{r.connaissement || "—"}</TableCell>
+                      <TableCell>{r.partenaire || "—"}</TableCell>
                       <TableCell>{r.nom_producteur}</TableCell>
                       <TableCell>{r.code_plantation}</TableCell>
                       <TableCell>{r.section}</TableCell>
@@ -424,6 +455,7 @@ export default function ImportShipments() {
           </CardContent>
         </Card>
       )}
+
     </div>
   );
 }
