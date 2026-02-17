@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { parseExcelFile, downloadImportTemplate, type ProducerRow, type ImportError } from "@/lib/excel-utils";
+import { parseExcelFile, downloadImportTemplate, exportToExcel, type ProducerRow, type ImportError } from "@/lib/excel-utils";
 
 type ImportMode = "insert" | "update";
 
 export default function Producers() {
   const [producers, setProducers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [coopFilter, setCoopFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [detailProducer, setDetailProducer] = useState<any | null>(null);
   const [editProducer, setEditProducer] = useState<any | null>(null);
@@ -38,7 +39,6 @@ export default function Producers() {
 
   async function loadProducers() {
     setLoading(true);
-    // Fetch all producers without 1000-row limit
     let allData: any[] = [];
     let from = 0;
     const PAGE = 1000;
@@ -58,13 +58,25 @@ export default function Producers() {
     setLoading(false);
   }
 
-  const filtered = producers.filter(
-    (p) =>
-      !search ||
-      p.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      p.plantation_code.toLowerCase().includes(search.toLowerCase()) ||
-      p.section.toLowerCase().includes(search.toLowerCase())
-  );
+  // Unique cooperatives for filter
+  const cooperatives = useMemo(() => {
+    const set = new Set<string>();
+    producers.forEach((p) => {
+      if (p.cooperative) set.add(p.cooperative);
+    });
+    return Array.from(set).sort();
+  }, [producers]);
+
+  const filtered = producers.filter((p) => {
+    if (coopFilter !== "all" && p.cooperative !== coopFilter) return false;
+    if (!search) return true;
+    const s = search.toLowerCase();
+    return (
+      p.full_name.toLowerCase().includes(s) ||
+      p.plantation_code.toLowerCase().includes(s) ||
+      p.section.toLowerCase().includes(s)
+    );
+  });
 
   // --- Edit / Delete (existing) ---
   function openEdit(p: any) {
@@ -106,6 +118,38 @@ export default function Producers() {
       setDeleteProducer(null);
       loadProducers();
     }
+  }
+
+  // --- Export existing data ---
+  function handleExportProducers(cooperative?: string) {
+    let data = producers;
+    if (cooperative && cooperative !== "all") {
+      data = producers.filter((p) => p.cooperative === cooperative);
+    }
+    if (data.length === 0) {
+      toast({ title: "Aucune donnée à exporter", variant: "destructive" });
+      return;
+    }
+    const rows = data.map((p) => ({
+      "Coopérative": p.cooperative,
+      "Nom complet": p.full_name,
+      "N° producteur": p.producer_number || "",
+      "CNI": p.national_id || "",
+      "Code producteur": p.producer_code || "",
+      "Sexe": p.sexe || "",
+      "Section": p.section,
+      "Surface cacao totale": p.total_cocoa_area || 0,
+      "Nb parcelles": p.num_plots || 0,
+      "Code plantation": p.plantation_code,
+      "Potentiel livraison (kg)": p.delivery_potential,
+      "Potentiel restant (kg)": p.remaining_potential,
+      "Superficie": p.plantation_area || 0,
+      "Latitude": p.latitude || 0,
+      "Longitude": p.longitude || 0,
+    }));
+    const suffix = cooperative && cooperative !== "all" ? `-${cooperative}` : "";
+    exportToExcel(rows, `Registre-Producteurs${suffix}.xlsx`, "Producteurs");
+    toast({ title: "Export réussi" });
   }
 
   // --- Import / Update logic ---
@@ -150,8 +194,6 @@ export default function Producers() {
 
     try {
       if (importMode === "insert") {
-        // Insert only new producers (skip existing plantation_codes)
-        // Chunked lookup of existing codes
         const allCodes = parsedRows.map((r) => r.plantation_code);
         const existingCodes = new Set<string>();
         for (let i = 0; i < allCodes.length; i += 500) {
@@ -182,7 +224,6 @@ export default function Producers() {
         }
       } else {
         // Update mode: upsert by plantation_code
-        // For each row, update if exists, insert if not
         const allCodes = parsedRows.map((r) => r.plantation_code);
         const existingMap = new Map<string, any>();
         for (let i = 0; i < allCodes.length; i += 500) {
@@ -198,7 +239,6 @@ export default function Producers() {
         for (const r of parsedRows) {
           const existingId = existingMap.get(r.plantation_code);
           if (existingId) {
-            // Update existing - overwrite all fields
             const updateData: any = {
               cooperative: r.cooperative,
               full_name: r.full_name,
@@ -215,7 +255,6 @@ export default function Producers() {
               latitude: r.latitude,
               longitude: r.longitude,
             };
-            // Batch updates: collect them
             toInsert.push({ id: existingId, ...updateData, plantation_code: r.plantation_code });
             updatedCount++;
           } else {
@@ -240,11 +279,8 @@ export default function Producers() {
           }
         }
 
-        // Use upsert with plantation_code conflict resolution
-        // We need to do chunked upserts
         for (let i = 0; i < toInsert.length; i += 500) {
           const batch = toInsert.slice(i, i + 500);
-          // For rows with id, do updates; for rows without, do inserts
           const updates = batch.filter((r) => r.id);
           const inserts = batch.filter((r) => !r.id);
 
@@ -276,6 +312,9 @@ export default function Producers() {
     }
   }
 
+  // Export cooperative select for update dialog
+  const [exportCoopForUpdate, setExportCoopForUpdate] = useState("all");
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -293,15 +332,36 @@ export default function Producers() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Mettre à jour
           </Button>
-          <div className="relative w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher par nom, code, section..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+          <Button variant="outline" size="sm" onClick={() => handleExportProducers(coopFilter)}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Exporter
+          </Button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="w-60">
+          <Select value={coopFilter} onValueChange={setCoopFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Toutes les coopératives" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes les coopératives</SelectItem>
+              {cooperatives.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="relative w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par nom, code, section..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
         </div>
       </div>
 
@@ -380,6 +440,30 @@ export default function Producers() {
                 : "Téléversez un fichier Excel pour mettre à jour les données. Les producteurs avec un code plantation existant seront écrasés par les nouvelles données."}
             </DialogDescription>
           </DialogHeader>
+
+          {/* Export existing data before update */}
+          {importMode === "update" && producers.length > 0 && (
+            <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+              <p className="text-sm font-medium">📥 Exporter les données actuelles avant la mise à jour</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Select value={exportCoopForUpdate} onValueChange={setExportCoopForUpdate}>
+                  <SelectTrigger className="w-56">
+                    <SelectValue placeholder="Toutes les coopératives" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les coopératives</SelectItem>
+                    {cooperatives.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" onClick={() => handleExportProducers(exportCoopForUpdate)}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Exporter
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Drop zone */}
           <div

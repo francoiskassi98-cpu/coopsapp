@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import Producers from "@/pages/Producers";
-import ImportProducers from "@/pages/ImportProducers";
+
 import CreateShipment from "@/pages/CreateShipment";
 import ExportPage from "@/pages/ExportPage";
 import Cancellations from "@/pages/Cancellations";
@@ -24,7 +24,7 @@ const App = () => (
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/producteurs" element={<Producers />} />
-            <Route path="/import" element={<ImportProducers />} />
+            
             <Route path="/chargements" element={<CreateShipment />} />
             <Route path="/export" element={<ExportPage />} />
             <Route path="/annulations" element={<Cancellations />} />
