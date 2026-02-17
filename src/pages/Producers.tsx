@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Eye, Pencil, Trash2 } from "lucide-react";
+import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { parseExcelFile, downloadImportTemplate, type ProducerRow, type ImportError } from "@/lib/excel-utils";
+
+type ImportMode = "insert" | "update";
 
 export default function Producers() {
   const [producers, setProducers] = useState<any[]>([]);
@@ -20,17 +23,38 @@ export default function Producers() {
   const [editForm, setEditForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
 
+  // Import state
+  const [importMode, setImportMode] = useState<ImportMode | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [parsedRows, setParsedRows] = useState<ProducerRow[]>([]);
+  const [importErrors, setImportErrors] = useState<ImportError[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [importDone, setImportDone] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+
   useEffect(() => {
     loadProducers();
   }, []);
 
   async function loadProducers() {
-    const { data } = await supabase
-      .from("producers")
-      .select("*")
-      .order("section", { ascending: true })
-      .order("full_name", { ascending: true });
-    setProducers(data || []);
+    setLoading(true);
+    // Fetch all producers without 1000-row limit
+    let allData: any[] = [];
+    let from = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data } = await supabase
+        .from("producers")
+        .select("*")
+        .order("section", { ascending: true })
+        .order("full_name", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (!data || data.length === 0) break;
+      allData = allData.concat(data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    setProducers(allData);
     setLoading(false);
   }
 
@@ -42,6 +66,7 @@ export default function Producers() {
       p.section.toLowerCase().includes(search.toLowerCase())
   );
 
+  // --- Edit / Delete (existing) ---
   function openEdit(p: any) {
     setEditForm({
       full_name: p.full_name,
@@ -58,10 +83,7 @@ export default function Producers() {
   async function handleSaveEdit() {
     if (!editProducer) return;
     setSaving(true);
-    const { error } = await supabase
-      .from("producers")
-      .update(editForm)
-      .eq("id", editProducer.id);
+    const { error } = await supabase.from("producers").update(editForm).eq("id", editProducer.id);
     setSaving(false);
     if (error) {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
@@ -86,18 +108,200 @@ export default function Producers() {
     }
   }
 
+  // --- Import / Update logic ---
+  function openImportDialog(mode: ImportMode) {
+    setImportMode(mode);
+    setImportFile(null);
+    setParsedRows([]);
+    setImportErrors([]);
+    setImportDone(false);
+  }
+
+  const handleFile = useCallback(async (f: File) => {
+    setImportFile(f);
+    setImportDone(false);
+    const buffer = await f.arrayBuffer();
+    const { rows, errors } = parseExcelFile(buffer);
+    setParsedRows(rows);
+    setImportErrors(errors);
+  }, []);
+
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      const f = e.dataTransfer.files[0];
+      if (f) handleFile(f);
+    },
+    [handleFile]
+  );
+
+  const onFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const f = e.target.files?.[0];
+      if (f) handleFile(f);
+    },
+    [handleFile]
+  );
+
+  async function confirmImport() {
+    if (parsedRows.length === 0) return;
+    setImporting(true);
+
+    try {
+      if (importMode === "insert") {
+        // Insert only new producers (skip existing plantation_codes)
+        // Chunked lookup of existing codes
+        const allCodes = parsedRows.map((r) => r.plantation_code);
+        const existingCodes = new Set<string>();
+        for (let i = 0; i < allCodes.length; i += 500) {
+          const chunk = allCodes.slice(i, i + 500);
+          const { data } = await supabase.from("producers").select("plantation_code").in("plantation_code", chunk);
+          (data || []).forEach((p) => existingCodes.add(p.plantation_code));
+        }
+
+        const newRows = parsedRows.filter((r) => !existingCodes.has(r.plantation_code));
+        const skipped = parsedRows.length - newRows.length;
+
+        if (skipped > 0) {
+          toast({ title: `${skipped} producteur(s) ignoré(s)`, description: "Code plantation déjà existant.", variant: "destructive" });
+        }
+
+        if (newRows.length > 0) {
+          const toInsert = newRows.map((r) => ({
+            ...r,
+            remaining_potential: r.delivery_potential,
+            sexe: r.sexe || null,
+          }));
+          for (let i = 0; i < toInsert.length; i += 500) {
+            const batch = toInsert.slice(i, i + 500);
+            const { error } = await supabase.from("producers").insert(batch);
+            if (error) throw error;
+          }
+          toast({ title: "Importation réussie", description: `${newRows.length} producteur(s) ajouté(s).` });
+        }
+      } else {
+        // Update mode: upsert by plantation_code
+        // For each row, update if exists, insert if not
+        const allCodes = parsedRows.map((r) => r.plantation_code);
+        const existingMap = new Map<string, any>();
+        for (let i = 0; i < allCodes.length; i += 500) {
+          const chunk = allCodes.slice(i, i + 500);
+          const { data } = await supabase.from("producers").select("id, plantation_code").in("plantation_code", chunk);
+          (data || []).forEach((p) => existingMap.set(p.plantation_code, p.id));
+        }
+
+        let updatedCount = 0;
+        let insertedCount = 0;
+        const toInsert: any[] = [];
+
+        for (const r of parsedRows) {
+          const existingId = existingMap.get(r.plantation_code);
+          if (existingId) {
+            // Update existing - overwrite all fields
+            const updateData: any = {
+              cooperative: r.cooperative,
+              full_name: r.full_name,
+              producer_number: r.producer_number,
+              national_id: r.national_id,
+              producer_code: r.producer_code,
+              sexe: r.sexe || null,
+              section: r.section,
+              total_cocoa_area: r.total_cocoa_area,
+              num_plots: r.num_plots,
+              delivery_potential: r.delivery_potential,
+              remaining_potential: r.delivery_potential,
+              plantation_area: r.plantation_area,
+              latitude: r.latitude,
+              longitude: r.longitude,
+            };
+            // Batch updates: collect them
+            toInsert.push({ id: existingId, ...updateData, plantation_code: r.plantation_code });
+            updatedCount++;
+          } else {
+            toInsert.push({
+              cooperative: r.cooperative,
+              full_name: r.full_name,
+              producer_number: r.producer_number,
+              national_id: r.national_id,
+              producer_code: r.producer_code,
+              sexe: r.sexe || null,
+              section: r.section,
+              total_cocoa_area: r.total_cocoa_area,
+              num_plots: r.num_plots,
+              plantation_code: r.plantation_code,
+              delivery_potential: r.delivery_potential,
+              remaining_potential: r.delivery_potential,
+              plantation_area: r.plantation_area,
+              latitude: r.latitude,
+              longitude: r.longitude,
+            });
+            insertedCount++;
+          }
+        }
+
+        // Use upsert with plantation_code conflict resolution
+        // We need to do chunked upserts
+        for (let i = 0; i < toInsert.length; i += 500) {
+          const batch = toInsert.slice(i, i + 500);
+          // For rows with id, do updates; for rows without, do inserts
+          const updates = batch.filter((r) => r.id);
+          const inserts = batch.filter((r) => !r.id);
+
+          if (updates.length > 0) {
+            for (const u of updates) {
+              const { id, ...rest } = u;
+              const { error } = await supabase.from("producers").update(rest).eq("id", id);
+              if (error) throw error;
+            }
+          }
+          if (inserts.length > 0) {
+            const { error } = await supabase.from("producers").insert(inserts);
+            if (error) throw error;
+          }
+        }
+
+        toast({
+          title: "Mise à jour réussie",
+          description: `${updatedCount} mis à jour, ${insertedCount} nouveau(x).`,
+        });
+      }
+
+      setImportDone(true);
+      loadProducers();
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold">Registre des producteurs</h1>
-        <div className="relative w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher par nom, code, section..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={downloadImportTemplate}>
+            <Download className="h-4 w-4 mr-2" />
+            Modèle Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => openImportDialog("insert")}>
+            <Upload className="h-4 w-4 mr-2" />
+            Importer
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => openImportDialog("update")}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Mettre à jour
+          </Button>
+          <div className="relative w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher par nom, code, section..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
         </div>
       </div>
 
@@ -162,6 +366,108 @@ export default function Producers() {
           )}
         </CardContent>
       </Card>
+
+      {/* Import / Update Dialog */}
+      <Dialog open={!!importMode} onOpenChange={() => setImportMode(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {importMode === "insert" ? "Importer des producteurs" : "Mettre à jour les producteurs"}
+            </DialogTitle>
+            <DialogDescription>
+              {importMode === "insert"
+                ? "Ajoutez de nouveaux producteurs depuis un fichier Excel. Les codes plantation existants seront ignorés."
+                : "Téléversez un fichier Excel pour mettre à jour les données. Les producteurs avec un code plantation existant seront écrasés par les nouvelles données."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Drop zone */}
+          <div
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              dragOver ? "border-primary bg-primary/5" : "border-border"
+            }`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+          >
+            <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
+            <p className="text-sm text-muted-foreground mb-2">
+              Glissez-déposez un fichier Excel ici, ou
+            </p>
+            <label>
+              <input type="file" accept=".xlsx,.xls,.csv" onChange={onFileSelect} className="hidden" />
+              <Button variant="outline" size="sm" asChild>
+                <span className="cursor-pointer">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Sélectionner un fichier
+                </span>
+              </Button>
+            </label>
+            {importFile && <p className="mt-2 text-sm font-medium">{importFile.name}</p>}
+          </div>
+
+          {/* Errors */}
+          {importErrors.length > 0 && (
+            <div className="border border-destructive rounded-lg p-3">
+              <p className="text-sm font-medium text-destructive flex items-center gap-2 mb-2">
+                <AlertCircle className="h-4 w-4" />
+                {importErrors.length} erreur(s) détectée(s)
+              </p>
+              <div className="max-h-32 overflow-auto space-y-1">
+                {importErrors.map((e, i) => (
+                  <p key={i} className="text-xs text-destructive">
+                    Ligne {e.row} : {e.message}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Preview */}
+          {parsedRows.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-accent" />
+                  <strong>{parsedRows.length}</strong> producteur(s) prêt(s)
+                </p>
+                <Button onClick={confirmImport} disabled={importing || importDone} size="sm">
+                  {importing ? "Traitement..." : importDone ? "Terminé ✓" : importMode === "insert" ? "Confirmer l'importation" : "Confirmer la mise à jour"}
+                </Button>
+              </div>
+              <div className="max-h-60 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nom complet</TableHead>
+                      <TableHead>Section</TableHead>
+                      <TableHead>Code plantation</TableHead>
+                      <TableHead>Potentiel (kg)</TableHead>
+                      <TableHead>Coopérative</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parsedRows.slice(0, 100).map((r, i) => (
+                      <TableRow key={i}>
+                        <TableCell>{r.full_name}</TableCell>
+                        <TableCell>{r.section}</TableCell>
+                        <TableCell className="font-mono text-xs">{r.plantation_code}</TableCell>
+                        <TableCell>{r.delivery_potential.toLocaleString("fr-FR")}</TableCell>
+                        <TableCell>{r.cooperative}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {parsedRows.length > 100 && (
+                  <p className="text-xs text-muted-foreground mt-1 text-center">
+                    ... et {parsedRows.length - 100} autres lignes
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Detail Dialog */}
       <Dialog open={!!detailProducer} onOpenChange={() => setDetailProducer(null)}>
