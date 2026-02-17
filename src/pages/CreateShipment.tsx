@@ -38,6 +38,7 @@ export default function CreateShipment() {
   const [cooperatives, setCooperatives] = useState<string[]>([]);
   const [coopDelivered, setCoopDelivered] = useState<Record<string, number>>({});
   const [coopPotential, setCoopPotential] = useState<Record<string, { potentiel: number; remaining: number }>>({});
+  const [nextReceiptNumber, setNextReceiptNumber] = useState<string>("");
 
   useEffect(() => {
     supabase.from("partners").select("*").order("name").then(({ data }) => setPartners(data || []));
@@ -86,6 +87,36 @@ export default function CreateShipment() {
     setCoopDelivered(delMap);
   }
 
+  async function loadNextReceiptForCooperative(cooperative: string) {
+    if (!cooperative) { setNextReceiptNumber(""); return; }
+    // Find max receipt_number from deliveries linked to shipments with this zone
+    let allReceipts: string[] = [];
+    let from = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data } = await supabase
+        .from("deliveries")
+        .select("receipt_number, shipments!inner(zone)")
+        .eq("shipments.zone", cooperative)
+        .order("receipt_number", { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (!data || data.length === 0) break;
+      allReceipts.push(...data.map((d: any) => d.receipt_number));
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    const maxNum = allReceipts.reduce((max, r) => {
+      const n = parseInt(r, 10);
+      return isNaN(n) ? max : Math.max(max, n);
+    }, 0);
+    setNextReceiptNumber(String(maxNum + 1).padStart(6, "0"));
+  }
+
+  const handleZoneChange = (value: string) => {
+    setZone(value);
+    loadNextReceiptForCooperative(value);
+  };
+
   const selectedCoopStats = useMemo(() => {
     if (!zone) return null;
     const pot = coopPotential[zone] || { potentiel: 0, remaining: 0 };
@@ -110,13 +141,7 @@ export default function CreateShipment() {
       return;
     }
 
-    const { data: lastReceipt } = await supabase
-      .from("deliveries")
-      .select("receipt_number")
-      .order("receipt_number", { ascending: false })
-      .limit(1);
-
-    const lastNum = lastReceipt && lastReceipt.length > 0 ? parseInt(lastReceipt[0].receipt_number, 10) : 0;
+    const lastNum = nextReceiptNumber ? parseInt(nextReceiptNumber, 10) - 1 : 0;
 
     const results = distributeShipment(
       producers.map((p) => ({ ...p, remaining_potential: Number(p.remaining_potential) })),
@@ -373,7 +398,7 @@ export default function CreateShipment() {
 
                 <div className="space-y-2">
                   <Label>Coopérative *</Label>
-                  <Select value={zone} onValueChange={setZone}>
+                  <Select value={zone} onValueChange={handleZoneChange}>
                     <SelectTrigger><SelectValue placeholder="Sélectionner une coopérative" /></SelectTrigger>
                     <SelectContent>
                       {cooperatives.map((c) => (
@@ -382,6 +407,13 @@ export default function CreateShipment() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {nextReceiptNumber && (
+                  <div className="space-y-2">
+                    <Label>Prochain N° Reçu</Label>
+                    <Input value={nextReceiptNumber} readOnly className="bg-muted font-mono" />
+                  </div>
+                )}
 
                 {selectedCoopStats && (
                   <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
