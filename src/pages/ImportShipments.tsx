@@ -26,6 +26,30 @@ export default function ImportShipments() {
   const [potentialWarnings, setPotentialWarnings] = useState<string[]>([]);
   const [delayWarnings, setDelayWarnings] = useState<string[]>([]);
 
+  // Helper: chunked insert for deliveries
+  async function chunkedInsertDeliveries(rows: any[], chunkSize = 500) {
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      const { error } = await supabase.from("deliveries").insert(chunk);
+      if (error) throw error;
+    }
+  }
+
+  // Helper: chunked .in() for producers
+  async function chunkedProducerLookup(
+    selectCols: string,
+    codes: string[],
+    chunkSize = 500
+  ) {
+    const results: any[] = [];
+    for (let i = 0; i < codes.length; i += chunkSize) {
+      const chunk = codes.slice(i, i + chunkSize);
+      const { data } = await supabase.from("producers").select(selectCols).in("plantation_code", chunk);
+      if (data) results.push(...data);
+    }
+    return results;
+  }
+
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -42,10 +66,10 @@ export default function ImportShipments() {
 
     if (result.rows.length > 0) {
       const codes = [...new Set(result.rows.map((r) => r.code_plantation))];
-      const { data: producers } = await supabase
-        .from("producers")
-        .select("plantation_code, full_name, section, cooperative, remaining_potential")
-        .in("plantation_code", codes);
+      const producers = await chunkedProducerLookup(
+        "plantation_code, full_name, section, cooperative, remaining_potential",
+        codes
+      );
 
       const producerMap = new Map(
         (producers || []).map((p) => [p.plantation_code, p])
@@ -116,12 +140,9 @@ export default function ImportShipments() {
 
     try {
       const allCodes = [...new Set(importRows.map((r) => r.code_plantation))];
-      const { data: producers } = await supabase
-        .from("producers")
-        .select("id, plantation_code, remaining_potential")
-        .in("plantation_code", allCodes);
+      const producers = await chunkedProducerLookup("id, plantation_code, remaining_potential", allCodes);
 
-      const producerMap = new Map((producers || []).map((p) => [p.plantation_code, p]));
+      const producerMap = new Map((producers || []).map((p: any) => [p.plantation_code, p]));
 
       const { data: existingPartners } = await supabase.from("partners").select("id, name");
       const partnerMap = new Map((existingPartners || []).map((p) => [p.name.toLowerCase(), p.id]));
@@ -190,8 +211,7 @@ export default function ImportShipments() {
           }));
 
         if (deliveries.length > 0) {
-          const { error: delErr } = await supabase.from("deliveries").insert(deliveries);
-          if (delErr) throw delErr;
+          await chunkedInsertDeliveries(deliveries);
           totalDeliveries += deliveries.length;
         }
 
