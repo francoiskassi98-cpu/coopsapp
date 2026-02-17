@@ -89,26 +89,46 @@ export default function CreateShipment() {
 
   async function loadNextReceiptForCooperative(cooperative: string) {
     if (!cooperative) { setNextReceiptNumber(""); return; }
-    // Find max receipt_number from deliveries linked to shipments with this zone
-    let allReceipts: string[] = [];
+    // Get all shipment IDs for this cooperative
+    let shipmentIds: string[] = [];
     let from = 0;
     const PAGE = 1000;
     while (true) {
       const { data } = await supabase
-        .from("deliveries")
-        .select("receipt_number, shipments!inner(zone)")
-        .eq("shipments.zone", cooperative)
-        .order("receipt_number", { ascending: false })
+        .from("shipments")
+        .select("id")
+        .eq("zone", cooperative)
         .range(from, from + PAGE - 1);
       if (!data || data.length === 0) break;
-      allReceipts.push(...data.map((d: any) => d.receipt_number));
+      shipmentIds.push(...data.map((s: any) => s.id));
       if (data.length < PAGE) break;
       from += PAGE;
     }
-    const maxNum = allReceipts.reduce((max, r) => {
-      const n = parseInt(r, 10);
-      return isNaN(n) ? max : Math.max(max, n);
-    }, 0);
+    if (shipmentIds.length === 0) {
+      setNextReceiptNumber("000001");
+      return;
+    }
+    // Fetch all receipt_numbers for these shipments in chunks
+    let maxNum = 0;
+    const CHUNK = 500;
+    for (let i = 0; i < shipmentIds.length; i += CHUNK) {
+      const chunk = shipmentIds.slice(i, i + CHUNK);
+      let dFrom = 0;
+      while (true) {
+        const { data } = await supabase
+          .from("deliveries")
+          .select("receipt_number")
+          .in("shipment_id", chunk)
+          .range(dFrom, dFrom + PAGE - 1);
+        if (!data || data.length === 0) break;
+        data.forEach((d: any) => {
+          const n = parseInt(d.receipt_number, 10);
+          if (!isNaN(n) && n > maxNum) maxNum = n;
+        });
+        if (data.length < PAGE) break;
+        dFrom += PAGE;
+      }
+    }
     setNextReceiptNumber(String(maxNum + 1).padStart(6, "0"));
   }
 
