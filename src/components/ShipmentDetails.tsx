@@ -15,6 +15,8 @@ interface ShipmentWithDetails {
   id: string;
   connaissement: string | null;
   zone: string | null;
+  cooperative_id: string | null;
+  cooperative_name: string | null;
   total_weight: number;
   total_bags: number;
   project: string;
@@ -33,10 +35,11 @@ export default function ShipmentDetails() {
   const [loading, setLoading] = useState(true);
   const [editingShipment, setEditingShipment] = useState<ShipmentWithDetails | null>(null);
   const [partners, setPartners] = useState<{ id: string; name: string }[]>([]);
+  const [cooperativesList, setCooperativesList] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
 
   // Edit form state
-  const [editZone, setEditZone] = useState("");
+  const [editCoopId, setEditCoopId] = useState("");
   const [editProject, setEditProject] = useState("");
   const [editDestination, setEditDestination] = useState("");
   const [editPartnerId, setEditPartnerId] = useState("");
@@ -54,7 +57,7 @@ export default function ShipmentDetails() {
       while (true) {
         const { data, error } = await supabase
           .from("shipments")
-          .select("*")
+          .select("*, cooperatives(name)")
           .order("created_at", { ascending: false })
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -68,6 +71,11 @@ export default function ShipmentDetails() {
       const { data: partnersData } = await supabase.from("partners").select("id, name");
       const partnerMap = new Map((partnersData || []).map((p) => [p.id, p.name]));
       setPartners(partnersData || []);
+
+      // Fetch cooperatives
+      const { data: coopsData } = await supabase.from("cooperatives").select("id, name").order("name");
+      setCooperativesList(coopsData || []);
+      const coopMap = new Map((coopsData || []).map((c) => [c.id, c.name]));
 
       // Fetch producer counts per shipment (all deliveries)
       let allDeliveries: any[] = [];
@@ -94,6 +102,8 @@ export default function ShipmentDetails() {
         id: s.id,
         connaissement: s.connaissement,
         zone: s.zone,
+        cooperative_id: s.cooperative_id,
+        cooperative_name: s.cooperative_id ? (coopMap.get(s.cooperative_id) || (s.cooperatives as any)?.name || s.zone) : (s.zone || null),
         total_weight: Number(s.total_weight),
         total_bags: Number(s.total_bags),
         project: s.project,
@@ -121,7 +131,7 @@ export default function ShipmentDetails() {
 
   const openEdit = (s: ShipmentWithDetails) => {
     setEditingShipment(s);
-    setEditZone(s.zone || "");
+    setEditCoopId(s.cooperative_id || "");
     setEditProject(s.project);
     setEditDestination(s.destination);
     setEditPartnerId(s.partner_id || "");
@@ -136,11 +146,13 @@ export default function ShipmentDetails() {
     try {
       const weight = Number(editTotalWeight);
       const bags = Number(editTotalBags);
+      const coopName = cooperativesList.find(c => c.id === editCoopId)?.name || null;
       const { error } = await supabase
         .from("shipments")
         .update({
           connaissement: editConnaissement || null,
-          zone: editZone || null,
+          zone: coopName,
+          cooperative_id: editCoopId || null,
           total_weight: weight,
           total_bags: bags,
           avg_bag_weight: bags > 0 ? weight / bags : 0,
@@ -185,7 +197,7 @@ export default function ShipmentDetails() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Connaissement</TableHead>
-                    <TableHead>Zone</TableHead>
+                    <TableHead>Coopérative</TableHead>
                     <TableHead>Poids total (kg)</TableHead>
                     <TableHead>Producteurs</TableHead>
                     <TableHead>Sacs</TableHead>
@@ -201,7 +213,7 @@ export default function ShipmentDetails() {
                   {shipments.map((s) => (
                     <TableRow key={s.id}>
                       <TableCell className="font-mono text-xs">{s.connaissement || "—"}</TableCell>
-                      <TableCell>{s.zone || "—"}</TableCell>
+                      <TableCell>{s.cooperative_name || "—"}</TableCell>
                       <TableCell className="font-semibold">{s.total_weight.toLocaleString("fr-FR")}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
@@ -261,8 +273,15 @@ export default function ShipmentDetails() {
             </div>
 
             <div className="space-y-2">
-              <Label>Zone</Label>
-              <Input value={editZone} onChange={(e) => setEditZone(e.target.value)} placeholder="Nom de la coopérative" />
+              <Label>Coopérative</Label>
+              <Select value={editCoopId} onValueChange={setEditCoopId}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner une coopérative" /></SelectTrigger>
+                <SelectContent>
+                  {cooperativesList.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

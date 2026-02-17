@@ -230,6 +230,17 @@ export default function Producers() {
     setImporting(true);
 
     try {
+      // Sync cooperatives table
+      const uniqueCoops = [...new Set(parsedRows.map(r => r.cooperative).filter(Boolean))];
+      if (uniqueCoops.length > 0) {
+        const { data: existingCoops } = await supabase.from("cooperatives").select("name");
+        const existingNames = new Set((existingCoops || []).map(c => c.name.toLowerCase()));
+        const newCoops = uniqueCoops.filter(c => !existingNames.has(c.toLowerCase()));
+        if (newCoops.length > 0) {
+          await supabase.from("cooperatives").insert(newCoops.map(name => ({ name })));
+        }
+      }
+
       if (importMode === "insert") {
         const allCodes = parsedRows.map((r) => r.plantation_code);
         const existingCodes = new Set<string>();

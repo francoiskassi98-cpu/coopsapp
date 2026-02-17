@@ -159,7 +159,8 @@ export default function CreateShipment() {
     const { data: disabledSectionsData } = await supabase.from("disabled_sections").select("section_name");
     const disabledSectionNames = new Set((disabledSectionsData || []).map((d: any) => d.section_name));
 
-    // Fetch only active producers with remaining potential, exclude disabled sections
+    // Fetch only active producers of the selected cooperative with remaining potential, exclude disabled sections
+    const coopName = cooperatives.find(c => c.id === selectedCoopId)?.name || "";
     let allActiveProducers: any[] = [];
     let fetchFrom = 0;
     const FETCH_PAGE = 1000;
@@ -168,6 +169,7 @@ export default function CreateShipment() {
         .from("producers")
         .select("id, full_name, section, plantation_code, remaining_potential")
         .eq("is_active", true)
+        .eq("cooperative", coopName)
         .gt("remaining_potential", 0)
         .order("section")
         .range(fetchFrom, fetchFrom + FETCH_PAGE - 1);
