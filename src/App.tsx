@@ -7,7 +7,7 @@ import AppLayout from "@/components/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import Producers from "@/pages/Producers";
 import ImportProducers from "@/pages/ImportProducers";
-import ChargementsPage from "@/pages/ChargementsPage";
+import CreateShipment from "@/pages/CreateShipment";
 import ExportPage from "@/pages/ExportPage";
 import Cancellations from "@/pages/Cancellations";
 import NotFound from "@/pages/NotFound";
@@ -25,7 +25,7 @@ const App = () => (
             <Route path="/" element={<Dashboard />} />
             <Route path="/producteurs" element={<Producers />} />
             <Route path="/import" element={<ImportProducers />} />
-            <Route path="/chargements" element={<ChargementsPage />} />
+            <Route path="/chargements" element={<CreateShipment />} />
             <Route path="/export" element={<ExportPage />} />
             <Route path="/annulations" element={<Cancellations />} />
           </Route>

@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Package, TrendingUp, Leaf, AlertTriangle, RefreshCw } from "lucide-react";
+import { Package, TrendingUp, Leaf, AlertTriangle } from "lucide-react";
 import { isCampaignStart, getCurrentCampaign } from "@/lib/shipment-utils";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +17,6 @@ export default function Dashboard() {
   const [shipments, setShipments] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [showCampaignAlert, setShowCampaignAlert] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setShowCampaignAlert(isCampaignStart());
@@ -41,47 +38,38 @@ export default function Dashboard() {
   }
 
   async function loadData() {
-    setLoading(true);
-    try {
-      // Get all producer stats (no limit)
-      const producers = await fetchAllRows(
-        supabase.from("producers").select("delivery_potential, remaining_potential")
-      );
+    // Get all producer stats (no limit)
+    const producers = await fetchAllRows(
+      supabase.from("producers").select("delivery_potential, remaining_potential")
+    );
+    if (producers.length > 0) {
       const totalPotential = producers.reduce((s: number, p: any) => s + Number(p.delivery_potential), 0);
       const remaining = producers.reduce((s: number, p: any) => s + Number(p.remaining_potential), 0);
+      setStats({ totalPotential, totalDelivered: totalPotential - remaining, remaining });
+    }
 
-      // Get all shipments with partner info (no limit)
-      const shipmentsData = await fetchAllRows(
-        supabase.from("shipments").select("*, partners(name)").eq("status", "active").order("created_at", { ascending: false })
-      );
+    // Get all shipments with partner info (no limit)
+    const shipmentsData = await fetchAllRows(
+      supabase.from("shipments").select("*, partners(name)").eq("status", "active").order("created_at", { ascending: false })
+    );
 
-      // Total delivered = sum of actual shipment weights
-      const totalDelivered = shipmentsData.reduce((s: number, sh: any) => s + Number(sh.total_weight), 0);
-      setStats({ totalPotential, totalDelivered, remaining });
+    if (shipmentsData.length > 0) {
+      setShipments(shipmentsData);
 
-      if (shipmentsData.length > 0) {
-        setShipments(shipmentsData);
+      // By project
+      const projectMap: Record<string, number> = {};
+      shipmentsData.forEach((s) => {
+        projectMap[s.project] = (projectMap[s.project] || 0) + Number(s.total_weight);
+      });
+      setByProject(Object.entries(projectMap).map(([name, value]) => ({ name, value })));
 
-        // By project
-        const projectMap: Record<string, number> = {};
-        shipmentsData.forEach((s) => {
-          projectMap[s.project] = (projectMap[s.project] || 0) + Number(s.total_weight);
-        });
-        setByProject(Object.entries(projectMap).map(([name, value]) => ({ name, value })));
-
-        // By partner
-        const partnerMap: Record<string, number> = {};
-        shipmentsData.forEach((s) => {
-          const pName = (s.partners as any)?.name || "Inconnu";
-          partnerMap[pName] = (partnerMap[pName] || 0) + Number(s.total_weight);
-        });
-        setByPartner(Object.entries(partnerMap).map(([name, value]) => ({ name, value })));
-      }
-    } catch (e) {
-      console.error("Erreur chargement données:", e);
-      toast.error("Erreur lors du chargement des données");
-    } finally {
-      setLoading(false);
+      // By partner
+      const partnerMap: Record<string, number> = {};
+      shipmentsData.forEach((s) => {
+        const pName = (s.partners as any)?.name || "Inconnu";
+        partnerMap[pName] = (partnerMap[pName] || 0) + Number(s.total_weight);
+      });
+      setByPartner(Object.entries(partnerMap).map(([name, value]) => ({ name, value })));
     }
   }
 
@@ -99,10 +87,6 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold">Tableau de bord</h1>
           <p className="text-sm text-muted-foreground">Campagne {getCurrentCampaign()}</p>
         </div>
-        <Button onClick={() => { loadData().then(() => toast.success("Données actualisées")); }} disabled={loading} variant="outline">
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Actualiser
-        </Button>
       </div>
 
       {showCampaignAlert && (

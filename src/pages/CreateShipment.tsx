@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { distributeShipment, getCurrentCampaign, type DistributionResult } from "@/lib/shipment-utils";
 import { toast } from "@/hooks/use-toast";
-import { Truck, Plus, Download, Pencil, Check, X } from "lucide-react";
-import * as XLSX from "xlsx";
+import { Truck, Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ImportShipments from "@/pages/ImportShipments";
 import ShipmentDetails from "@/components/ShipmentDetails";
@@ -31,9 +30,6 @@ export default function CreateShipment() {
   const [preview, setPreview] = useState<DistributionResult[]>([]);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editWeight, setEditWeight] = useState("");
-  const [editBags, setEditBags] = useState("");
 
   useEffect(() => {
     supabase.from("partners").select("*").order("name").then(({ data }) => setPartners(data || []));
@@ -151,84 +147,6 @@ export default function CreateShipment() {
       setNewPartnerName("");
       setDialogOpen(false);
     }
-  };
-
-  const handleStartEdit = (index: number) => {
-    setEditingIndex(index);
-    setEditWeight(String(preview[index].allocated_weight));
-    setEditBags(String(preview[index].num_bags));
-  };
-
-  const handleCancelEdit = () => {
-    setEditingIndex(null);
-    setEditWeight("");
-    setEditBags("");
-  };
-
-  const handleSaveEdit = (index: number) => {
-    const newWeight = parseInt(editWeight, 10);
-    const newBags = parseInt(editBags, 10);
-    if (isNaN(newWeight) || newWeight <= 0 || isNaN(newBags) || newBags <= 0) {
-      toast({ title: "Valeurs invalides", variant: "destructive" });
-      return;
-    }
-    if (newWeight / newBags > 90) {
-      toast({ title: "Poids par sac trop élevé", description: "Maximum 90 kg par sac.", variant: "destructive" });
-      return;
-    }
-
-    const updated = [...preview];
-    const oldWeight = updated[index].allocated_weight;
-    const weightDiff = newWeight - oldWeight;
-
-    updated[index] = { ...updated[index], allocated_weight: newWeight, num_bags: newBags };
-
-    // Redistribute the weight difference across other producers proportionally
-    if (weightDiff !== 0 && updated.length > 1) {
-      const othersTotal = updated.reduce((s, d, i) => i !== index ? s + d.allocated_weight : s, 0);
-      let remaining = -weightDiff;
-      for (let i = 0; i < updated.length; i++) {
-        if (i === index) continue;
-        if (i === updated.length - 1 || (i === updated.length - 2 && index === updated.length - 1)) {
-          // Last other producer gets the remainder
-          updated[i] = { ...updated[i], allocated_weight: updated[i].allocated_weight + remaining };
-          remaining = 0;
-        } else {
-          const share = Math.round((updated[i].allocated_weight / othersTotal) * (-weightDiff));
-          updated[i] = { ...updated[i], allocated_weight: updated[i].allocated_weight + share };
-          remaining -= share;
-        }
-      }
-    }
-
-    setPreview(updated);
-    setEditingIndex(null);
-  };
-
-  const handleDownloadPreview = () => {
-    const partnerName = partners.find((p) => p.id === partnerId)?.name || "";
-    const rows = preview.map((d, i) => ({
-      "N°": i + 1,
-      "N° Reçu": d.receipt_number,
-      "Connaissement": connaissement || "",
-      "Projet": project,
-      "Partenaire": partnerName,
-      "Zone": zone || "",
-      "Nom": d.full_name,
-      "Section": d.section,
-      "Poids net (kg)": Math.round(d.allocated_weight),
-      "Nombre de sacs": d.num_bags,
-      "Date de livraison": d.delivery_date,
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [{ wch: 6 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Chargement");
-    const parts = ["Chargement"];
-    if (connaissement) parts.push(connaissement);
-    if (zone) parts.push(zone);
-    const fileName = `${parts.join("-")}.xlsx`;
-    XLSX.writeFile(wb, fileName);
   };
 
   return (
@@ -353,14 +271,9 @@ export default function CreateShipment() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">Aperçu du chargement</CardTitle>
                   {preview.length > 0 && (
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleDownloadPreview}>
-                        <Download className="h-4 w-4" /> Télécharger
-                      </Button>
-                      <Button onClick={handleSave} disabled={saving}>
-                        {saving ? "Enregistrement..." : "Valider et enregistrer"}
-                      </Button>
-                    </div>
+                    <Button onClick={handleSave} disabled={saving}>
+                      {saving ? "Enregistrement..." : "Valider et enregistrer"}
+                    </Button>
                   )}
                 </div>
               </CardHeader>
@@ -376,58 +289,26 @@ export default function CreateShipment() {
                       {preview.reduce((s, d) => s + d.allocated_weight, 0).toLocaleString("fr-FR")} kg
                     </p>
                     <div className="max-h-[60vh] overflow-auto">
-                     <Table>
+                      <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="w-12">N°</TableHead>
                             <TableHead>N° Reçu</TableHead>
                             <TableHead>Nom</TableHead>
                             <TableHead>Section</TableHead>
                             <TableHead>Poids (kg)</TableHead>
                             <TableHead>Sacs</TableHead>
                             <TableHead>Date</TableHead>
-                            <TableHead className="w-16">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {preview.map((d, index) => (
+                          {preview.map((d) => (
                             <TableRow key={d.receipt_number}>
-                              <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                               <TableCell className="font-mono text-xs">{d.receipt_number}</TableCell>
                               <TableCell>{d.full_name}</TableCell>
                               <TableCell>{d.section}</TableCell>
-                              {editingIndex === index ? (
-                                <>
-                                  <TableCell>
-                                    <Input type="number" value={editWeight} onChange={(e) => setEditWeight(e.target.value)} className="h-7 w-20" />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Input type="number" value={editBags} onChange={(e) => setEditBags(e.target.value)} className="h-7 w-16" />
-                                  </TableCell>
-                                </>
-                              ) : (
-                                <>
-                                  <TableCell>{Math.round(d.allocated_weight).toLocaleString("fr-FR")}</TableCell>
-                                  <TableCell>{d.num_bags}</TableCell>
-                                </>
-                              )}
+                              <TableCell>{d.allocated_weight.toLocaleString("fr-FR")}</TableCell>
+                              <TableCell>{d.num_bags}</TableCell>
                               <TableCell>{d.delivery_date}</TableCell>
-                              <TableCell>
-                                {editingIndex === index ? (
-                                  <div className="flex gap-1">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleSaveEdit(index)}>
-                                      <Check className="h-3 w-3" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit}>
-                                      <X className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleStartEdit(index)}>
-                                    <Pencil className="h-3 w-3" />
-                                  </Button>
-                                )}
-                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
