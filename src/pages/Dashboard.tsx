@@ -61,7 +61,7 @@ export default function Dashboard() {
       const remaining = producers.reduce((s: number, p: any) => s + Number(p.remaining_potential), 0);
 
       const shipmentsData = await fetchAllRows(
-        supabase.from("shipments").select("*, partners(name)").eq("status", "active").order("created_at", { ascending: false })
+        supabase.from("shipments").select("*, partners(name), cooperatives(name)").eq("status", "active").order("created_at", { ascending: false })
       );
 
       const totalDelivered = shipmentsData.reduce((s: number, sh: any) => s + Number(sh.total_weight), 0);
@@ -84,7 +84,7 @@ export default function Dashboard() {
       });
       setByPartner(Object.entries(partnerMap).map(([name, value]) => ({ name, value })));
 
-      // Cooperative stats: potential from producers, delivered from shipments (zone = cooperative)
+      // Cooperative stats: potential from producers, delivered from shipments via cooperative_id
       const coopPotentialMap: Record<string, { potentiel: number; remaining: number }> = {};
       producers.forEach((p: any) => {
         const coop = p.cooperative || "Inconnu";
@@ -95,7 +95,7 @@ export default function Dashboard() {
 
       const coopDeliveredMap: Record<string, { delivered: number; count: number }> = {};
       shipmentsData.forEach((s: any) => {
-        const coop = s.zone || "Inconnu";
+        const coop = (s.cooperatives as any)?.name || s.zone || "Inconnu";
         if (!coopDeliveredMap[coop]) coopDeliveredMap[coop] = { delivered: 0, count: 0 };
         coopDeliveredMap[coop].delivered += Number(s.total_weight);
         coopDeliveredMap[coop].count += 1;
@@ -127,7 +127,7 @@ export default function Dashboard() {
   );
 
   const coopDetailShipments = coopDetailName
-    ? shipments.filter((s) => (s.zone || "Inconnu") === coopDetailName)
+    ? shipments.filter((s) => ((s.cooperatives as any)?.name || s.zone || "Inconnu") === coopDetailName)
     : [];
 
   return (
@@ -300,7 +300,7 @@ export default function Dashboard() {
                 <TableHead>Connaissement</TableHead>
                 <TableHead>Projet</TableHead>
                 <TableHead>Partenaire</TableHead>
-                <TableHead>Zone</TableHead>
+                <TableHead>Coopérative</TableHead>
                 <TableHead>Destination</TableHead>
                 <TableHead>Poids (kg)</TableHead>
                 <TableHead>Sacs</TableHead>
@@ -318,7 +318,7 @@ export default function Dashboard() {
                     <TableCell className="font-medium">{s.connaissement || "—"}</TableCell>
                     <TableCell>{s.project}</TableCell>
                     <TableCell>{(s.partners as any)?.name || "—"}</TableCell>
-                    <TableCell>{s.zone || "—"}</TableCell>
+                    <TableCell>{(s.cooperatives as any)?.name || s.zone || "—"}</TableCell>
                     <TableCell>{s.destination}</TableCell>
                     <TableCell>{Number(s.total_weight).toLocaleString("fr-FR")}</TableCell>
                     <TableCell>{s.total_bags}</TableCell>

@@ -10,36 +10,22 @@ import { FileSpreadsheet, Download, Users, Ship, MapPin, Loader2 } from "lucide-
 
 export default function ExportPage() {
   const [shipments, setShipments] = useState<any[]>([]);
-  const [cooperatives, setCooperatives] = useState<string[]>([]);
+  const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
   const [selectedCoop, setSelectedCoop] = useState("");
   const [selectedConnaissement, setSelectedConnaissement] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load shipments & cooperatives
-    supabase.from("shipments").select("id, connaissement, zone").eq("status", "active").order("created_at", { ascending: false }).then(({ data }) => setShipments(data || []));
-    // Fetch ALL cooperatives with pagination to avoid 1000-row limit
-    (async () => {
-      const allCoops: string[] = [];
-      let offset = 0;
-      const batchSize = 1000;
-      while (true) {
-        const { data } = await supabase.from("producers").select("cooperative").range(offset, offset + batchSize - 1);
-        if (!data || data.length === 0) break;
-        allCoops.push(...data.map((p) => p.cooperative).filter(Boolean));
-        if (data.length < batchSize) break;
-        offset += batchSize;
-      }
-      setCooperatives([...new Set(allCoops)].sort());
-    })();
+    supabase.from("shipments").select("id, connaissement, zone, cooperative_id").eq("status", "active").order("created_at", { ascending: false }).then(({ data }) => setShipments(data || []));
+    supabase.from("cooperatives").select("id, name").order("name").then(({ data }) => setCooperatives(data || []));
   }, []);
 
   const exportByCooperative = async () => {
     if (!selectedCoop) { toast({ title: "Sélectionnez une coopérative", variant: "destructive" }); return; }
     setLoading("coop");
     try {
-      // Get deliveries for shipments matching this cooperative (zone)
-      const { data: coopShipments } = await supabase.from("shipments").select("id, connaissement, project, destination, campaign, zone, total_weight, total_bags, partner_id, partners(name)").eq("zone", selectedCoop).eq("status", "active");
+      // Get deliveries for shipments matching this cooperative_id
+      const { data: coopShipments } = await supabase.from("shipments").select("id, connaissement, project, destination, campaign, zone, total_weight, total_bags, partner_id, partners(name), cooperatives(name)").eq("cooperative_id", selectedCoop).eq("status", "active");
       if (!coopShipments || coopShipments.length === 0) { toast({ title: "Aucun chargement pour cette coopérative", variant: "destructive" }); setLoading(null); return; }
 
       const shipmentIds = coopShipments.map((s) => s.id);
@@ -59,14 +45,15 @@ export default function ExportPage() {
           "Nombre de sacs": d.num_bags,
           "Projet": (s as any)?.project || "",
           "Partenaire": (s as any)?.partners?.name || "",
-          "Zone": (s as any)?.zone || "",
+          "Zone": (s as any)?.cooperatives?.name || (s as any)?.zone || "",
           "Destination": (s as any)?.destination || "",
           "Campagne": (s as any)?.campaign || "",
         };
       });
 
       if (rows.length === 0) { toast({ title: "Aucune livraison trouvée", variant: "destructive" }); setLoading(null); return; }
-      exportToExcel(rows, `Chargements-${selectedCoop}.xlsx`, "Chargement");
+      const coopName = cooperatives.find(c => c.id === selectedCoop)?.name || selectedCoop;
+      exportToExcel(rows, `Chargements-${coopName}.xlsx`, "Chargement");
       toast({ title: "Export réussi" });
     } catch (err: any) { toast({ title: "Erreur", description: err.message, variant: "destructive" }); }
     setLoading(null);
@@ -75,7 +62,7 @@ export default function ExportPage() {
   const exportAllOrByConnaissement = async (mode: "all" | "connaissement") => {
     setLoading(mode);
     try {
-      let query = supabase.from("deliveries").select("*, producers(full_name, section, plantation_code, cooperative), shipments(connaissement, project, destination, campaign, zone, partners(name))").order("receipt_number");
+      let query = supabase.from("deliveries").select("*, producers(full_name, section, plantation_code, cooperative), shipments(connaissement, project, destination, campaign, zone, cooperative_id, cooperatives(name), partners(name))").order("receipt_number");
 
       if (mode === "connaissement") {
         if (!selectedConnaissement) { toast({ title: "Sélectionnez un connaissement", variant: "destructive" }); setLoading(null); return; }
@@ -99,7 +86,7 @@ export default function ExportPage() {
         "Nombre de sacs": d.num_bags,
         "Projet": (d.shipments as any)?.project || "",
         "Partenaire": (d.shipments as any)?.partners?.name || "",
-        "Zone": (d.shipments as any)?.zone || "",
+        "Zone": (d.shipments as any)?.cooperatives?.name || (d.shipments as any)?.zone || "",
         "Destination": (d.shipments as any)?.destination || "",
         "Campagne": (d.shipments as any)?.campaign || "",
       }));
@@ -157,7 +144,7 @@ export default function ExportPage() {
                 <SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
                 <SelectContent>
                   {cooperatives.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
