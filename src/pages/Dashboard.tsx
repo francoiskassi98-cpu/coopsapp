@@ -2,15 +2,24 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Package, TrendingUp, Leaf, AlertTriangle, RefreshCw } from "lucide-react";
+import { Package, TrendingUp, Leaf, AlertTriangle, RefreshCw, Eye } from "lucide-react";
 import { isCampaignStart, getCurrentCampaign } from "@/lib/shipment-utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const PIE_COLORS = ["hsl(25, 65%, 32%)", "hsl(140, 35%, 40%)", "hsl(35, 70%, 55%)", "hsl(200, 50%, 50%)"];
+const PIE_COLORS = ["hsl(25, 65%, 32%)", "hsl(140, 35%, 40%)", "hsl(35, 70%, 55%)", "hsl(200, 50%, 50%)", "hsl(280, 40%, 50%)", "hsl(0, 50%, 50%)", "hsl(60, 50%, 45%)"];
+
+type CoopStats = {
+  name: string;
+  potentiel: number;
+  delivered: number;
+  remaining: number;
+  shipmentCount: number;
+};
 
 export default function Dashboard() {
   const [stats, setStats] = useState({ totalPotential: 0, totalDelivered: 0, remaining: 0 });
@@ -20,6 +29,8 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [showCampaignAlert, setShowCampaignAlert] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [coopStats, setCoopStats] = useState<CoopStats[]>([]);
+  const [coopDetailName, setCoopDetailName] = useState<string | null>(null);
 
   useEffect(() => {
     setShowCampaignAlert(isCampaignStart());
@@ -43,40 +54,63 @@ export default function Dashboard() {
   async function loadData() {
     setLoading(true);
     try {
-      // Get all producer stats (no limit)
       const producers = await fetchAllRows(
-        supabase.from("producers").select("delivery_potential, remaining_potential")
+        supabase.from("producers").select("delivery_potential, remaining_potential, cooperative")
       );
       const totalPotential = producers.reduce((s: number, p: any) => s + Number(p.delivery_potential), 0);
       const remaining = producers.reduce((s: number, p: any) => s + Number(p.remaining_potential), 0);
 
-      // Get all shipments with partner info (no limit)
       const shipmentsData = await fetchAllRows(
         supabase.from("shipments").select("*, partners(name)").eq("status", "active").order("created_at", { ascending: false })
       );
 
-      // Total delivered = sum of actual shipment weights
       const totalDelivered = shipmentsData.reduce((s: number, sh: any) => s + Number(sh.total_weight), 0);
       setStats({ totalPotential, totalDelivered, remaining });
 
-      if (shipmentsData.length > 0) {
-        setShipments(shipmentsData);
+      setShipments(shipmentsData);
 
-        // By project
-        const projectMap: Record<string, number> = {};
-        shipmentsData.forEach((s) => {
-          projectMap[s.project] = (projectMap[s.project] || 0) + Number(s.total_weight);
-        });
-        setByProject(Object.entries(projectMap).map(([name, value]) => ({ name, value })));
+      // By project
+      const projectMap: Record<string, number> = {};
+      shipmentsData.forEach((s: any) => {
+        projectMap[s.project] = (projectMap[s.project] || 0) + Number(s.total_weight);
+      });
+      setByProject(Object.entries(projectMap).map(([name, value]) => ({ name, value })));
 
-        // By partner
-        const partnerMap: Record<string, number> = {};
-        shipmentsData.forEach((s) => {
-          const pName = (s.partners as any)?.name || "Inconnu";
-          partnerMap[pName] = (partnerMap[pName] || 0) + Number(s.total_weight);
-        });
-        setByPartner(Object.entries(partnerMap).map(([name, value]) => ({ name, value })));
-      }
+      // By partner
+      const partnerMap: Record<string, number> = {};
+      shipmentsData.forEach((s: any) => {
+        const pName = (s.partners as any)?.name || "Inconnu";
+        partnerMap[pName] = (partnerMap[pName] || 0) + Number(s.total_weight);
+      });
+      setByPartner(Object.entries(partnerMap).map(([name, value]) => ({ name, value })));
+
+      // Cooperative stats: potential from producers, delivered from shipments (zone = cooperative)
+      const coopPotentialMap: Record<string, { potentiel: number; remaining: number }> = {};
+      producers.forEach((p: any) => {
+        const coop = p.cooperative || "Inconnu";
+        if (!coopPotentialMap[coop]) coopPotentialMap[coop] = { potentiel: 0, remaining: 0 };
+        coopPotentialMap[coop].potentiel += Number(p.delivery_potential);
+        coopPotentialMap[coop].remaining += Number(p.remaining_potential);
+      });
+
+      const coopDeliveredMap: Record<string, { delivered: number; count: number }> = {};
+      shipmentsData.forEach((s: any) => {
+        const coop = s.zone || "Inconnu";
+        if (!coopDeliveredMap[coop]) coopDeliveredMap[coop] = { delivered: 0, count: 0 };
+        coopDeliveredMap[coop].delivered += Number(s.total_weight);
+        coopDeliveredMap[coop].count += 1;
+      });
+
+      const allCoops = new Set([...Object.keys(coopPotentialMap), ...Object.keys(coopDeliveredMap)]);
+      const coopStatsArr: CoopStats[] = Array.from(allCoops).map((name) => ({
+        name,
+        potentiel: coopPotentialMap[name]?.potentiel || 0,
+        delivered: coopDeliveredMap[name]?.delivered || 0,
+        remaining: coopPotentialMap[name]?.remaining || 0,
+        shipmentCount: coopDeliveredMap[name]?.count || 0,
+      })).sort((a, b) => b.delivered - a.delivered);
+
+      setCoopStats(coopStatsArr);
     } catch (e) {
       console.error("Erreur chargement données:", e);
       toast.error("Erreur lors du chargement des données");
@@ -91,6 +125,10 @@ export default function Dashboard() {
       s.connaissement?.toLowerCase().includes(search.toLowerCase()) ||
       (s.partners as any)?.name?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const coopDetailShipments = coopDetailName
+    ? shipments.filter((s) => (s.zone || "Inconnu") === coopDetailName)
+    : [];
 
   return (
     <div className="p-6 space-y-6">
@@ -192,6 +230,49 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Potentiel par coopérative */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Potentiel par coopérative</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {coopStats.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Aucune donnée</p>
+          ) : (
+            <div className="max-h-[50vh] overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Coopérative</TableHead>
+                    <TableHead>Potentiel estimé (kg)</TableHead>
+                    <TableHead>Poids livré (kg)</TableHead>
+                    <TableHead>Potentiel restant (kg)</TableHead>
+                    <TableHead>Nb chargements</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {coopStats.map((c) => (
+                    <TableRow key={c.name}>
+                      <TableCell className="font-medium">{c.name}</TableCell>
+                      <TableCell>{c.potentiel.toLocaleString("fr-FR")}</TableCell>
+                      <TableCell>{c.delivered.toLocaleString("fr-FR")}</TableCell>
+                      <TableCell>{c.remaining.toLocaleString("fr-FR")}</TableCell>
+                      <TableCell>{c.shipmentCount}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" onClick={() => setCoopDetailName(c.name)} disabled={c.shipmentCount === 0}>
+                          <Eye className="h-4 w-4 mr-1" /> Détails
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Shipment History */}
       <Card>
         <CardHeader>
@@ -207,6 +288,7 @@ export default function Dashboard() {
                 <TableHead>Connaissement</TableHead>
                 <TableHead>Projet</TableHead>
                 <TableHead>Partenaire</TableHead>
+                <TableHead>Zone</TableHead>
                 <TableHead>Destination</TableHead>
                 <TableHead>Poids (kg)</TableHead>
                 <TableHead>Sacs</TableHead>
@@ -216,7 +298,7 @@ export default function Dashboard() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">Aucun chargement</TableCell>
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">Aucun chargement</TableCell>
                 </TableRow>
               ) : (
                 filtered.map((s) => (
@@ -224,6 +306,7 @@ export default function Dashboard() {
                     <TableCell className="font-medium">{s.connaissement || "—"}</TableCell>
                     <TableCell>{s.project}</TableCell>
                     <TableCell>{(s.partners as any)?.name || "—"}</TableCell>
+                    <TableCell>{s.zone || "—"}</TableCell>
                     <TableCell>{s.destination}</TableCell>
                     <TableCell>{Number(s.total_weight).toLocaleString("fr-FR")}</TableCell>
                     <TableCell>{s.total_bags}</TableCell>
@@ -239,6 +322,45 @@ export default function Dashboard() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Cooperative Detail Modal */}
+      <Dialog open={!!coopDetailName} onOpenChange={() => setCoopDetailName(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Chargements — {coopDetailName}</DialogTitle>
+          </DialogHeader>
+          {coopDetailShipments.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Aucun chargement</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Connaissement</TableHead>
+                  <TableHead>Projet</TableHead>
+                  <TableHead>Partenaire</TableHead>
+                  <TableHead>Destination</TableHead>
+                  <TableHead>Poids (kg)</TableHead>
+                  <TableHead>Sacs</TableHead>
+                  <TableHead>Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {coopDetailShipments.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="font-medium">{s.connaissement || "—"}</TableCell>
+                    <TableCell>{s.project}</TableCell>
+                    <TableCell>{(s.partners as any)?.name || "—"}</TableCell>
+                    <TableCell>{s.destination}</TableCell>
+                    <TableCell>{Number(s.total_weight).toLocaleString("fr-FR")}</TableCell>
+                    <TableCell>{s.total_bags}</TableCell>
+                    <TableCell>{new Date(s.created_at).toLocaleDateString("fr-FR")}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,13 +35,67 @@ export default function CreateShipment() {
   const [editWeight, setEditWeight] = useState("");
   const [editBags, setEditBags] = useState("");
 
+  const [cooperatives, setCooperatives] = useState<string[]>([]);
+  const [coopDelivered, setCoopDelivered] = useState<Record<string, number>>({});
+  const [coopPotential, setCoopPotential] = useState<Record<string, { potentiel: number; remaining: number }>>({});
+
   useEffect(() => {
     supabase.from("partners").select("*").order("name").then(({ data }) => setPartners(data || []));
+    loadCooperatives();
   }, []);
 
+  async function loadCooperatives() {
+    // Get distinct cooperatives from producers
+    let allProducers: any[] = [];
+    let from = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data } = await supabase.from("producers").select("cooperative, delivery_potential, remaining_potential").range(from, from + PAGE - 1);
+      if (!data || data.length === 0) break;
+      allProducers = allProducers.concat(data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    const coopSet = new Set<string>();
+    const potMap: Record<string, { potentiel: number; remaining: number }> = {};
+    allProducers.forEach((p) => {
+      if (p.cooperative) {
+        coopSet.add(p.cooperative);
+        if (!potMap[p.cooperative]) potMap[p.cooperative] = { potentiel: 0, remaining: 0 };
+        potMap[p.cooperative].potentiel += Number(p.delivery_potential);
+        potMap[p.cooperative].remaining += Number(p.remaining_potential);
+      }
+    });
+    setCooperatives(Array.from(coopSet).sort());
+    setCoopPotential(potMap);
+
+    // Get delivered by zone from active shipments
+    let allShipments: any[] = [];
+    from = 0;
+    while (true) {
+      const { data } = await supabase.from("shipments").select("zone, total_weight").eq("status", "active").range(from, from + PAGE - 1);
+      if (!data || data.length === 0) break;
+      allShipments = allShipments.concat(data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    const delMap: Record<string, number> = {};
+    allShipments.forEach((s) => {
+      if (s.zone) delMap[s.zone] = (delMap[s.zone] || 0) + Number(s.total_weight);
+    });
+    setCoopDelivered(delMap);
+  }
+
+  const selectedCoopStats = useMemo(() => {
+    if (!zone) return null;
+    const pot = coopPotential[zone] || { potentiel: 0, remaining: 0 };
+    const del = coopDelivered[zone] || 0;
+    return { potentiel: pot.potentiel, delivered: del, remaining: pot.remaining };
+  }, [zone, coopPotential, coopDelivered]);
+
   const handleCalculate = async () => {
-    if (!totalWeight || !totalBags || !startDate || !endDate || !project || !destination) {
-      toast({ title: "Champs requis manquants", description: "Veuillez remplir tous les champs obligatoires.", variant: "destructive" });
+    if (!totalWeight || !totalBags || !startDate || !endDate || !project || !destination || !zone) {
+      toast({ title: "Champs requis manquants", description: "Veuillez remplir tous les champs obligatoires, y compris la coopérative.", variant: "destructive" });
       return;
     }
 
@@ -317,9 +371,36 @@ export default function CreateShipment() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Zone</Label>
-                  <Input value={zone} onChange={(e) => setZone(e.target.value)} placeholder="Nom de la coopérative" />
+                  <Label>Coopérative *</Label>
+                  <Select value={zone} onValueChange={setZone}>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner une coopérative" /></SelectTrigger>
+                    <SelectContent>
+                      {cooperatives.map((c) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {selectedCoopStats && (
+                  <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">Stats coopérative — {zone}</p>
+                    <div className="grid grid-cols-3 gap-2 text-sm">
+                      <div>
+                        <p className="text-muted-foreground text-xs">Potentiel</p>
+                        <p className="font-semibold">{selectedCoopStats.potentiel.toLocaleString("fr-FR")} kg</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-xs">Livré</p>
+                        <p className="font-semibold">{selectedCoopStats.delivered.toLocaleString("fr-FR")} kg</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-xs">Restant</p>
+                        <p className="font-semibold">{selectedCoopStats.remaining.toLocaleString("fr-FR")} kg</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>Destination *</Label>
