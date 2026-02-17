@@ -18,10 +18,20 @@ export default function ExportPage() {
   useEffect(() => {
     // Load shipments & cooperatives
     supabase.from("shipments").select("id, connaissement, zone").eq("status", "active").order("created_at", { ascending: false }).then(({ data }) => setShipments(data || []));
-    supabase.from("producers").select("cooperative").then(({ data }) => {
-      const unique = [...new Set((data || []).map((p) => p.cooperative).filter(Boolean))].sort();
-      setCooperatives(unique);
-    });
+    // Fetch ALL cooperatives with pagination to avoid 1000-row limit
+    (async () => {
+      const allCoops: string[] = [];
+      let offset = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data } = await supabase.from("producers").select("cooperative").range(offset, offset + batchSize - 1);
+        if (!data || data.length === 0) break;
+        allCoops.push(...data.map((p) => p.cooperative).filter(Boolean));
+        if (data.length < batchSize) break;
+        offset += batchSize;
+      }
+      setCooperatives([...new Set(allCoops)].sort());
+    })();
   }, []);
 
   const exportByCooperative = async () => {
