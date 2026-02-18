@@ -93,12 +93,10 @@ export default function CreateShipment() {
 
   async function loadNextReceiptForCooperative(cooperativeId: string) {
     if (!cooperativeId) { setSuggestedReceipt(""); setReceiptNumber(""); return; }
-    // Get max receipt_number from deliveries linked to shipments with this cooperative_id
-    let maxNum = 0;
+    // Get all shipment IDs for this cooperative
+    let shipmentIds: string[] = [];
     let from = 0;
     const PAGE = 1000;
-    // Get shipment IDs for this cooperative_id
-    let shipmentIds: string[] = [];
     while (true) {
       const { data } = await supabase
         .from("shipments")
@@ -112,9 +110,11 @@ export default function CreateShipment() {
     }
     if (shipmentIds.length === 0) {
       setSuggestedReceipt("000001");
-      setReceiptNumber("000001");
+      setReceiptNumber("");
       return;
     }
+    // Find max receipt_number from deliveries linked to those shipments
+    let maxNum = 0;
     const CHUNK = 500;
     for (let i = 0; i < shipmentIds.length; i += CHUNK) {
       const chunk = shipmentIds.slice(i, i + CHUNK);
@@ -136,7 +136,7 @@ export default function CreateShipment() {
     }
     const next = String(maxNum + 1).padStart(6, "0");
     setSuggestedReceipt(next);
-    setReceiptNumber(next);
+    setReceiptNumber("");
   }
 
   const handleZoneChange = (coopId: string) => {
