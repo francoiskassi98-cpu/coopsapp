@@ -38,7 +38,8 @@ export default function CreateShipment() {
   const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
   const [coopDelivered, setCoopDelivered] = useState<Record<string, number>>({});
   const [coopPotential, setCoopPotential] = useState<Record<string, { potentiel: number; remaining: number }>>({});
-  const [nextReceiptNumber, setNextReceiptNumber] = useState<string>("");
+  const [suggestedReceipt, setSuggestedReceipt] = useState<string>("");
+  const [receiptNumber, setReceiptNumber] = useState<string>("");
   const [selectedCoopId, setSelectedCoopId] = useState<string>("");
 
   useEffect(() => {
@@ -91,7 +92,7 @@ export default function CreateShipment() {
   }
 
   async function loadNextReceiptForCooperative(cooperativeId: string) {
-    if (!cooperativeId) { setNextReceiptNumber(""); return; }
+    if (!cooperativeId) { setSuggestedReceipt(""); setReceiptNumber(""); return; }
     // Get max receipt_number from deliveries linked to shipments with this cooperative_id
     let maxNum = 0;
     let from = 0;
@@ -110,7 +111,8 @@ export default function CreateShipment() {
       from += PAGE;
     }
     if (shipmentIds.length === 0) {
-      setNextReceiptNumber("000001");
+      setSuggestedReceipt("000001");
+      setReceiptNumber("000001");
       return;
     }
     const CHUNK = 500;
@@ -132,7 +134,9 @@ export default function CreateShipment() {
         dFrom += PAGE;
       }
     }
-    setNextReceiptNumber(String(maxNum + 1).padStart(6, "0"));
+    const next = String(maxNum + 1).padStart(6, "0");
+    setSuggestedReceipt(next);
+    setReceiptNumber(next);
   }
 
   const handleZoneChange = (coopId: string) => {
@@ -187,7 +191,8 @@ export default function CreateShipment() {
       return;
     }
 
-    const lastNum = nextReceiptNumber ? parseInt(nextReceiptNumber, 10) - 1 : 0;
+    const effectiveReceipt = receiptNumber.trim() || suggestedReceipt;
+    const lastNum = effectiveReceipt ? parseInt(effectiveReceipt, 10) - 1 : 0;
 
     const results = distributeShipment(
       producers.map((p) => ({ ...p, remaining_potential: Number(p.remaining_potential) })),
@@ -455,15 +460,16 @@ export default function CreateShipment() {
                   </Select>
                 </div>
 
-                {nextReceiptNumber && (
+                {suggestedReceipt && (
                   <div className="space-y-2">
                     <Label>Prochain N° Reçu</Label>
                     <Input
-                      value={nextReceiptNumber}
+                      value={receiptNumber}
                       onChange={(e) => {
                         const val = e.target.value.replace(/\D/g, "");
-                        setNextReceiptNumber(val.padStart(6, "0").slice(-6));
+                        setReceiptNumber(val);
                       }}
+                      placeholder={suggestedReceipt}
                       className="font-mono"
                       maxLength={6}
                     />
