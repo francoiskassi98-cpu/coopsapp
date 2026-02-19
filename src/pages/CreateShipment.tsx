@@ -14,6 +14,7 @@ import { exportToExcel } from "@/lib/excel-utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ImportShipments from "@/pages/ImportShipments";
 import ShipmentDetails from "@/components/ShipmentDetails";
+import ShipmentHistory from "@/components/ShipmentHistory";
 
 export default function CreateShipment() {
   const [totalWeight, setTotalWeight] = useState("");
@@ -368,6 +369,7 @@ export default function CreateShipment() {
       <Tabs defaultValue="create">
         <TabsList>
           <TabsTrigger value="create">Créer un chargement</TabsTrigger>
+          <TabsTrigger value="history">Historique</TabsTrigger>
           <TabsTrigger value="details">Détail des chargements</TabsTrigger>
           <TabsTrigger value="import">Importer les anciens chargements</TabsTrigger>
         </TabsList>
@@ -612,6 +614,10 @@ export default function CreateShipment() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="history">
+          <ShipmentHistory />
         </TabsContent>
 
         <TabsContent value="details">

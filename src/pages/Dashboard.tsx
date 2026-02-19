@@ -7,7 +7,7 @@ import { isCampaignStart, getCurrentCampaign } from "@/lib/shipment-utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
+
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -26,7 +26,7 @@ export default function Dashboard() {
   const [byProject, setByProject] = useState<{ name: string; value: number }[]>([]);
   const [byPartner, setByPartner] = useState<{ name: string; value: number }[]>([]);
   const [shipments, setShipments] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
+  
   const [showCampaignAlert, setShowCampaignAlert] = useState(false);
   const [loading, setLoading] = useState(false);
   const [coopStats, setCoopStats] = useState<CoopStats[]>([]);
@@ -119,12 +119,6 @@ export default function Dashboard() {
     }
   }
 
-  const filtered = shipments.filter(
-    (s) =>
-      !search ||
-      s.connaissement?.toLowerCase().includes(search.toLowerCase()) ||
-      (s.partners as any)?.name?.toLowerCase().includes(search.toLowerCase())
-  );
 
   const coopDetailShipments = coopDetailName
     ? shipments.filter((s) => ((s.cooperatives as any)?.name || s.zone || "Inconnu") === coopDetailName)
@@ -282,56 +276,6 @@ export default function Dashboard() {
               </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Shipment History */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Historique des chargements</CardTitle>
-            <Input placeholder="Rechercher..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-64" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Connaissement</TableHead>
-                <TableHead>Projet</TableHead>
-                <TableHead>Partenaire</TableHead>
-                <TableHead>Coopérative</TableHead>
-                <TableHead>Destination</TableHead>
-                <TableHead>Poids (kg)</TableHead>
-                <TableHead>Sacs</TableHead>
-                <TableHead>Statut</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">Aucun chargement</TableCell>
-                </TableRow>
-              ) : (
-                filtered.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-medium">{s.connaissement || "—"}</TableCell>
-                    <TableCell>{s.project}</TableCell>
-                    <TableCell>{(s.partners as any)?.name || "—"}</TableCell>
-                    <TableCell>{(s.cooperatives as any)?.name || s.zone || "—"}</TableCell>
-                    <TableCell>{s.destination}</TableCell>
-                    <TableCell>{Number(s.total_weight).toLocaleString("fr-FR")}</TableCell>
-                    <TableCell>{s.total_bags}</TableCell>
-                    <TableCell>
-                      <Badge variant={s.status === "active" ? "default" : "destructive"}>
-                        {s.status === "active" ? "Actif" : "Annulé"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
         </CardContent>
       </Card>
 
