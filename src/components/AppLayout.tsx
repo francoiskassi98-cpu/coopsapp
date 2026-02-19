@@ -38,6 +38,18 @@ export default function AppLayout() {
             </NavLink>
           ))}
         </nav>
+        <div className="mt-auto border-t border-sidebar-border p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-sidebar-foreground/50">Campagne active</span>
+            <span className="text-xs font-semibold text-sidebar-primary">2025-2026</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-bold text-sidebar-primary shrink-0">
+              KN
+            </div>
+            <div className="text-sm text-sidebar-foreground/80">Mon compte</div>
+          </div>
+        </div>
       </aside>
       <main className="flex-1 overflow-auto">
         <Outlet />
