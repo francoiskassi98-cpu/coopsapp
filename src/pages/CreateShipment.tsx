@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { distributeShipment, getCurrentCampaign, type DistributionResult } from "@/lib/shipment-utils";
 import { toast } from "@/hooks/use-toast";
 import { Truck, Plus, Download, Pencil, Check, X } from "lucide-react";
-import * as XLSX from "xlsx";
+import { exportToExcel } from "@/lib/excel-utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ImportShipments from "@/pages/ImportShipments";
 import ShipmentDetails from "@/components/ShipmentDetails";
@@ -336,7 +336,7 @@ export default function CreateShipment() {
     setEditingIndex(null);
   };
 
-  const handleDownloadPreview = () => {
+  const handleDownloadPreview = async () => {
     const partnerName = partners.find((p) => p.id === partnerId)?.name || "";
     const rows = preview.map((d, i) => ({
       "N°": i + 1,
@@ -352,15 +352,11 @@ export default function CreateShipment() {
       "Nombre de sacs": d.num_bags,
       "Date de livraison": d.delivery_date,
     }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [{ wch: 6 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Chargement");
     const parts = ["Chargement"];
     if (connaissement) parts.push(connaissement);
     if (zone) parts.push(zone);
     const fileName = `${parts.join("-")}.xlsx`;
-    XLSX.writeFile(wb, fileName);
+    await exportToExcel(rows, fileName, "Chargement");
   };
 
   return (

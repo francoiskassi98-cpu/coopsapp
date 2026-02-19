@@ -158,7 +158,7 @@ export default function Producers() {
   }
 
   // --- Export existing data ---
-  function handleExportProducers(cooperative?: string) {
+  async function handleExportProducers(cooperative?: string) {
     let data = producers;
     if (cooperative && cooperative !== "all") {
       data = producers.filter((p) => p.cooperative === cooperative);
@@ -185,7 +185,7 @@ export default function Producers() {
       "Longitude": p.longitude || 0,
     }));
     const suffix = cooperative && cooperative !== "all" ? `-${cooperative}` : "";
-    exportToExcel(rows, `Registre-Producteurs${suffix}.xlsx`, "Producteurs");
+    await exportToExcel(rows, `Registre-Producteurs${suffix}.xlsx`, "Producteurs");
     toast({ title: "Export réussi" });
   }
 
@@ -202,7 +202,7 @@ export default function Producers() {
     setImportFile(f);
     setImportDone(false);
     const buffer = await f.arrayBuffer();
-    const { rows, errors } = parseExcelFile(buffer);
+    const { rows, errors } = await parseExcelFile(buffer);
     setParsedRows(rows);
     setImportErrors(errors);
   }, []);

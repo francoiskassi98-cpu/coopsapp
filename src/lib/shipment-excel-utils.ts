@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 export interface ShipmentImportRow {
   connaissement: string;
@@ -84,11 +84,11 @@ SHIPMENT_COLUMN_MAP["numero recu"] = "numero_recu";
 
 function parseExcelDate(value: any): string {
   if (!value) return "";
-  if (typeof value === "number") {
-    const date = XLSX.SSF.parse_date_code(value);
-    if (date) {
-      return `${date.y}-${String(date.m).padStart(2, "0")}-${String(date.d).padStart(2, "0")}`;
-    }
+  if (value instanceof Date) {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, "0");
+    const d = String(value.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
   }
   const str = String(value).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
@@ -97,10 +97,40 @@ function parseExcelDate(value: any): string {
   return str;
 }
 
-export function parseShipmentExcel(data: ArrayBuffer): { rows: ShipmentImportRow[]; errors: ShipmentImportError[] } {
-  const workbook = XLSX.read(data, { type: "array" });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet);
+function sheetToJson(worksheet: ExcelJS.Worksheet): Record<string, any>[] {
+  const rows: Record<string, any>[] = [];
+  const headerRow = worksheet.getRow(1);
+  const headers: string[] = [];
+  headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    headers[colNumber] = cell.text?.toString() || "";
+  });
+
+  worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber === 1) return;
+    const obj: Record<string, any> = {};
+    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      const key = headers[colNumber];
+      if (key) {
+        // ExcelJS returns Date objects for date cells
+        obj[key] = cell.value instanceof Date ? cell.value : cell.value;
+      }
+    });
+    if (Object.keys(obj).length > 0) rows.push(obj);
+  });
+
+  return rows;
+}
+
+export async function parseShipmentExcel(data: ArrayBuffer): Promise<{ rows: ShipmentImportRow[]; errors: ShipmentImportError[] }> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(data);
+  const sheet = workbook.worksheets[0];
+
+  if (!sheet) {
+    return { rows: [], errors: [{ row: 0, message: "Le fichier est vide." }] };
+  }
+
+  const rawRows = sheetToJson(sheet);
 
   if (rawRows.length === 0) {
     return { rows: [], errors: [{ row: 0, message: "Le fichier est vide." }] };
@@ -185,13 +215,21 @@ export function parseShipmentExcel(data: ArrayBuffer): { rows: ShipmentImportRow
   return { rows, errors };
 }
 
-export function downloadShipmentTemplate() {
+export async function downloadShipmentTemplate() {
   const headers = SHIPMENT_TEMPLATE_COLUMNS.map((c) => c.header);
-  const ws = XLSX.utils.aoa_to_sheet([headers]);
-  ws["!cols"] = headers.map((h) => ({ wch: Math.max(h.length + 2, 18) }));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Chargements");
-  XLSX.writeFile(wb, "Knf-Modèle-Import-Chargements.xlsx");
+  const workbook = new ExcelJS.Workbook();
+  const ws = workbook.addWorksheet("Chargements");
+
+  ws.columns = headers.map((h) => ({ header: h, width: Math.max(h.length + 2, 18) }));
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "Knf-Modèle-Import-Chargements.xlsx";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /** Group rows by shipment (using connaissement + projet + destination as key) */
