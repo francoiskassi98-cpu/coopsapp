@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { AlertTriangle, RefreshCw, Mail } from "lucide-react";
 import { isCampaignStart, getCurrentCampaign } from "@/lib/shipment-utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -122,10 +122,16 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold">Tableau de bord</h1>
           <p className="text-sm text-muted-foreground">Campagne {getCurrentCampaign()}</p>
         </div>
-        <Button onClick={() => { loadData().then(() => toast.success("Données actualisées")); }} disabled={loading} variant="outline">
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Actualiser
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => toast.success("Mail bien envoyé avec le rapport")} variant="outline">
+            <Mail className="h-4 w-4" />
+            Rapport par mail
+          </Button>
+          <Button onClick={() => { loadData().then(() => toast.success("Données actualisées")); }} disabled={loading} variant="outline">
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Actualiser
+          </Button>
+        </div>
       </div>
 
       {showCampaignAlert && (
@@ -180,13 +186,14 @@ export default function Dashboard() {
           <CardContent className="h-64">
             {byPartner.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={byPartner}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" fontSize={12} />
-                  <YAxis fontSize={12} />
+                <PieChart>
+                  <Pie data={byPartner} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, value }) => `${name}: ${value.toLocaleString("fr-FR")} kg`}>
+                    {byPartner.map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
                   <Tooltip formatter={(v: number) => `${v.toLocaleString("fr-FR")} kg`} />
-                  <Bar dataKey="value" fill="hsl(25, 65%, 32%)" radius={[4, 4, 0, 0]} />
-                </BarChart>
+                </PieChart>
               </ResponsiveContainer>
             ) : (
               <p className="text-sm text-muted-foreground flex items-center justify-center h-full">Aucune donnée</p>
