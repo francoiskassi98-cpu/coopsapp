@@ -297,7 +297,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      export_all_deliveries: {
+        Args: never
+        Returns: {
+          created_at: string
+          delivery_date: string
+          id: string
+          net_weight: number
+          num_bags: number
+          producer_id: string
+          receipt_number: string
+          shipment_id: string
+        }[]
+      }
+      export_all_producers: {
+        Args: never
+        Returns: {
+          cooperative: string
+          delivery_potential: number
+          full_name: string
+          id: string
+          is_active: boolean
+          plantation_code: string
+          remaining_potential: number
+          section: string
+          sexe: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

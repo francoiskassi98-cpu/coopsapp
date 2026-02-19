@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToExcel } from "@/lib/excel-utils";
+import { fetchAllRows } from "@/lib/database-utils";
 import { toast } from "@/hooks/use-toast";
 import { FileSpreadsheet, Download, Users, Ship, MapPin, Loader2 } from "lucide-react";
 
@@ -35,14 +36,15 @@ export default function ExportPage() {
       const rows = (deliveries || []).map((d) => {
         const s = shipmentMap[d.shipment_id] || {};
         return {
+          "N°": "",
           "Connaissement": (s as any)?.connaissement || "",
-          "Nom complet": (d.producers as any)?.full_name || "",
           "N° Reçu": d.receipt_number,
-          "Section": (d.producers as any)?.section || "",
+          "Nom complet": (d.producers as any)?.full_name || "",
           "Code plantation": (d.producers as any)?.plantation_code || "",
-          "Date livraison": d.delivery_date,
+          "Section": (d.producers as any)?.section || "",
           "Poids net (kg)": d.net_weight,
           "Nombre de sacs": d.num_bags,
+          "Date livraison": d.delivery_date,
           "Projet": (s as any)?.project || "",
           "Partenaire": (s as any)?.partners?.name || "",
           "Zone": (s as any)?.cooperatives?.name || (s as any)?.zone || "",
@@ -76,14 +78,15 @@ export default function ExportPage() {
       if (!deliveries || deliveries.length === 0) { toast({ title: "Aucune donnée à exporter", variant: "destructive" }); setLoading(null); return; }
 
       const rows = deliveries.map((d) => ({
+        "N°": "",
         "Connaissement": (d.shipments as any)?.connaissement || "",
-        "Nom complet": (d.producers as any)?.full_name || "",
         "N° Reçu": d.receipt_number,
-        "Section": (d.producers as any)?.section || "",
+        "Nom complet": (d.producers as any)?.full_name || "",
         "Code plantation": (d.producers as any)?.plantation_code || "",
-        "Date livraison": d.delivery_date,
+        "Section": (d.producers as any)?.section || "",
         "Poids net (kg)": d.net_weight,
         "Nombre de sacs": d.num_bags,
+        "Date livraison": d.delivery_date,
         "Projet": (d.shipments as any)?.project || "",
         "Partenaire": (d.shipments as any)?.partners?.name || "",
         "Zone": (d.shipments as any)?.cooperatives?.name || (d.shipments as any)?.zone || "",
