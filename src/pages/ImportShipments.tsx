@@ -60,7 +60,7 @@ export default function ImportShipments() {
     
 
     const buffer = await file.arrayBuffer();
-    const result = parseShipmentExcel(buffer);
+    const result = await parseShipmentExcel(buffer);
     setRows(result.rows);
     setErrors(result.errors);
 

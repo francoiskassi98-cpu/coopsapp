@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 export interface ProducerRow {
   cooperative: string;
@@ -49,10 +49,38 @@ for (const col of TEMPLATE_COLUMNS) {
   COLUMN_MAP[normalizeHeader(col.header)] = col.field;
 }
 
-export function parseExcelFile(data: ArrayBuffer): { rows: ProducerRow[]; errors: ImportError[] } {
-  const workbook = XLSX.read(data, { type: "array" });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet);
+function sheetToJson(worksheet: ExcelJS.Worksheet): Record<string, any>[] {
+  const rows: Record<string, any>[] = [];
+  const headerRow = worksheet.getRow(1);
+  const headers: string[] = [];
+  headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    headers[colNumber] = cell.text?.toString() || "";
+  });
+
+  worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber === 1) return;
+    const obj: Record<string, any> = {};
+    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      const key = headers[colNumber];
+      if (key) obj[key] = cell.value;
+    });
+    if (Object.keys(obj).length > 0) rows.push(obj);
+  });
+
+  return rows;
+}
+
+export function parseExcelFile(data: ArrayBuffer): Promise<{ rows: ProducerRow[]; errors: ImportError[] }>;
+export async function parseExcelFile(data: ArrayBuffer) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(data);
+  const sheet = workbook.worksheets[0];
+
+  if (!sheet) {
+    return { rows: [], errors: [{ row: 0, message: "Le fichier est vide." }] };
+  }
+
+  const rawRows = sheetToJson(sheet);
 
   if (rawRows.length === 0) {
     return { rows: [], errors: [{ row: 0, message: "Le fichier est vide." }] };
@@ -128,25 +156,45 @@ export function parseExcelFile(data: ArrayBuffer): { rows: ProducerRow[]; errors
   return { rows, errors };
 }
 
-export function exportToExcel(
+export async function exportToExcel(
   data: Record<string, any>[],
   filename: string,
   sheetName = "Données"
 ) {
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  XLSX.writeFile(wb, filename);
+  const workbook = new ExcelJS.Workbook();
+  const ws = workbook.addWorksheet(sheetName);
+
+  if (data.length > 0) {
+    const keys = Object.keys(data[0]);
+    ws.columns = keys.map((key) => ({ header: key, key, width: Math.max(key.length + 2, 18) }));
+    for (const row of data) {
+      ws.addRow(row);
+    }
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
-export function downloadImportTemplate() {
+export async function downloadImportTemplate() {
   const headers = TEMPLATE_COLUMNS.map((c) => c.header);
-  const ws = XLSX.utils.aoa_to_sheet([headers]);
+  const workbook = new ExcelJS.Workbook();
+  const ws = workbook.addWorksheet("Registre");
 
-  // Set column widths
-  ws["!cols"] = headers.map((h) => ({ wch: Math.max(h.length + 2, 18) }));
+  ws.columns = headers.map((h) => ({ header: h, width: Math.max(h.length + 2, 18) }));
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Registre");
-  XLSX.writeFile(wb, "Knf-Modèle-COOPS APP.xlsx");
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "Knf-Modèle-COOPS APP.xlsx";
+  a.click();
+  URL.revokeObjectURL(url);
 }

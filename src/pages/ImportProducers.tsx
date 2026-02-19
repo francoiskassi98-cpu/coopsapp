@@ -19,7 +19,7 @@ export default function ImportProducers() {
     setFile(f);
     setImported(false);
     const buffer = await f.arrayBuffer();
-    const { rows, errors } = parseExcelFile(buffer);
+    const { rows, errors } = await parseExcelFile(buffer);
     setParsedRows(rows);
     setErrors(errors);
   }, []);

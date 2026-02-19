@@ -55,7 +55,7 @@ export default function ExportPage() {
 
       if (rows.length === 0) { toast({ title: "Aucune livraison trouvée", variant: "destructive" }); setLoading(null); return; }
       const coopName = cooperatives.find(c => c.id === selectedCoop)?.name || selectedCoop;
-      exportToExcel(rows, `Chargements-${coopName}.xlsx`, "Chargement");
+      await exportToExcel(rows, `Chargements-${coopName}.xlsx`, "Chargement");
       toast({ title: "Export réussi" });
     } catch (err: any) { toast({ title: "Erreur", description: err.message, variant: "destructive" }); }
     setLoading(null);
@@ -95,7 +95,7 @@ export default function ExportPage() {
       }));
 
       const filename = mode === "connaissement" ? `Chargement-${selectedConnaissement}.xlsx` : "Knf-Modèle-FA.xlsx";
-      exportToExcel(rows, filename, "Chargement");
+      await exportToExcel(rows, filename, "Chargement");
       toast({ title: "Export réussi" });
     } catch (err: any) { toast({ title: "Erreur", description: err.message, variant: "destructive" }); }
     setLoading(null);
@@ -116,7 +116,7 @@ export default function ExportPage() {
         "Potentiel restant (kg)": p.remaining_potential,
       }));
 
-      exportToExcel(rows, "Potentiel-Restant-Par-Zone.xlsx", "Potentiel");
+      await exportToExcel(rows, "Potentiel-Restant-Par-Zone.xlsx", "Potentiel");
       toast({ title: "Export réussi" });
     } catch (err: any) { toast({ title: "Erreur", description: err.message, variant: "destructive" }); }
     setLoading(null);
