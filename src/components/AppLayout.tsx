@@ -16,8 +16,9 @@ export default function AppLayout() {
   const { user, signOut } = useAuth();
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
+    <div className="flex h-screen w-full overflow-hidden">
+      {/* Sidebar fixe */}
+      <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col shrink-0">
         <div className="p-5 border-b border-sidebar-border">
           <h1 className="text-lg font-bold text-sidebar-primary">🍫 COOPS APP</h1>
           <p className="text-xs text-sidebar-foreground/60 mt-1">Gestion des chargements</p>
@@ -66,9 +67,13 @@ export default function AppLayout() {
           </div>
         </div>
       </aside>
-      <main className="flex-1 overflow-auto">
-        <Outlet />
-      </main>
+
+      {/* Contenu principal */}
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <main className="flex-1 overflow-y-auto bg-muted/30">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
