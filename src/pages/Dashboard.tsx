@@ -2,31 +2,24 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Package, TrendingUp, Leaf, AlertTriangle, RefreshCw, Eye } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import { isCampaignStart, getCurrentCampaign } from "@/lib/shipment-utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import KpiCards from "@/components/dashboard/KpiCards";
+import CoopPerformance from "@/components/dashboard/CoopPerformance";
+import CoopTable from "@/components/dashboard/CoopTable";
+import type { CoopStats } from "@/components/dashboard/CoopPerformance";
 
 const PIE_COLORS = ["hsl(25, 65%, 32%)", "hsl(140, 35%, 40%)", "hsl(35, 70%, 55%)", "hsl(200, 50%, 50%)", "hsl(280, 40%, 50%)", "hsl(0, 50%, 50%)", "hsl(60, 50%, 45%)"];
 
-type CoopStats = {
-  name: string;
-  potentiel: number;
-  delivered: number;
-  remaining: number;
-  shipmentCount: number;
-};
-
 export default function Dashboard() {
-  const [stats, setStats] = useState({ totalPotential: 0, totalDelivered: 0, remaining: 0 });
+  const [stats, setStats] = useState({ totalPotential: 0, totalDelivered: 0, remaining: 0, shipmentCount: 0 });
   const [byProject, setByProject] = useState<{ name: string; value: number }[]>([]);
   const [byPartner, setByPartner] = useState<{ name: string; value: number }[]>([]);
   const [shipments, setShipments] = useState<any[]>([]);
-  
   const [showCampaignAlert, setShowCampaignAlert] = useState(false);
   const [loading, setLoading] = useState(false);
   const [coopStats, setCoopStats] = useState<CoopStats[]>([]);
@@ -65,8 +58,7 @@ export default function Dashboard() {
       );
 
       const totalDelivered = shipmentsData.reduce((s: number, sh: any) => s + Number(sh.total_weight), 0);
-      setStats({ totalPotential, totalDelivered, remaining });
-
+      setStats({ totalPotential, totalDelivered, remaining, shipmentCount: shipmentsData.length });
       setShipments(shipmentsData);
 
       // By project
@@ -84,7 +76,7 @@ export default function Dashboard() {
       });
       setByPartner(Object.entries(partnerMap).map(([name, value]) => ({ name, value })));
 
-      // Cooperative stats: potential from producers, delivered from shipments via cooperative_id
+      // Cooperative stats
       const coopPotentialMap: Record<string, { potentiel: number; remaining: number }> = {};
       producers.forEach((p: any) => {
         const coop = p.cooperative || "Inconnu";
@@ -119,7 +111,6 @@ export default function Dashboard() {
     }
   }
 
-
   const coopDetailShipments = coopDetailName
     ? shipments.filter((s) => ((s.cooperatives as any)?.name || s.zone || "Inconnu") === coopDetailName)
     : [];
@@ -148,36 +139,16 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Potentiel total estimé</CardTitle>
-            <Leaf className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalPotential.toLocaleString("fr-FR")} kg</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Poids total livré</CardTitle>
-            <Package className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalDelivered.toLocaleString("fr-FR")} kg</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Potentiel restant</CardTitle>
-            <TrendingUp className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.remaining.toLocaleString("fr-FR")} kg</div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* KPI Cards - 5 indicators */}
+      <KpiCards
+        totalPotential={stats.totalPotential}
+        totalDelivered={stats.totalDelivered}
+        remaining={stats.remaining}
+        shipmentCount={stats.shipmentCount}
+      />
+
+      {/* Performance & Alerts */}
+      <CoopPerformance coopStats={coopStats} />
 
       {/* Charts */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -224,60 +195,13 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Potentiel par coopérative */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Potentiel par coopérative</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {coopStats.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Aucune donnée</p>
-          ) : (
-            <div className="max-h-[50vh] overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Coopérative</TableHead>
-                    <TableHead>Potentiel estimé (kg)</TableHead>
-                    <TableHead>Poids livré (kg)</TableHead>
-                    <TableHead>% Livraison</TableHead>
-                    <TableHead>Potentiel restant (kg)</TableHead>
-                    <TableHead>Nb chargements</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {coopStats.map((c) => {
-                    const pct = c.potentiel > 0 ? (c.delivered / c.potentiel) * 100 : 0;
-                    return (
-                    <TableRow key={c.name}>
-                      <TableCell className="font-medium">{c.name}</TableCell>
-                      <TableCell>{c.potentiel.toLocaleString("fr-FR")}</TableCell>
-                      <TableCell>{c.delivered.toLocaleString("fr-FR")}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="w-20 h-2 rounded-full bg-muted overflow-hidden">
-                            <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(pct, 100)}%` }} />
-                          </div>
-                          <span className="text-xs font-medium">{pct.toFixed(1)}%</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{c.remaining.toLocaleString("fr-FR")}</TableCell>
-                      <TableCell>{c.shipmentCount}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="sm" onClick={() => setCoopDetailName(c.name)} disabled={c.shipmentCount === 0}>
-                          <Eye className="h-4 w-4 mr-1" /> Détails
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Cooperative detail table */}
+      <CoopTable
+        coopStats={coopStats}
+        totalDelivered={stats.totalDelivered}
+        totalRemaining={stats.remaining}
+        onViewDetail={setCoopDetailName}
+      />
 
       {/* Cooperative Detail Modal */}
       <Dialog open={!!coopDetailName} onOpenChange={() => setCoopDetailName(null)}>
