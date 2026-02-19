@@ -223,6 +223,33 @@ export type Database = {
         }
         Relationships: []
       }
+      rapports_envoyes: {
+        Row: {
+          date_envoi: string
+          destinataires: string[]
+          donnees_rapport: Json | null
+          id: string
+          message_erreur: string | null
+          statut: string
+        }
+        Insert: {
+          date_envoi?: string
+          destinataires: string[]
+          donnees_rapport?: Json | null
+          id?: string
+          message_erreur?: string | null
+          statut?: string
+        }
+        Update: {
+          date_envoi?: string
+          destinataires?: string[]
+          donnees_rapport?: Json | null
+          id?: string
+          message_erreur?: string | null
+          statut?: string
+        }
+        Relationships: []
+      }
       shipments: {
         Row: {
           avg_bag_weight: number
