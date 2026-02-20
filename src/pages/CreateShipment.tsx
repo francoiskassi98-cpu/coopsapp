@@ -95,74 +95,22 @@ export default function CreateShipment() {
   async function loadNextReceiptForCooperative(cooperativeId: string) {
     if (!cooperativeId) { setSuggestedReceipt(""); setReceiptNumber(""); return; }
 
-    // Fetch the maximum receipt_number from deliveries joined via shipments,
-    // filtered by cooperative_id — using a single efficient query via RPC-style
-    // approach: get all shipment IDs then find max receipt in one ordered query.
-    //
-    // Strategy: get shipments for the coop, then find the single highest
-    // receipt_number from deliveries linked to those shipments.
-    // We use ORDER BY receipt_number::bigint DESC LIMIT 1 logic via JS:
-    // fetch deliveries ordered desc, take first valid numeric value.
+    // Appel RPC : MAX(receipt_number::bigint) filtré par cooperative_id
+    // La fonction SQL fait le JOIN shipments→deliveries côté serveur en une seule requête.
+    const { data, error } = await (supabase as any).rpc("get_max_receipt_number", {
+      p_cooperative_id: cooperativeId,
+    });
 
-    // Step 1: get all shipment IDs for this cooperative (paginated)
-    let shipmentIds: string[] = [];
-    let from = 0;
-    const PAGE = 1000;
-    while (true) {
-      const { data } = await supabase
-        .from("shipments")
-        .select("id")
-        .eq("cooperative_id", cooperativeId)
-        .range(from, from + PAGE - 1);
-      if (!data || data.length === 0) break;
-      shipmentIds.push(...data.map((s: any) => s.id));
-      if (data.length < PAGE) break;
-      from += PAGE;
-    }
-
-    if (shipmentIds.length === 0) {
+    if (error) {
+      console.error("Erreur get_max_receipt_number:", error);
       setSuggestedReceipt("000001");
       setReceiptNumber("");
       return;
     }
 
-    // Step 2: Find the maximum receipt_number (numeric) from deliveries.
-    // Fetch in chunks of 100 IDs, but only the first page ordered DESC —
-    // we only need the top value per chunk to find the global max.
-    let maxNum = 0;
-    const CHUNK = 100;
-    const chunkPromises: Promise<void>[] = [];
-
-    for (let i = 0; i < shipmentIds.length; i += CHUNK) {
-      const chunk = shipmentIds.slice(i, i + CHUNK);
-      chunkPromises.push(
-        (async () => {
-          // Fetch all deliveries for this chunk to ensure we find the true max
-          let dFrom = 0;
-          const DPAGE = 1000;
-          while (true) {
-            const { data } = await supabase
-              .from("deliveries")
-              .select("receipt_number")
-              .in("shipment_id", chunk)
-              .range(dFrom, dFrom + DPAGE - 1);
-            if (!data || data.length === 0) break;
-            for (const d of data) {
-              // Strip any non-numeric characters before parsing
-              const cleaned = String(d.receipt_number || "").replace(/\D/g, "");
-              const n = parseInt(cleaned, 10);
-              if (!isNaN(n) && n > maxNum) maxNum = n;
-            }
-            if (data.length < DPAGE) break;
-            dFrom += DPAGE;
-          }
-        })()
-      );
-    }
-
-    await Promise.all(chunkPromises);
-
-    const next = String(maxNum + 1).padStart(6, "0");
+    // data est la valeur texte du receipt_number max, ou null si aucune livraison
+    const maxNum = data ? parseInt(String(data).replace(/\D/g, ""), 10) : 0;
+    const next = String((isNaN(maxNum) ? 0 : maxNum) + 1).padStart(6, "0");
     setSuggestedReceipt(next);
     setReceiptNumber("");
   }
