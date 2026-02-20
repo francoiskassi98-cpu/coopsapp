@@ -95,7 +95,16 @@ export default function CreateShipment() {
   async function loadNextReceiptForCooperative(cooperativeId: string) {
     if (!cooperativeId) { setSuggestedReceipt(""); setReceiptNumber(""); return; }
 
-    // Step 1: Get all shipment IDs for this cooperative
+    // Fetch the maximum receipt_number from deliveries joined via shipments,
+    // filtered by cooperative_id — using a single efficient query via RPC-style
+    // approach: get all shipment IDs then find max receipt in one ordered query.
+    //
+    // Strategy: get shipments for the coop, then find the single highest
+    // receipt_number from deliveries linked to those shipments.
+    // We use ORDER BY receipt_number::bigint DESC LIMIT 1 logic via JS:
+    // fetch deliveries ordered desc, take first valid numeric value.
+
+    // Step 1: get all shipment IDs for this cooperative (paginated)
     let shipmentIds: string[] = [];
     let from = 0;
     const PAGE = 1000;
@@ -117,31 +126,41 @@ export default function CreateShipment() {
       return;
     }
 
-    // Step 2: Find the maximum receipt_number (numeric) across all deliveries of this cooperative
-    // We cast receipt_number to integer for correct numeric comparison
+    // Step 2: Find the maximum receipt_number (numeric) from deliveries.
+    // Fetch in chunks of 100 IDs, but only the first page ordered DESC —
+    // we only need the top value per chunk to find the global max.
     let maxNum = 0;
-    const CHUNK = 200; // smaller chunk to avoid URL length limits with .in()
+    const CHUNK = 100;
+    const chunkPromises: Promise<void>[] = [];
+
     for (let i = 0; i < shipmentIds.length; i += CHUNK) {
       const chunk = shipmentIds.slice(i, i + CHUNK);
-      let dFrom = 0;
-      while (true) {
-        const { data } = await supabase
-          .from("deliveries")
-          .select("receipt_number")
-          .in("shipment_id", chunk)
-          .order("receipt_number", { ascending: false })
-          .range(dFrom, dFrom + PAGE - 1);
-        if (!data || data.length === 0) break;
-        for (const d of data) {
-          // Strip any non-numeric characters before parsing
-          const cleaned = String(d.receipt_number || "").replace(/\D/g, "");
-          const n = parseInt(cleaned, 10);
-          if (!isNaN(n) && n > maxNum) maxNum = n;
-        }
-        if (data.length < PAGE) break;
-        dFrom += PAGE;
-      }
+      chunkPromises.push(
+        (async () => {
+          // Fetch all deliveries for this chunk to ensure we find the true max
+          let dFrom = 0;
+          const DPAGE = 1000;
+          while (true) {
+            const { data } = await supabase
+              .from("deliveries")
+              .select("receipt_number")
+              .in("shipment_id", chunk)
+              .range(dFrom, dFrom + DPAGE - 1);
+            if (!data || data.length === 0) break;
+            for (const d of data) {
+              // Strip any non-numeric characters before parsing
+              const cleaned = String(d.receipt_number || "").replace(/\D/g, "");
+              const n = parseInt(cleaned, 10);
+              if (!isNaN(n) && n > maxNum) maxNum = n;
+            }
+            if (data.length < DPAGE) break;
+            dFrom += DPAGE;
+          }
+        })()
+      );
     }
+
+    await Promise.all(chunkPromises);
 
     const next = String(maxNum + 1).padStart(6, "0");
     setSuggestedReceipt(next);
@@ -466,7 +485,7 @@ export default function CreateShipment() {
                   </Select>
                 </div>
 
-                {suggestedReceipt && (
+                {selectedCoopId && (
                   <div className="space-y-2">
                     <Label>Prochain N° Reçu</Label>
                     <Input
@@ -475,11 +494,15 @@ export default function CreateShipment() {
                         const val = e.target.value.replace(/\D/g, "");
                         setReceiptNumber(val);
                       }}
-                      placeholder={suggestedReceipt}
+                      placeholder={suggestedReceipt || "Chargement..."}
                       className="font-mono"
                       maxLength={6}
                     />
-                    <p className="text-xs text-muted-foreground">Modifiable — les suivants seront générés à partir de ce numéro.</p>
+                    {suggestedReceipt && (
+                      <p className="text-xs text-muted-foreground">
+                        Suggestion : <span className="font-mono font-medium">{suggestedReceipt}</span> — modifiable, les suivants seront générés à partir du numéro saisi.
+                      </p>
+                    )}
                   </div>
                 )}
 
