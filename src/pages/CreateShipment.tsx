@@ -94,7 +94,8 @@ export default function CreateShipment() {
 
   async function loadNextReceiptForCooperative(cooperativeId: string) {
     if (!cooperativeId) { setSuggestedReceipt(""); setReceiptNumber(""); return; }
-    // Get all shipment IDs for this cooperative
+
+    // Step 1: Get all shipment IDs for this cooperative
     let shipmentIds: string[] = [];
     let from = 0;
     const PAGE = 1000;
@@ -109,14 +110,17 @@ export default function CreateShipment() {
       if (data.length < PAGE) break;
       from += PAGE;
     }
+
     if (shipmentIds.length === 0) {
       setSuggestedReceipt("000001");
       setReceiptNumber("");
       return;
     }
-    // Find max receipt_number from deliveries linked to those shipments
+
+    // Step 2: Find the maximum receipt_number (numeric) across all deliveries of this cooperative
+    // We cast receipt_number to integer for correct numeric comparison
     let maxNum = 0;
-    const CHUNK = 500;
+    const CHUNK = 200; // smaller chunk to avoid URL length limits with .in()
     for (let i = 0; i < shipmentIds.length; i += CHUNK) {
       const chunk = shipmentIds.slice(i, i + CHUNK);
       let dFrom = 0;
@@ -125,16 +129,20 @@ export default function CreateShipment() {
           .from("deliveries")
           .select("receipt_number")
           .in("shipment_id", chunk)
+          .order("receipt_number", { ascending: false })
           .range(dFrom, dFrom + PAGE - 1);
         if (!data || data.length === 0) break;
-        data.forEach((d: any) => {
-          const n = parseInt(d.receipt_number, 10);
+        for (const d of data) {
+          // Strip any non-numeric characters before parsing
+          const cleaned = String(d.receipt_number || "").replace(/\D/g, "");
+          const n = parseInt(cleaned, 10);
           if (!isNaN(n) && n > maxNum) maxNum = n;
-        });
+        }
         if (data.length < PAGE) break;
         dFrom += PAGE;
       }
     }
+
     const next = String(maxNum + 1).padStart(6, "0");
     setSuggestedReceipt(next);
     setReceiptNumber("");
