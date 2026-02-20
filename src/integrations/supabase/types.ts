@@ -351,6 +351,10 @@ export type Database = {
           sexe: string
         }[]
       }
+      get_max_receipt_number: {
+        Args: { p_cooperative_id: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
