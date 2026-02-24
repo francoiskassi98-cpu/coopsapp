@@ -261,6 +261,7 @@ export type Database = {
           delivery_start: string
           destination: string
           id: string
+          is_cancelled: boolean
           partner_id: string | null
           project: string
           status: string
@@ -278,6 +279,7 @@ export type Database = {
           delivery_start: string
           destination: string
           id?: string
+          is_cancelled?: boolean
           partner_id?: string | null
           project: string
           status?: string
@@ -295,6 +297,7 @@ export type Database = {
           delivery_start?: string
           destination?: string
           id?: string
+          is_cancelled?: boolean
           partner_id?: string | null
           project?: string
           status?: string
@@ -324,6 +327,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_shipment: {
+        Args: { p_reason?: string; p_shipment_id: string }
+        Returns: undefined
+      }
       export_all_deliveries: {
         Args: never
         Returns: {
