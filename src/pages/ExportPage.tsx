@@ -17,7 +17,7 @@ export default function ExportPage() {
   const [loading, setLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from("shipments").select("id, connaissement, zone, cooperative_id").eq("is_cancelled", false).order("created_at", { ascending: false }).then(({ data }) => setShipments(data || []));
+    supabase.from("shipments").select("id, connaissement, zone, cooperative_id").eq("status", "active").order("created_at", { ascending: false }).then(({ data }) => setShipments(data || []));
     supabase.from("cooperatives").select("id, name").order("name").then(({ data }) => setCooperatives(data || []));
   }, []);
 
@@ -26,7 +26,7 @@ export default function ExportPage() {
     setLoading("coop");
     try {
       // Get deliveries for shipments matching this cooperative_id
-      const { data: coopShipments } = await supabase.from("shipments").select("id, connaissement, project, destination, campaign, zone, total_weight, total_bags, partner_id, partners(name), cooperatives(name)").eq("cooperative_id", selectedCoop).eq("is_cancelled", false);
+      const { data: coopShipments } = await supabase.from("shipments").select("id, connaissement, project, destination, campaign, zone, total_weight, total_bags, partner_id, partners(name), cooperatives(name)").eq("cooperative_id", selectedCoop).eq("status", "active");
       if (!coopShipments || coopShipments.length === 0) { toast({ title: "Aucun chargement pour cette coopérative", variant: "destructive" }); setLoading(null); return; }
 
       const shipmentIds = coopShipments.map((s) => s.id);
@@ -68,7 +68,7 @@ export default function ExportPage() {
 
       if (mode === "connaissement") {
         if (!selectedConnaissement) { toast({ title: "Sélectionnez un connaissement", variant: "destructive" }); setLoading(null); return; }
-        const { data: shipment } = await supabase.from("shipments").select("id").eq("connaissement", selectedConnaissement).eq("is_cancelled", false).maybeSingle();
+        const { data: shipment } = await supabase.from("shipments").select("id").eq("connaissement", selectedConnaissement).eq("status", "active").maybeSingle();
         if (!shipment) { toast({ title: "Connaissement introuvable", variant: "destructive" }); setLoading(null); return; }
         query = query.eq("shipment_id", shipment.id);
       }

@@ -79,7 +79,7 @@ export default function CreateShipment() {
     let allShipments: any[] = [];
     from = 0;
     while (true) {
-      const { data } = await supabase.from("shipments").select("zone, total_weight").eq("is_cancelled", false).range(from, from + PAGE - 1);
+      const { data } = await supabase.from("shipments").select("zone, total_weight").eq("status", "active").range(from, from + PAGE - 1);
       if (!data || data.length === 0) break;
       allShipments = allShipments.concat(data);
       if (data.length < PAGE) break;

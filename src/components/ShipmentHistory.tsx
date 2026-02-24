@@ -35,7 +35,7 @@ export default function ShipmentHistory() {
     try {
       const [shipmentsData, coopsData] = await Promise.all([
         fetchAllRows(
-          supabase.from("shipments").select("*, partners(name), cooperatives(name)").eq("is_cancelled", false).order("created_at", { ascending: false })
+          supabase.from("shipments").select("*, partners(name), cooperatives(name)").eq("status", "active").order("created_at", { ascending: false })
         ),
         supabase.from("cooperatives").select("id, name").order("name"),
       ]);
