@@ -54,7 +54,7 @@ export default function Dashboard() {
       const remaining = producers.reduce((s: number, p: any) => s + Number(p.remaining_potential), 0);
 
       const shipmentsData = await fetchAllRows(
-        supabase.from("shipments").select("*, partners(name), cooperatives(name)").eq("status", "active").order("created_at", { ascending: false })
+        supabase.from("shipments").select("*, partners(name), cooperatives(name)").eq("is_cancelled", false).order("created_at", { ascending: false })
       );
 
       const totalDelivered = shipmentsData.reduce((s: number, sh: any) => s + Number(sh.total_weight), 0);
