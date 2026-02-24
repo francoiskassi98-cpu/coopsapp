@@ -9,7 +9,7 @@ import Dashboard from "@/pages/Dashboard";
 import Producers from "@/pages/Producers";
 import CreateShipment from "@/pages/CreateShipment";
 import ExportPage from "@/pages/ExportPage";
-import Cancellations from "@/pages/Cancellations";
+
 import Auth from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
 
@@ -50,7 +50,7 @@ const App = () => (
               <Route path="/producteurs" element={<Producers />} />
               <Route path="/chargements" element={<CreateShipment />} />
               <Route path="/export" element={<ExportPage />} />
-              <Route path="/annulations" element={<Cancellations />} />
+              
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

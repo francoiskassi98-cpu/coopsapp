@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, Truck, FileSpreadsheet, XCircle, Users, LogOut } from "lucide-react";
+import { BarChart3, Truck, FileSpreadsheet, Users, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ const navItems = [
   { to: "/producteurs", label: "Producteurs", icon: Users },
   { to: "/chargements", label: "Chargements", icon: Truck },
   { to: "/export", label: "Export", icon: FileSpreadsheet },
-  { to: "/annulations", label: "Annulations", icon: XCircle },
+  
 ];
 
 export default function AppLayout() {
