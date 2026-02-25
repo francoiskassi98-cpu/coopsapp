@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { RefreshCw, History } from "lucide-react";
@@ -35,7 +34,7 @@ export default function ShipmentHistory() {
     try {
       const [shipmentsData, coopsData] = await Promise.all([
         fetchAllRows(
-          supabase.from("shipments").select("*, partners(name), cooperatives(name)").eq("status", "active").order("created_at", { ascending: false })
+          supabase.from("shipments").select("*, partners(name), cooperatives(name)").order("created_at", { ascending: false })
         ),
         supabase.from("cooperatives").select("id, name").order("name"),
       ]);
@@ -111,13 +110,13 @@ export default function ShipmentHistory() {
                   <TableHead>Poids (kg)</TableHead>
                   <TableHead>Sacs</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Statut</TableHead>
+                  
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground">
                       Aucun chargement trouvé
                     </TableCell>
                   </TableRow>
@@ -132,11 +131,6 @@ export default function ShipmentHistory() {
                       <TableCell>{Number(s.total_weight).toLocaleString("fr-FR")}</TableCell>
                       <TableCell>{s.total_bags}</TableCell>
                       <TableCell className="text-xs">{new Date(s.created_at).toLocaleDateString("fr-FR")}</TableCell>
-                      <TableCell>
-                        <Badge variant={s.status === "active" ? "default" : "destructive"}>
-                          {s.status === "active" ? "Actif" : "Annulé"}
-                        </Badge>
-                      </TableCell>
                     </TableRow>
                   ))
                 )}

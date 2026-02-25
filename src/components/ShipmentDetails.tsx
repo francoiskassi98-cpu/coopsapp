@@ -205,7 +205,6 @@ export default function ShipmentDetails() {
                     <TableHead>Destination</TableHead>
                     <TableHead>Partenaire</TableHead>
                     <TableHead>Campagne</TableHead>
-                    <TableHead>Statut</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -228,11 +227,6 @@ export default function ShipmentDetails() {
                       <TableCell>{s.destination}</TableCell>
                       <TableCell>{s.partner_name}</TableCell>
                       <TableCell className="text-xs">{s.campaign}</TableCell>
-                      <TableCell>
-                        <Badge variant={s.status === "active" ? "default" : "secondary"} className="text-xs">
-                          {s.status === "active" ? "Actif" : s.status}
-                        </Badge>
-                      </TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
                           <Pencil className="h-4 w-4" />
