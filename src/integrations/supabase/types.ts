@@ -14,44 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      cancellations: {
-        Row: {
-          cancelled_at: string
-          connaissement: string
-          id: string
-          reason: string | null
-          shipment_id: string
-          total_bags: number
-          total_weight: number
-        }
-        Insert: {
-          cancelled_at?: string
-          connaissement: string
-          id?: string
-          reason?: string | null
-          shipment_id: string
-          total_bags: number
-          total_weight: number
-        }
-        Update: {
-          cancelled_at?: string
-          connaissement?: string
-          id?: string
-          reason?: string | null
-          shipment_id?: string
-          total_bags?: number
-          total_weight?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cancellations_shipment_id_fkey"
-            columns: ["shipment_id"]
-            isOneToOne: false
-            referencedRelation: "shipments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       cooperatives: {
         Row: {
           created_at: string
@@ -327,10 +289,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      cancel_shipment: {
-        Args: { p_reason?: string; p_shipment_id: string }
-        Returns: undefined
-      }
       export_all_deliveries: {
         Args: never
         Returns: {
