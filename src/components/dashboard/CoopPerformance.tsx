@@ -83,10 +83,11 @@ export default function CoopPerformance({ coopStats }: Props) {
           <div className="space-y-1">
             <p className="text-sm font-medium">🎯 Pour atteindre 100%</p>
             {sorted.filter((c) => c.remaining > 0).map((c) => {
-              const need = avgWeight > 0 ? Math.ceil(c.remaining / avgWeight) : 0;
+              const coopAvg = c.shipmentCount > 0 ? c.delivered / c.shipmentCount : avgWeight;
+              const need = coopAvg > 0 ? Math.ceil(c.remaining / coopAvg) : 0;
               return (
                 <p key={c.name} className="text-xs text-muted-foreground">
-                  • {c.name} : +{c.remaining.toLocaleString("fr-FR")} kg ({need} chargements)
+                  • {c.name} : +{Math.round(c.remaining).toLocaleString("fr-FR")} kg ({need} chargements, {c.shipmentCount} effectués)
                 </p>
               );
             })}
