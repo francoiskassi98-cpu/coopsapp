@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle, ShieldOff } from "lucide-react";
+import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { parseExcelFile, downloadImportTemplate, exportToExcel, type ProducerRow, type ImportError } from "@/lib/excel-utils";
 
@@ -69,16 +70,24 @@ export default function Producers() {
     return Array.from(set).sort();
   }, [producers]);
 
-  const filtered = producers.filter((p) => {
-    if (coopFilter !== "all" && p.cooperative !== coopFilter) return false;
-    if (!search) return true;
-    const s = search.toLowerCase();
-    return (
-      p.full_name.toLowerCase().includes(s) ||
-      p.plantation_code.toLowerCase().includes(s) ||
-      p.section.toLowerCase().includes(s)
-    );
-  });
+  const { sortConfig, toggleSort, sortData } = useSortableTable();
+
+  const filtered = useMemo(() => {
+    const base = producers.filter((p) => {
+      if (coopFilter !== "all" && p.cooperative !== coopFilter) return false;
+      if (!search) return true;
+      const s = search.toLowerCase();
+      return (
+        p.full_name.toLowerCase().includes(s) ||
+        p.plantation_code.toLowerCase().includes(s) ||
+        p.section.toLowerCase().includes(s)
+      );
+    });
+    return sortData(base, (item: any, col: string) => {
+      if (col === "delivery_potential" || col === "remaining_potential") return Number(item[col]);
+      return item[col];
+    });
+  }, [producers, coopFilter, search, sortConfig]);
 
   // --- Edit / Delete (existing) ---
   // Disabled sections state
@@ -460,14 +469,14 @@ export default function Producers() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                     <TableHead>Statut</TableHead>
-                    <TableHead>Nom complet</TableHead>
-                    <TableHead>Sexe</TableHead>
-                    <TableHead>Section</TableHead>
-                    <TableHead>Code plantation</TableHead>
-                    <TableHead>Potentiel initial (kg)</TableHead>
-                    <TableHead>Potentiel restant (kg)</TableHead>
-                    <TableHead>Coopérative</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <SortableHeader column="full_name" label="Nom complet" sortConfig={sortConfig} onToggle={toggleSort} />
+                    <SortableHeader column="sexe" label="Sexe" sortConfig={sortConfig} onToggle={toggleSort} />
+                    <SortableHeader column="section" label="Section" sortConfig={sortConfig} onToggle={toggleSort} />
+                    <SortableHeader column="plantation_code" label="Code plantation" sortConfig={sortConfig} onToggle={toggleSort} />
+                    <SortableHeader column="delivery_potential" label="Potentiel initial (kg)" sortConfig={sortConfig} onToggle={toggleSort} />
+                    <SortableHeader column="remaining_potential" label="Potentiel restant (kg)" sortConfig={sortConfig} onToggle={toggleSort} />
+                    <SortableHeader column="cooperative" label="Coopérative" sortConfig={sortConfig} onToggle={toggleSort} />
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>

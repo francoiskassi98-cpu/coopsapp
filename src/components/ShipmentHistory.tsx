@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { RefreshCw, History } from "lucide-react";
 import { toast } from "sonner";
+import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 
 export default function ShipmentHistory() {
   const [shipments, setShipments] = useState<any[]>([]);
@@ -52,16 +53,27 @@ export default function ShipmentHistory() {
     loadData();
   }, []);
 
-  const filtered = shipments.filter((s) => {
-    const coopName = (s.cooperatives as any)?.name || s.zone || "";
-    const matchesCoop = selectedCoop === "all" || coopName === selectedCoop;
-    const matchesSearch =
-      !search ||
-      s.connaissement?.toLowerCase().includes(search.toLowerCase()) ||
-      (s.partners as any)?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      coopName.toLowerCase().includes(search.toLowerCase());
-    return matchesCoop && matchesSearch;
-  });
+  const { sortConfig, toggleSort, sortData } = useSortableTable();
+
+  const filtered = useMemo(() => {
+    const base = shipments.filter((s) => {
+      const coopName = (s.cooperatives as any)?.name || s.zone || "";
+      const matchesCoop = selectedCoop === "all" || coopName === selectedCoop;
+      const matchesSearch =
+        !search ||
+        s.connaissement?.toLowerCase().includes(search.toLowerCase()) ||
+        (s.partners as any)?.name?.toLowerCase().includes(search.toLowerCase()) ||
+        coopName.toLowerCase().includes(search.toLowerCase());
+      return matchesCoop && matchesSearch;
+    });
+    return sortData(base, (item: any, col: string) => {
+      if (col === "total_weight" || col === "total_bags") return Number(item[col]);
+      if (col === "partner") return (item.partners as any)?.name || "";
+      if (col === "cooperative") return (item.cooperatives as any)?.name || item.zone || "";
+      if (col === "created_at") return new Date(item[col]).getTime();
+      return item[col];
+    });
+  }, [shipments, selectedCoop, search, sortConfig]);
 
   return (
     <Card>
@@ -102,15 +114,14 @@ export default function ShipmentHistory() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Connaissement</TableHead>
-                  <TableHead>Projet</TableHead>
-                  <TableHead>Partenaire</TableHead>
-                  <TableHead>Coopérative</TableHead>
-                  <TableHead>Destination</TableHead>
-                  <TableHead>Poids (kg)</TableHead>
-                  <TableHead>Sacs</TableHead>
-                  <TableHead>Date</TableHead>
-                  
+                  <SortableHeader column="connaissement" label="Connaissement" sortConfig={sortConfig} onToggle={toggleSort} />
+                  <SortableHeader column="project" label="Projet" sortConfig={sortConfig} onToggle={toggleSort} />
+                  <SortableHeader column="partner" label="Partenaire" sortConfig={sortConfig} onToggle={toggleSort} />
+                  <SortableHeader column="cooperative" label="Coopérative" sortConfig={sortConfig} onToggle={toggleSort} />
+                  <SortableHeader column="destination" label="Destination" sortConfig={sortConfig} onToggle={toggleSort} />
+                  <SortableHeader column="total_weight" label="Poids (kg)" sortConfig={sortConfig} onToggle={toggleSort} />
+                  <SortableHeader column="total_bags" label="Sacs" sortConfig={sortConfig} onToggle={toggleSort} />
+                  <SortableHeader column="created_at" label="Date" sortConfig={sortConfig} onToggle={toggleSort} />
                 </TableRow>
               </TableHeader>
               <TableBody>
