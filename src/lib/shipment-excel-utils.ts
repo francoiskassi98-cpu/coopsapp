@@ -53,9 +53,9 @@ export function detectCampaignFromDate(dateStr: string): string {
   const year = d.getFullYear();
   const month = d.getMonth() + 1;
   if (month >= 10) {
-    return `${year}–${year + 1}`;
+    return `${year}-${year + 1}`;
   }
-  return `${year - 1}–${year}`;
+  return `${year - 1}-${year}`;
 }
 
 function normalizeHeader(header: string): string {
