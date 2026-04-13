@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { distributeShipment, getCurrentCampaign, type DistributionResult } from "@/lib/shipment-utils";
+import { distributeShipment, getCurrentCampaign, normalizeCampaign, type DistributionResult } from "@/lib/shipment-utils";
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { Truck, Plus, Download, Pencil, Check, X } from "lucide-react";
@@ -206,7 +206,7 @@ export default function CreateShipment() {
           zone: zone || null,
           cooperative_id: selectedCoopId || null,
           destination,
-          campaign: `${campaign} ${getCurrentCampaign()}`,
+          campaign: normalizeCampaign(getCurrentCampaign()),
           delivery_start: startDate,
           delivery_end: endDate,
         })
