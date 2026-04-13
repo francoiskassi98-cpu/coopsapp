@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { distributeShipment, getCurrentCampaign, type DistributionResult } from "@/lib/shipment-utils";
+import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { Truck, Plus, Download, Pencil, Check, X } from "lucide-react";
 import { exportToExcel } from "@/lib/excel-utils";
@@ -35,6 +36,7 @@ export default function CreateShipment() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editWeight, setEditWeight] = useState("");
   const [editBags, setEditBags] = useState("");
+  const { sortConfig, toggleSort, sortData } = useSortableTable();
 
   const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
   const [coopDelivered, setCoopDelivered] = useState<Record<string, number>>({});
@@ -147,7 +149,7 @@ export default function CreateShipment() {
     while (true) {
       const { data } = await supabase
         .from("producers")
-        .select("id, full_name, section, plantation_code, remaining_potential")
+        .select("id, full_name, section, plantation_code, remaining_potential, delivery_potential")
         .eq("is_active", true)
         .eq("cooperative", coopName)
         .gt("remaining_potential", 0)
@@ -171,7 +173,7 @@ export default function CreateShipment() {
     const lastNum = effectiveReceipt ? parseInt(effectiveReceipt, 10) - 1 : 0;
 
     const results = distributeShipment(
-      producers.map((p) => ({ ...p, remaining_potential: Number(p.remaining_potential) })),
+      producers.map((p) => ({ ...p, remaining_potential: Number(p.remaining_potential), delivery_potential: Number(p.delivery_potential) })),
       Number(totalWeight),
       Number(totalBags),
       new Date(startDate),
@@ -530,28 +532,41 @@ export default function CreateShipment() {
                     </p>
                     <div className="max-h-[60vh] overflow-auto">
                      <Table>
-                        <TableHeader>
+                         <TableHeader>
                           <TableRow>
                             <TableHead className="w-12">N°</TableHead>
-                            <TableHead>N° Reçu</TableHead>
-                            <TableHead>Nom</TableHead>
-                            <TableHead>Code plantation</TableHead>
-                            <TableHead>Section</TableHead>
-                            <TableHead>Poids (kg)</TableHead>
-                            <TableHead>Sacs</TableHead>
-                            <TableHead>Date</TableHead>
+                            <SortableHeader column="receipt" label="N° Reçu" sortConfig={sortConfig} onToggle={toggleSort} />
+                            <SortableHeader column="name" label="Nom" sortConfig={sortConfig} onToggle={toggleSort} />
+                            <SortableHeader column="code" label="Code plantation" sortConfig={sortConfig} onToggle={toggleSort} />
+                            <SortableHeader column="section" label="Section" sortConfig={sortConfig} onToggle={toggleSort} />
+                            <SortableHeader column="weight" label="Poids (kg)" sortConfig={sortConfig} onToggle={toggleSort} />
+                            <SortableHeader column="bags" label="Sacs" sortConfig={sortConfig} onToggle={toggleSort} />
+                            <SortableHeader column="date" label="Date" sortConfig={sortConfig} onToggle={toggleSort} />
                             <TableHead className="w-16">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {preview.map((d, index) => (
+                          {sortData(preview, (d, col) => {
+                            switch (col) {
+                              case "receipt": return d.receipt_number;
+                              case "name": return d.full_name;
+                              case "code": return d.plantation_code;
+                              case "section": return d.section;
+                              case "weight": return d.allocated_weight;
+                              case "bags": return d.num_bags;
+                              case "date": return d.delivery_date;
+                              default: return null;
+                            }
+                          }).map((d, index) => {
+                            const originalIndex = preview.indexOf(d);
+                            return (
                             <TableRow key={d.receipt_number}>
                               <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                               <TableCell className="font-mono text-xs">{d.receipt_number}</TableCell>
                               <TableCell>{d.full_name}</TableCell>
                               <TableCell className="font-mono text-xs">{d.plantation_code}</TableCell>
                               <TableCell>{d.section}</TableCell>
-                              {editingIndex === index ? (
+                              {editingIndex === originalIndex ? (
                                 <>
                                   <TableCell>
                                     <Input type="number" value={editWeight} onChange={(e) => setEditWeight(e.target.value)} className="h-7 w-20" />
@@ -568,9 +583,9 @@ export default function CreateShipment() {
                               )}
                               <TableCell>{d.delivery_date}</TableCell>
                               <TableCell>
-                                {editingIndex === index ? (
+                                {editingIndex === originalIndex ? (
                                   <div className="flex gap-1">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleSaveEdit(index)}>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleSaveEdit(originalIndex)}>
                                       <Check className="h-3 w-3" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit}>
@@ -578,13 +593,14 @@ export default function CreateShipment() {
                                     </Button>
                                   </div>
                                 ) : (
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleStartEdit(index)}>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleStartEdit(originalIndex)}>
                                     <Pencil className="h-3 w-3" />
                                   </Button>
                                 )}
                               </TableCell>
                             </TableRow>
-                          ))}
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     </div>
