@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { AlertTriangle, RefreshCw, Mail } from "lucide-react";
-import { isCampaignStart, getCurrentCampaign } from "@/lib/shipment-utils";
+import { isCampaignStart, getCurrentCampaign, normalizeCampaign } from "@/lib/shipment-utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -66,17 +66,17 @@ export default function Dashboard() {
   // Available campaigns
   const campaigns = useMemo(() => {
     const set = new Set<string>();
-    allShipments.forEach((s) => { if (s.campaign) set.add(s.campaign); });
+    allShipments.forEach((s) => { if (s.campaign) set.add(normalizeCampaign(s.campaign)); });
     return Array.from(set).sort();
   }, [allShipments]);
 
   // Filtered shipments based on chronology
   const shipments = useMemo(() => {
     return allShipments.filter((s) => {
-      if (selectedCampaign !== "all" && s.campaign !== selectedCampaign) return false;
+      if (selectedCampaign !== "all" && normalizeCampaign(s.campaign) !== selectedCampaign) return false;
       if (selectedMonths.length > 0) {
         const date = new Date(s.created_at);
-        const month = date.getMonth() + 1; // 1-12
+        const month = date.getMonth() + 1;
         if (!selectedMonths.includes(month)) return false;
       }
       return true;
