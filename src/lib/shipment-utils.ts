@@ -6,6 +6,7 @@ export interface ProducerForDistribution {
   section: string;
   plantation_code: string;
   remaining_potential: number;
+  delivery_potential: number;
 }
 
 export interface DistributionResult {
@@ -20,9 +21,11 @@ export interface DistributionResult {
 }
 
 /**
- * Distribute shipment weight across producers based on remaining potential.
- * Deduction rate: 0.15% to 0.20% of remaining potential per producer.
- * Skip allocations < 50 kg. Round bags so total matches declared bags exactly.
+ * Distribute shipment weight across producers.
+ * Rule: each producer contributes 40% of their delivery_potential.
+ * Exception: if remaining_potential < 40% of delivery_potential, use all remaining_potential.
+ * Skip allocations < 50 kg.
+ * Bags are balanced so no bag exceeds +10% of the average bag weight.
  */
 export function distributeShipment(
   producers: ProducerForDistribution[],
@@ -34,29 +37,31 @@ export function distributeShipment(
 ): DistributionResult[] {
   const avgBagWeight = totalWeight / totalBags;
 
-  // Sort producers by section A-Z for delivery date assignment
+  // Sort producers by section A-Z
   const sorted = [...producers]
     .filter((p) => p.remaining_potential > 0)
     .sort((a, b) => a.section.localeCompare(b.section));
 
-  // Phase 1: Calculate raw allocations using 0.175% average deduction rate
+  // Phase 1: Calculate raw allocations using 40% rule
   const rawAllocations: { producer: ProducerForDistribution; weight: number }[] = [];
   let totalAllocated = 0;
 
   for (const producer of sorted) {
     if (totalAllocated >= totalWeight) break;
 
-    // Use a rate between 0.15% and 0.20% — start with 0.175%
-    const rate = 0.00175;
-    let allocation = producer.remaining_potential * rate;
+    const threshold = producer.delivery_potential * 0.4;
+    let allocation: number;
 
-    // Scale up: since 0.175% is tiny, we actually deduct a proportional share
-    // The real logic: distribute proportionally to remaining potential
-    allocation = (producer.remaining_potential / sorted.reduce((sum, p) => sum + p.remaining_potential, 0)) * totalWeight;
+    if (producer.remaining_potential < threshold) {
+      // End-of-delivery: use all remaining
+      allocation = producer.remaining_potential;
+    } else {
+      allocation = threshold;
+    }
 
     if (allocation < 50) continue;
 
-    // Don't exceed what's left to allocate
+    // Don't exceed what's left to allocate or remaining potential
     allocation = Math.min(allocation, totalWeight - totalAllocated, producer.remaining_potential);
     if (allocation < 50) continue;
 
@@ -69,69 +74,88 @@ export function distributeShipment(
   // Scale allocations to match exact total weight
   const scaleFactor = totalWeight / totalAllocated;
 
-  // Phase 2: Calculate bags per producer (round, then adjust to match total)
-  let bags = rawAllocations.map((a) => ({
-    ...a,
-    bags: Math.round(a.weight / avgBagWeight),
-  }));
+  // Phase 2: Calculate bags per producer with +10% max constraint
+  const maxBagWeight = avgBagWeight * 1.1;
+
+  let entries = rawAllocations.map((a) => {
+    const scaledWeight = a.weight * scaleFactor;
+    // Minimum bags needed so no bag exceeds maxBagWeight
+    const minBags = Math.max(1, Math.ceil(scaledWeight / maxBagWeight));
+    return {
+      ...a,
+      weight: scaledWeight,
+      bags: minBags,
+    };
+  });
 
   // Remove any with 0 bags
-  bags = bags.filter((b) => b.bags > 0);
+  entries = entries.filter((b) => b.bags > 0);
 
-  // Adjust bag total
-  let currentTotalBags = bags.reduce((sum, b) => sum + b.bags, 0);
-  let diff = totalBags - currentTotalBags;
+  // Adjust total bags to match declared total
+  let currentTotalBags = entries.reduce((sum, b) => sum + b.bags, 0);
 
-  // Sort by fractional remainder to adjust
-  const fractionals = bags.map((b, i) => ({
-    index: i,
-    frac: b.weight / avgBagWeight - Math.floor(b.weight / avgBagWeight),
-  }));
-
-  if (diff > 0) {
-    fractionals.sort((a, b) => b.frac - a.frac);
-    for (let i = 0; i < diff && i < fractionals.length; i++) {
-      bags[fractionals[i].index].bags += 1;
-    }
-  } else if (diff < 0) {
-    fractionals.sort((a, b) => a.frac - b.frac);
-    for (let i = 0; i < Math.abs(diff) && i < fractionals.length; i++) {
-      if (bags[fractionals[i].index].bags > 1) {
-        bags[fractionals[i].index].bags -= 1;
+  if (currentTotalBags < totalBags) {
+    // Need to add bags — distribute to those with highest weight per bag
+    let diff = totalBags - currentTotalBags;
+    while (diff > 0) {
+      // Find entry with highest weight/bag ratio
+      let bestIdx = 0;
+      let bestRatio = 0;
+      for (let i = 0; i < entries.length; i++) {
+        const ratio = entries[i].weight / entries[i].bags;
+        if (ratio > bestRatio) { bestRatio = ratio; bestIdx = i; }
       }
+      entries[bestIdx].bags += 1;
+      diff--;
+    }
+  } else if (currentTotalBags > totalBags) {
+    // Need to remove bags — remove from those with lowest weight/bag ratio, respecting max constraint
+    let diff = currentTotalBags - totalBags;
+    while (diff > 0) {
+      let bestIdx = -1;
+      let bestRatio = Infinity;
+      for (let i = 0; i < entries.length; i++) {
+        if (entries[i].bags <= 1) continue;
+        // Check if removing a bag would exceed maxBagWeight
+        const newRatio = entries[i].weight / (entries[i].bags - 1);
+        if (newRatio <= maxBagWeight && newRatio < bestRatio) {
+          bestRatio = newRatio;
+          bestIdx = i;
+        }
+      }
+      if (bestIdx === -1) break; // Can't remove more without exceeding limit
+      entries[bestIdx].bags -= 1;
+      diff--;
     }
   }
 
   // Phase 3: Assign delivery dates chronologically
   const totalDays = Math.max(differenceInDays(endDate, startDate), 1);
-  const dateStep = totalDays / Math.max(bags.length - 1, 1);
+  const dateStep = totalDays / Math.max(entries.length - 1, 1);
 
-  // Phase 4: Assign receipt numbers
+  // Phase 4: Assign receipt numbers & finalize weights
   let receiptCounter = lastReceiptNumber;
-
-  // Calculate weights ensuring total matches exactly
   const results: DistributionResult[] = [];
   let weightAssigned = 0;
 
-  for (let i = 0; i < bags.length; i++) {
+  for (let i = 0; i < entries.length; i++) {
     receiptCounter++;
     const deliveryDate = addDays(startDate, Math.round(i * dateStep));
     let weight: number;
-    if (i === bags.length - 1) {
-      // Last producer gets the remainder to ensure exact total
+    if (i === entries.length - 1) {
       weight = totalWeight - weightAssigned;
     } else {
-      weight = Math.round(bags[i].weight * scaleFactor);
+      weight = Math.round(entries[i].weight);
     }
     weightAssigned += weight;
 
     results.push({
-      producer_id: bags[i].producer.id,
-      full_name: bags[i].producer.full_name,
-      section: bags[i].producer.section,
-      plantation_code: bags[i].producer.plantation_code,
+      producer_id: entries[i].producer.id,
+      full_name: entries[i].producer.full_name,
+      section: entries[i].producer.section,
+      plantation_code: entries[i].producer.plantation_code,
       allocated_weight: weight,
-      num_bags: bags[i].bags,
+      num_bags: entries[i].bags,
       delivery_date: format(deliveryDate, "yyyy-MM-dd"),
       receipt_number: String(receiptCounter).padStart(6, "0"),
     });
@@ -143,7 +167,7 @@ export function distributeShipment(
 export function getCurrentCampaign(): string {
   const now = new Date();
   const year = now.getFullYear();
-  const month = now.getMonth() + 1; // 1-12
+  const month = now.getMonth() + 1;
   if (month >= 10) {
     return `${year}–${year + 1}`;
   }
@@ -152,5 +176,5 @@ export function getCurrentCampaign(): string {
 
 export function isCampaignStart(): boolean {
   const now = new Date();
-  return now.getMonth() === 9 && now.getDate() <= 7; // October 1-7
+  return now.getMonth() === 9 && now.getDate() <= 7;
 }

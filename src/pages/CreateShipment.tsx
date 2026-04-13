@@ -147,7 +147,7 @@ export default function CreateShipment() {
     while (true) {
       const { data } = await supabase
         .from("producers")
-        .select("id, full_name, section, plantation_code, remaining_potential")
+        .select("id, full_name, section, plantation_code, remaining_potential, delivery_potential")
         .eq("is_active", true)
         .eq("cooperative", coopName)
         .gt("remaining_potential", 0)
