@@ -1,15 +1,25 @@
-import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, Truck, FileSpreadsheet, Users } from "lucide-react";
+import { NavLink, Outlet, Navigate } from "react-router-dom";
+import { BarChart3, Truck, FileSpreadsheet, Users, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
-const navItems = [
-  { to: "/", label: "Tableau de bord", icon: BarChart3 },
-  { to: "/producteurs", label: "Producteurs", icon: Users },
-  { to: "/chargements", label: "Chargements", icon: Truck },
-  { to: "/export", label: "Export", icon: FileSpreadsheet },
+const allNavItems = [
+  { to: "/", label: "Tableau de bord", icon: BarChart3, roles: ["admin", "user"] },
+  { to: "/producteurs", label: "Producteurs", icon: Users, roles: ["admin"] },
+  { to: "/chargements", label: "Chargements", icon: Truck, roles: ["admin", "user"] },
+  { to: "/export", label: "Export", icon: FileSpreadsheet, roles: ["admin"] },
+  { to: "/gestion", label: "Gestion du projet", icon: Settings, roles: ["admin"] },
 ];
 
 export default function AppLayout() {
+  const { user, role, loading, signOut } = useAuth();
+
+  if (loading) return <div className="flex h-screen items-center justify-center"><span className="animate-spin text-2xl">⏳</span></div>;
+  if (!user) return <Navigate to="/login" replace />;
+
+  const navItems = allNavItems.filter((item) => item.roles.includes(role || "user"));
+
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col shrink-0">
@@ -37,10 +47,16 @@ export default function AppLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto border-t border-sidebar-border p-4">
+        <div className="border-t border-sidebar-border p-4 space-y-3">
           <div className="flex items-center gap-2">
             <span className="text-xs text-sidebar-foreground/50">Campagne active</span>
             <span className="text-xs font-semibold text-sidebar-primary">2025-2026</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-sidebar-foreground/50 truncate">{user.email}</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-sidebar-foreground/50 hover:text-sidebar-foreground" onClick={signOut}>
+              <LogOut className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
       </aside>
