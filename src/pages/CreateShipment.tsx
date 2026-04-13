@@ -171,7 +171,7 @@ export default function CreateShipment() {
     const lastNum = effectiveReceipt ? parseInt(effectiveReceipt, 10) - 1 : 0;
 
     const results = distributeShipment(
-      producers.map((p) => ({ ...p, remaining_potential: Number(p.remaining_potential) })),
+      producers.map((p) => ({ ...p, remaining_potential: Number(p.remaining_potential), delivery_potential: Number(p.delivery_potential) })),
       Number(totalWeight),
       Number(totalBags),
       new Date(startDate),
