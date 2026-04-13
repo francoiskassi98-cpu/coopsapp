@@ -36,6 +36,7 @@ export default function CreateShipment() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editWeight, setEditWeight] = useState("");
   const [editBags, setEditBags] = useState("");
+  const { sortConfig, toggleSort, sortData } = useSortableTable();
 
   const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
   const [coopDelivered, setCoopDelivered] = useState<Record<string, number>>({});
