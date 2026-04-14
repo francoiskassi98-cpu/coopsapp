@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, UserPlus, Eye, EyeOff, Users } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Loader2, UserPlus, Eye, EyeOff, Users, Pencil, Ban, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface UserProfile {
   user_id: string;
@@ -16,19 +18,30 @@ interface UserProfile {
   email: string;
   created_at: string;
   role: string;
+  is_banned?: boolean;
 }
 
 export default function UserManagement() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  // Create form
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<string>("user");
+
+  // Edit dialog
+  const [editUser, setEditUser] = useState<UserProfile | null>(null);
+  const [editUsername, setEditUsername] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editRole, setEditRole] = useState("user");
+  const [saving, setSaving] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -58,26 +71,67 @@ export default function UserManagement() {
     }
     setCreating(true);
     try {
-      // Use edge function to create user (admin operation)
       const { data, error } = await supabase.functions.invoke("create-user", {
         body: { email, password, username, role },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      toast({ title: "Utilisateur créé", description: `${username} a été ajouté avec le rôle ${role === "admin" ? "Administrateur" : "Utilisateur simple"}.` });
-      setUsername("");
-      setEmail("");
-      setPassword("");
-      setRole("user");
+      toast({ title: "Utilisateur créé", description: `${username} a été ajouté.` });
+      setUsername(""); setEmail(""); setPassword(""); setRole("user");
       setShowForm(false);
       fetchUsers();
     } catch (err: any) {
-      toast({ title: "Erreur", description: "Impossible de créer l'utilisateur. Vérifiez les informations.", variant: "destructive" });
+      toast({ title: "Erreur", description: err?.message || "Impossible de créer l'utilisateur.", variant: "destructive" });
     } finally {
       setCreating(false);
     }
   };
+
+  const openEdit = (u: UserProfile) => {
+    setEditUser(u);
+    setEditUsername(u.username);
+    setEditEmail(u.email);
+    setEditRole(u.role);
+  };
+
+  const handleUpdate = async () => {
+    if (!editUser) return;
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-user", {
+        body: { action: "update", user_id: editUser.user_id, username: editUsername, email: editEmail, role: editRole },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "Utilisateur modifié", description: `${editUsername} a été mis à jour.` });
+      setEditUser(null);
+      fetchUsers();
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err?.message || "Impossible de modifier l'utilisateur.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleActive = async (u: UserProfile, activate: boolean) => {
+    setActionLoading(u.user_id);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-user", {
+        body: { action: activate ? "activate" : "deactivate", user_id: u.user_id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: activate ? "Utilisateur réactivé" : "Utilisateur désactivé", description: `${u.username} a été ${activate ? "réactivé" : "désactivé"}.` });
+      fetchUsers();
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err?.message || "Impossible de modifier le statut.", variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const isSelf = (userId: string) => currentUser?.id === userId;
 
   return (
     <div className="p-6 space-y-6">
@@ -96,9 +150,7 @@ export default function UserManagement() {
 
       {showForm && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Créer un utilisateur</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-lg">Créer un utilisateur</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -121,12 +173,8 @@ export default function UserManagement() {
                     minLength={6}
                     className="pr-10"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    tabIndex={-1}
-                  >
+                  <button type="button" onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1}>
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
@@ -154,9 +202,7 @@ export default function UserManagement() {
       )}
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Utilisateurs enregistrés</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-lg">Utilisateurs enregistrés</CardTitle></CardHeader>
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
@@ -168,6 +214,7 @@ export default function UserManagement() {
                   <TableHead>E-mail</TableHead>
                   <TableHead>Rôle</TableHead>
                   <TableHead>Date de création</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -181,11 +228,30 @@ export default function UserManagement() {
                       </Badge>
                     </TableCell>
                     <TableCell>{new Date(u.created_at).toLocaleDateString("fr-FR")}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(u)} title="Modifier">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {!isSelf(u.user_id) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleToggleActive(u, false)}
+                            disabled={actionLoading === u.user_id}
+                            title="Désactiver"
+                            className="text-destructive hover:text-destructive"
+                          >
+                            {actionLoading === u.user_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {users.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       Aucun utilisateur enregistré
                     </TableCell>
                   </TableRow>
@@ -195,6 +261,42 @@ export default function UserManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editUser} onOpenChange={(open) => { if (!open) setEditUser(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modifier l'utilisateur</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Nom d'utilisateur</Label>
+              <Input value={editUsername} onChange={(e) => setEditUsername(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Adresse e-mail</Label>
+              <Input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Rôle</Label>
+              <Select value={editRole} onValueChange={setEditRole}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Administrateur</SelectItem>
+                  <SelectItem value="user">Utilisateur simple</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUser(null)}>Annuler</Button>
+            <Button onClick={handleUpdate} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
