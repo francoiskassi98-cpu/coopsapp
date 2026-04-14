@@ -147,9 +147,9 @@ export default function Dashboard() {
           <p className="text-sm text-muted-foreground">Campagne {getCurrentCampaign()}</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => toast.success("Mail bien envoyé avec le rapport")} variant="outline">
+          <Button onClick={() => setShowReportDialog(true)} variant="outline">
             <Mail className="h-4 w-4" />
-            Rapport par mail
+            Envoyer un rapport
           </Button>
           <Button onClick={() => { loadData().then(() => toast.success("Données actualisées")); }} disabled={loading} variant="outline">
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
