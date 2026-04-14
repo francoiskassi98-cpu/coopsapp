@@ -12,6 +12,7 @@ import KpiCards from "@/components/dashboard/KpiCards";
 import CoopPerformance from "@/components/dashboard/CoopPerformance";
 import CoopTable from "@/components/dashboard/CoopTable";
 import DashboardFilters from "@/components/dashboard/DashboardFilters";
+import ReportDialog from "@/components/dashboard/ReportDialog";
 import type { CoopStats } from "@/components/dashboard/CoopPerformance";
 
 const PIE_COLORS = ["hsl(25, 65%, 32%)", "hsl(140, 35%, 40%)", "hsl(35, 70%, 55%)", "hsl(200, 50%, 50%)", "hsl(280, 40%, 50%)", "hsl(0, 50%, 50%)", "hsl(60, 50%, 45%)"];
