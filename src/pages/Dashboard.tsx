@@ -257,6 +257,21 @@ export default function Dashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ReportDialog
+        open={showReportDialog}
+        onOpenChange={setShowReportDialog}
+        dashboardData={{
+          totalPotential: stats.totalPotential,
+          totalDelivered: stats.totalDelivered,
+          remaining: stats.remaining,
+          shipmentCount: stats.shipmentCount,
+          coopStats,
+          byProject,
+          byPartner,
+          campaign: selectedCampaign !== "all" ? selectedCampaign : getCurrentCampaign(),
+        }}
+      />
     </div>
   );
 }
