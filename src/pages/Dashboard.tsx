@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [showCampaignAlert, setShowCampaignAlert] = useState(false);
   const [loading, setLoading] = useState(false);
   const [coopDetailName, setCoopDetailName] = useState<string | null>(null);
+  const [showReportDialog, setShowReportDialog] = useState(false);
 
   // Chronology filters
   const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
