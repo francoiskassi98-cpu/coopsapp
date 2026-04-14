@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Loader2, UserPlus, Eye, EyeOff, Users, Pencil, Ban, CheckCircle2 } from "lucide-react";
@@ -18,7 +19,7 @@ interface UserProfile {
   email: string;
   created_at: string;
   role: string;
-  is_banned?: boolean;
+  is_banned: boolean;
 }
 
 export default function UserManagement() {
@@ -30,23 +31,27 @@ export default function UserManagement() {
   const [showPassword, setShowPassword] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Create form
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<string>("user");
 
-  // Edit dialog
   const [editUser, setEditUser] = useState<UserProfile | null>(null);
   const [editUsername, setEditUsername] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState("user");
+  const [editActive, setEditActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
-    const { data: profiles } = await supabase.from("profiles").select("*");
-    const { data: roles } = await supabase.from("user_roles").select("*");
+    const [{ data: profiles }, { data: roles }, banResult] = await Promise.all([
+      supabase.from("profiles").select("*"),
+      supabase.from("user_roles").select("*"),
+      supabase.functions.invoke("manage-user", { body: { action: "list" } }),
+    ]);
+
+    const banMap: Record<string, boolean> = banResult.data?.banMap || {};
 
     if (profiles && roles) {
       const merged = profiles.map((p: any) => ({
@@ -55,6 +60,7 @@ export default function UserManagement() {
         email: p.email,
         created_at: p.created_at,
         role: roles.find((r: any) => r.user_id === p.user_id)?.role || "user",
+        is_banned: banMap[p.user_id] || false,
       }));
       setUsers(merged);
     }
@@ -76,7 +82,6 @@ export default function UserManagement() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-
       toast({ title: "Utilisateur créé", description: `${username} a été ajouté.` });
       setUsername(""); setEmail(""); setPassword(""); setRole("user");
       setShowForm(false);
@@ -93,17 +98,29 @@ export default function UserManagement() {
     setEditUsername(u.username);
     setEditEmail(u.email);
     setEditRole(u.role);
+    setEditActive(!u.is_banned);
   };
 
   const handleUpdate = async () => {
     if (!editUser) return;
     setSaving(true);
     try {
+      // Update profile & role
       const { data, error } = await supabase.functions.invoke("manage-user", {
         body: { action: "update", user_id: editUser.user_id, username: editUsername, email: editEmail, role: editRole },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+
+      // Toggle active status if changed
+      const wasBanned = editUser.is_banned;
+      const shouldBeActive = editActive;
+      if (wasBanned && shouldBeActive) {
+        await supabase.functions.invoke("manage-user", { body: { action: "activate", user_id: editUser.user_id } });
+      } else if (!wasBanned && !shouldBeActive && editUser.user_id !== currentUser?.id) {
+        await supabase.functions.invoke("manage-user", { body: { action: "deactivate", user_id: editUser.user_id } });
+      }
+
       toast({ title: "Utilisateur modifié", description: `${editUsername} a été mis à jour.` });
       setEditUser(null);
       fetchUsers();
@@ -213,19 +230,33 @@ export default function UserManagement() {
                   <TableHead>Nom d'utilisateur</TableHead>
                   <TableHead>E-mail</TableHead>
                   <TableHead>Rôle</TableHead>
+                  <TableHead>Statut</TableHead>
                   <TableHead>Date de création</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.map((u) => (
-                  <TableRow key={u.user_id}>
+                  <TableRow key={u.user_id} className={u.is_banned ? "opacity-60" : ""}>
                     <TableCell className="font-medium">{u.username}</TableCell>
                     <TableCell>{u.email}</TableCell>
                     <TableCell>
                       <Badge variant={u.role === "admin" ? "default" : "secondary"}>
                         {u.role === "admin" ? "Administrateur" : "Utilisateur simple"}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {u.is_banned ? (
+                        <Badge variant="destructive" className="gap-1">
+                          <span className="inline-block w-2 h-2 rounded-full bg-red-300" />
+                          Désactivé
+                        </Badge>
+                      ) : (
+                        <Badge className="gap-1 bg-green-600 hover:bg-green-600/80 text-white border-transparent">
+                          <span className="inline-block w-2 h-2 rounded-full bg-green-300" />
+                          Actif
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>{new Date(u.created_at).toLocaleDateString("fr-FR")}</TableCell>
                     <TableCell className="text-right">
@@ -237,12 +268,18 @@ export default function UserManagement() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleToggleActive(u, false)}
+                            onClick={() => handleToggleActive(u, u.is_banned)}
                             disabled={actionLoading === u.user_id}
-                            title="Désactiver"
-                            className="text-destructive hover:text-destructive"
+                            title={u.is_banned ? "Activer" : "Désactiver"}
+                            className={u.is_banned ? "text-green-600 hover:text-green-700" : "text-destructive hover:text-destructive"}
                           >
-                            {actionLoading === u.user_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+                            {actionLoading === u.user_id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : u.is_banned ? (
+                              <CheckCircle2 className="h-4 w-4" />
+                            ) : (
+                              <Ban className="h-4 w-4" />
+                            )}
                           </Button>
                         )}
                       </div>
@@ -251,7 +288,7 @@ export default function UserManagement() {
                 ))}
                 {users.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       Aucun utilisateur enregistré
                     </TableCell>
                   </TableRow>
@@ -287,6 +324,17 @@ export default function UserManagement() {
                 </SelectContent>
               </Select>
             </div>
+            {editUser && !isSelf(editUser.user_id) && (
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">Statut du compte</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {editActive ? "L'utilisateur peut se connecter" : "L'utilisateur ne peut pas se connecter"}
+                  </p>
+                </div>
+                <Switch checked={editActive} onCheckedChange={setEditActive} />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditUser(null)}>Annuler</Button>
