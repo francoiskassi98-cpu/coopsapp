@@ -19,7 +19,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify caller is admin
     const callerClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -34,41 +33,50 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Accès refusé" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { action, user_id, role, username, email } = await req.json();
+    const body = await req.json();
+    const { action } = body;
+
+    if (action === "list") {
+      const { data: authUsers } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+      const banMap: Record<string, boolean> = {};
+      if (authUsers?.users) {
+        for (const u of authUsers.users) {
+          const banned = u.banned_until ? new Date(u.banned_until) > new Date() : false;
+          banMap[u.id] = banned;
+        }
+      }
+      return new Response(JSON.stringify({ banMap }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const { user_id, role, username, email } = body;
 
     if (!user_id || !action) {
       return new Response(JSON.stringify({ error: "Paramètres manquants" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Prevent self-modification for critical actions
     if (action === "deactivate" && user_id === caller.id) {
       return new Response(JSON.stringify({ error: "Vous ne pouvez pas désactiver votre propre compte" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action === "update") {
-      // Update role if provided
       if (role && ["admin", "user"].includes(role)) {
         await adminClient.from("user_roles").update({ role }).eq("user_id", user_id);
       }
-      // Update profile if provided
       const profileUpdate: Record<string, string> = {};
       if (username) profileUpdate.username = username;
       if (email) profileUpdate.email = email;
       if (Object.keys(profileUpdate).length > 0) {
         await adminClient.from("profiles").update(profileUpdate).eq("user_id", user_id);
       }
-      // Update auth email if changed
       if (email) {
         await adminClient.auth.admin.updateUserById(user_id, { email });
       }
-
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action === "deactivate") {
-      // Ban the user (sets banned_until to far future)
       const { error } = await adminClient.auth.admin.updateUserById(user_id, {
-        ban_duration: "876000h", // ~100 years
+        ban_duration: "876000h",
       });
       if (error) {
         return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });

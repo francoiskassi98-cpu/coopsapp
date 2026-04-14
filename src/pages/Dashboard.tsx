@@ -12,6 +12,7 @@ import KpiCards from "@/components/dashboard/KpiCards";
 import CoopPerformance from "@/components/dashboard/CoopPerformance";
 import CoopTable from "@/components/dashboard/CoopTable";
 import DashboardFilters from "@/components/dashboard/DashboardFilters";
+import ReportDialog from "@/components/dashboard/ReportDialog";
 import type { CoopStats } from "@/components/dashboard/CoopPerformance";
 
 const PIE_COLORS = ["hsl(25, 65%, 32%)", "hsl(140, 35%, 40%)", "hsl(35, 70%, 55%)", "hsl(200, 50%, 50%)", "hsl(280, 40%, 50%)", "hsl(0, 50%, 50%)", "hsl(60, 50%, 45%)"];
@@ -22,6 +23,7 @@ export default function Dashboard() {
   const [showCampaignAlert, setShowCampaignAlert] = useState(false);
   const [loading, setLoading] = useState(false);
   const [coopDetailName, setCoopDetailName] = useState<string | null>(null);
+  const [showReportDialog, setShowReportDialog] = useState(false);
 
   // Chronology filters
   const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
@@ -145,9 +147,9 @@ export default function Dashboard() {
           <p className="text-sm text-muted-foreground">Campagne {getCurrentCampaign()}</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => toast.success("Mail bien envoyé avec le rapport")} variant="outline">
+          <Button onClick={() => setShowReportDialog(true)} variant="outline">
             <Mail className="h-4 w-4" />
-            Rapport par mail
+            Envoyer un rapport
           </Button>
           <Button onClick={() => { loadData().then(() => toast.success("Données actualisées")); }} disabled={loading} variant="outline">
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -255,6 +257,21 @@ export default function Dashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ReportDialog
+        open={showReportDialog}
+        onOpenChange={setShowReportDialog}
+        dashboardData={{
+          totalPotential: stats.totalPotential,
+          totalDelivered: stats.totalDelivered,
+          remaining: stats.remaining,
+          shipmentCount: stats.shipmentCount,
+          coopStats,
+          byProject,
+          byPartner,
+          campaign: selectedCampaign !== "all" ? selectedCampaign : getCurrentCampaign(),
+        }}
+      />
     </div>
   );
 }
