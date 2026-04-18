@@ -94,17 +94,32 @@ export default function ExportPage() {
   const exportAllOrByConnaissement = async (mode: "all" | "connaissement") => {
     setLoading(mode);
     try {
-      let query = supabase.from("deliveries").select("*, producers(full_name, section, plantation_code, cooperative), shipments(connaissement, project, destination, campaign, zone, cooperative_id, cooperatives(name), partners(name))").order("receipt_number");
+      let shipmentIdFilter: string[] | undefined;
 
       if (mode === "connaissement") {
         if (!selectedConnaissement) { toast({ title: "Sélectionnez un connaissement", variant: "destructive" }); setLoading(null); return; }
         const { data: shipment } = await supabase.from("shipments").select("id").eq("connaissement", selectedConnaissement).eq("status", "active").maybeSingle();
         if (!shipment) { toast({ title: "Connaissement introuvable", variant: "destructive" }); setLoading(null); return; }
-        query = query.eq("shipment_id", shipment.id);
+        shipmentIdFilter = [shipment.id];
       }
 
-      const { data: deliveries, error } = await query;
-      if (error) throw error;
+      // Fetch all deliveries without 1000-row limit using pagination
+      const deliveries = await fetchAllRows(
+        "deliveries",
+        "*, producers(full_name, section, plantation_code, cooperative), shipments!inner(connaissement, project, destination, campaign, zone, cooperative_id, cooperatives(name), partners(name))",
+        {
+          filters: (q) => {
+            let query = q;
+            if (shipmentIdFilter) {
+              query = query.eq("shipment_id", shipmentIdFilter[0]);
+            }
+            return query;
+          },
+          order: { column: "receipt_number", ascending: true },
+          pageSize: 500
+        }
+      );
+
       if (!deliveries || deliveries.length === 0) { toast({ title: "Aucune donnée à exporter", variant: "destructive" }); setLoading(null); return; }
 
       const rows = deliveries.map((d) => ({
@@ -134,7 +149,16 @@ export default function ExportPage() {
   const exportPotentialByZone = async () => {
     setLoading("potential");
     try {
-      const { data: producers } = await supabase.from("producers").select("full_name, section, plantation_code, delivery_potential, remaining_potential, cooperative").order("cooperative").order("section");
+      // Fetch all producers without 1000-row limit using pagination
+      const producers = await fetchAllRows(
+        "producers",
+        "full_name, section, plantation_code, delivery_potential, remaining_potential, cooperative",
+        {
+          order: { column: "cooperative", ascending: true },
+          pageSize: 500
+        }
+      );
+      
       if (!producers || producers.length === 0) { toast({ title: "Aucune donnée", variant: "destructive" }); setLoading(null); return; }
 
       const rows = producers.map((p) => ({
