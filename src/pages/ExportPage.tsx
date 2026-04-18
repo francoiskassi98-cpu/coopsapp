@@ -25,15 +25,45 @@ export default function ExportPage() {
     if (!selectedCoop) { toast({ title: "Sélectionnez une coopérative", variant: "destructive" }); return; }
     setLoading("coop");
     try {
-      // Get deliveries for shipments matching this cooperative_id
-      const { data: coopShipments } = await supabase.from("shipments").select("id, connaissement, project, destination, campaign, zone, total_weight, total_bags, partner_id, partners(name), cooperatives(name)").eq("cooperative_id", selectedCoop).eq("status", "active");
-      if (!coopShipments || coopShipments.length === 0) { toast({ title: "Aucun chargement pour cette coopérative", variant: "destructive" }); setLoading(null); return; }
+      // Get deliveries for shipments matching this cooperative_id using pagination
+      const coopShipments = await fetchAllRows(
+        "shipments",
+        "id, connaissement, project, destination, campaign, zone, total_weight, total_bags, partner_id, partners(name), cooperatives(name)",
+        {
+          filters: (q) => q.eq("cooperative_id", selectedCoop).eq("status", "active"),
+          order: { column: "created_at", ascending: false },
+          pageSize: 500
+        }
+      );
+      
+      if (!coopShipments || coopShipments.length === 0) { 
+        toast({ title: "Aucun chargement pour cette coopérative", variant: "destructive" }); 
+        setLoading(null); 
+        return; 
+      }
 
       const shipmentIds = coopShipments.map((s) => s.id);
-      const { data: deliveries } = await supabase.from("deliveries").select("*, producers(full_name, section, plantation_code, cooperative)").in("shipment_id", shipmentIds).order("receipt_number");
+      
+      // Fetch all deliveries without 1000-row limit using pagination
+      const deliveries: any[] = [];
+      const chunkSize = 100; // Supabase has limit on IN clause size
+      
+      for (let i = 0; i < shipmentIds.length; i += chunkSize) {
+        const chunk = shipmentIds.slice(i, i + chunkSize);
+        const chunkDeliveries = await fetchAllRows(
+          "deliveries",
+          "*, producers(full_name, section, plantation_code, cooperative)",
+          {
+            filters: (q) => q.in("shipment_id", chunk),
+            order: { column: "receipt_number", ascending: true },
+            pageSize: 500
+          }
+        );
+        deliveries.push(...chunkDeliveries);
+      }
 
       const shipmentMap = Object.fromEntries(coopShipments.map((s) => [s.id, s]));
-      const rows = (deliveries || []).map((d) => {
+      const rows = deliveries.map((d) => {
         const s = shipmentMap[d.shipment_id] || {};
         return {
           "N°": "",
