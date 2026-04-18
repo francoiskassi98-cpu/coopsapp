@@ -25,15 +25,45 @@ export default function ExportPage() {
     if (!selectedCoop) { toast({ title: "Sélectionnez une coopérative", variant: "destructive" }); return; }
     setLoading("coop");
     try {
-      // Get deliveries for shipments matching this cooperative_id
-      const { data: coopShipments } = await supabase.from("shipments").select("id, connaissement, project, destination, campaign, zone, total_weight, total_bags, partner_id, partners(name), cooperatives(name)").eq("cooperative_id", selectedCoop).eq("status", "active");
-      if (!coopShipments || coopShipments.length === 0) { toast({ title: "Aucun chargement pour cette coopérative", variant: "destructive" }); setLoading(null); return; }
+      // Get deliveries for shipments matching this cooperative_id using pagination
+      const coopShipments = await fetchAllRows(
+        "shipments",
+        "id, connaissement, project, destination, campaign, zone, total_weight, total_bags, partner_id, partners(name), cooperatives(name)",
+        {
+          filters: (q) => q.eq("cooperative_id", selectedCoop).eq("status", "active"),
+          order: { column: "created_at", ascending: false },
+          pageSize: 500
+        }
+      );
+      
+      if (!coopShipments || coopShipments.length === 0) { 
+        toast({ title: "Aucun chargement pour cette coopérative", variant: "destructive" }); 
+        setLoading(null); 
+        return; 
+      }
 
       const shipmentIds = coopShipments.map((s) => s.id);
-      const { data: deliveries } = await supabase.from("deliveries").select("*, producers(full_name, section, plantation_code, cooperative)").in("shipment_id", shipmentIds).order("receipt_number");
+      
+      // Fetch all deliveries without 1000-row limit using pagination
+      const deliveries: any[] = [];
+      const chunkSize = 100; // Supabase has limit on IN clause size
+      
+      for (let i = 0; i < shipmentIds.length; i += chunkSize) {
+        const chunk = shipmentIds.slice(i, i + chunkSize);
+        const chunkDeliveries = await fetchAllRows(
+          "deliveries",
+          "*, producers(full_name, section, plantation_code, cooperative)",
+          {
+            filters: (q) => q.in("shipment_id", chunk),
+            order: { column: "receipt_number", ascending: true },
+            pageSize: 500
+          }
+        );
+        deliveries.push(...chunkDeliveries);
+      }
 
       const shipmentMap = Object.fromEntries(coopShipments.map((s) => [s.id, s]));
-      const rows = (deliveries || []).map((d) => {
+      const rows = deliveries.map((d) => {
         const s = shipmentMap[d.shipment_id] || {};
         return {
           "N°": "",
@@ -64,17 +94,32 @@ export default function ExportPage() {
   const exportAllOrByConnaissement = async (mode: "all" | "connaissement") => {
     setLoading(mode);
     try {
-      let query = supabase.from("deliveries").select("*, producers(full_name, section, plantation_code, cooperative), shipments(connaissement, project, destination, campaign, zone, cooperative_id, cooperatives(name), partners(name))").order("receipt_number");
+      let shipmentIdFilter: string[] | undefined;
 
       if (mode === "connaissement") {
         if (!selectedConnaissement) { toast({ title: "Sélectionnez un connaissement", variant: "destructive" }); setLoading(null); return; }
         const { data: shipment } = await supabase.from("shipments").select("id").eq("connaissement", selectedConnaissement).eq("status", "active").maybeSingle();
         if (!shipment) { toast({ title: "Connaissement introuvable", variant: "destructive" }); setLoading(null); return; }
-        query = query.eq("shipment_id", shipment.id);
+        shipmentIdFilter = [shipment.id];
       }
 
-      const { data: deliveries, error } = await query;
-      if (error) throw error;
+      // Fetch all deliveries without 1000-row limit using pagination
+      const deliveries = await fetchAllRows(
+        "deliveries",
+        "*, producers(full_name, section, plantation_code, cooperative), shipments!inner(connaissement, project, destination, campaign, zone, cooperative_id, cooperatives(name), partners(name))",
+        {
+          filters: (q) => {
+            let query = q;
+            if (shipmentIdFilter) {
+              query = query.eq("shipment_id", shipmentIdFilter[0]);
+            }
+            return query;
+          },
+          order: { column: "receipt_number", ascending: true },
+          pageSize: 500
+        }
+      );
+
       if (!deliveries || deliveries.length === 0) { toast({ title: "Aucune donnée à exporter", variant: "destructive" }); setLoading(null); return; }
 
       const rows = deliveries.map((d) => ({
@@ -104,7 +149,16 @@ export default function ExportPage() {
   const exportPotentialByZone = async () => {
     setLoading("potential");
     try {
-      const { data: producers } = await supabase.from("producers").select("full_name, section, plantation_code, delivery_potential, remaining_potential, cooperative").order("cooperative").order("section");
+      // Fetch all producers without 1000-row limit using pagination
+      const producers = await fetchAllRows(
+        "producers",
+        "full_name, section, plantation_code, delivery_potential, remaining_potential, cooperative",
+        {
+          order: { column: "cooperative", ascending: true },
+          pageSize: 500
+        }
+      );
+      
       if (!producers || producers.length === 0) { toast({ title: "Aucune donnée", variant: "destructive" }); setLoading(null); return; }
 
       const rows = producers.map((p) => ({
