@@ -9,6 +9,7 @@ import Producers from "@/pages/Producers";
 import CreateShipment from "@/pages/CreateShipment";
 import ExportPage from "@/pages/ExportPage";
 import UserManagement from "@/pages/UserManagement";
+import Campaigns from "@/pages/Campaigns";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
