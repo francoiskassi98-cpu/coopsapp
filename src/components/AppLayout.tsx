@@ -1,9 +1,11 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, Truck, FileSpreadsheet, Users, Settings } from "lucide-react";
+import { BarChart3, Truck, FileSpreadsheet, Users, Settings, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useActiveCampaign } from "@/hooks/useActiveCampaign";
 
 const allNavItems = [
   { to: "/", label: "Tableau de bord", icon: BarChart3 },
+  { to: "/campagnes", label: "Campagnes", icon: Calendar },
   { to: "/producteurs", label: "Producteurs", icon: Users },
   { to: "/chargements", label: "Chargements", icon: Truck },
   { to: "/export", label: "Export", icon: FileSpreadsheet },
@@ -11,6 +13,7 @@ const allNavItems = [
 ];
 
 export default function AppLayout() {
+  const { campaign } = useActiveCampaign();
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col shrink-0">
@@ -41,7 +44,9 @@ export default function AppLayout() {
         <div className="border-t border-sidebar-border p-4 space-y-3">
           <div className="flex items-center gap-2">
             <span className="text-xs text-sidebar-foreground/50">Campagne active</span>
-            <span className="text-xs font-semibold text-sidebar-primary">2025-2026</span>
+            <span className="text-xs font-semibold text-sidebar-primary">
+              {campaign?.nom ?? "—"}
+            </span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-sidebar-foreground/50">Mode démo</span>

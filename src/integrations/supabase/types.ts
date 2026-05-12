@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaigns: {
+        Row: {
+          active: boolean
+          archived: boolean
+          created_at: string
+          date_debut: string
+          date_fin: string
+          id: string
+          nom: string
+          utilise_pour_chargement: boolean
+        }
+        Insert: {
+          active?: boolean
+          archived?: boolean
+          created_at?: string
+          date_debut: string
+          date_fin: string
+          id?: string
+          nom: string
+          utilise_pour_chargement?: boolean
+        }
+        Update: {
+          active?: boolean
+          archived?: boolean
+          created_at?: string
+          date_debut?: string
+          date_fin?: string
+          id?: string
+          nom?: string
+          utilise_pour_chargement?: boolean
+        }
+        Relationships: []
+      }
       cooperatives: {
         Row: {
           created_at: string
@@ -82,24 +115,35 @@ export type Database = {
       }
       disabled_sections: {
         Row: {
+          campaign_id: string | null
           cooperative: string
           disabled_at: string
           id: string
           section_name: string
         }
         Insert: {
+          campaign_id?: string | null
           cooperative: string
           disabled_at?: string
           id?: string
           section_name: string
         }
         Update: {
+          campaign_id?: string | null
           cooperative?: string
           disabled_at?: string
           id?: string
           section_name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "disabled_sections_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       partners: {
         Row: {
@@ -118,6 +162,74 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      producer_registry: {
+        Row: {
+          actif: boolean
+          campaign_id: string
+          cni: string | null
+          code_plantation: string
+          code_producteur: string | null
+          cooperative: string
+          created_at: string
+          id: string
+          latitude: number | null
+          longitude: number | null
+          nom_complet: string
+          numero_producteur: string | null
+          potentiel_livraison: number
+          potentiel_restant: number
+          section: string
+          sexe: string | null
+          surface_cacao_totale: number | null
+        }
+        Insert: {
+          actif?: boolean
+          campaign_id: string
+          cni?: string | null
+          code_plantation: string
+          code_producteur?: string | null
+          cooperative: string
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          nom_complet: string
+          numero_producteur?: string | null
+          potentiel_livraison?: number
+          potentiel_restant?: number
+          section: string
+          sexe?: string | null
+          surface_cacao_totale?: number | null
+        }
+        Update: {
+          actif?: boolean
+          campaign_id?: string
+          cni?: string | null
+          code_plantation?: string
+          code_producteur?: string | null
+          cooperative?: string
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          nom_complet?: string
+          numero_producteur?: string | null
+          potentiel_livraison?: number
+          potentiel_restant?: number
+          section?: string
+          sexe?: string | null
+          surface_cacao_totale?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_registry_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       producers: {
         Row: {
@@ -243,6 +355,7 @@ export type Database = {
         Row: {
           avg_bag_weight: number
           campaign: string
+          campaign_id: string | null
           connaissement: string | null
           cooperative_id: string | null
           created_at: string
@@ -261,6 +374,7 @@ export type Database = {
         Insert: {
           avg_bag_weight: number
           campaign: string
+          campaign_id?: string | null
           connaissement?: string | null
           cooperative_id?: string | null
           created_at?: string
@@ -279,6 +393,7 @@ export type Database = {
         Update: {
           avg_bag_weight?: number
           campaign?: string
+          campaign_id?: string | null
           connaissement?: string | null
           cooperative_id?: string | null
           created_at?: string
@@ -295,6 +410,13 @@ export type Database = {
           zone?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "shipments_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shipments_cooperative_id_fkey"
             columns: ["cooperative_id"]
@@ -361,9 +483,47 @@ export type Database = {
           sexe: string
         }[]
       }
+      get_active_campaign: {
+        Args: never
+        Returns: {
+          active: boolean
+          archived: boolean
+          created_at: string
+          date_debut: string
+          date_fin: string
+          id: string
+          nom: string
+          utilise_pour_chargement: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "campaigns"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      get_dashboard_stats_by_campaign: {
+        Args: { p_campaign_id: string }
+        Returns: {
+          nb_chargements: number
+          nb_producteurs: number
+          poids_livre: number
+          potentiel_restant: number
+          potentiel_total: number
+        }[]
+      }
       get_max_receipt_number: {
         Args: { p_cooperative_id: string }
         Returns: string
+      }
+      get_remaining_potential_by_campaign: {
+        Args: { p_campaign_id: string }
+        Returns: {
+          cooperative: string
+          livre: number
+          potentiel_total: number
+          restant: number
+        }[]
       }
       has_role: {
         Args: {

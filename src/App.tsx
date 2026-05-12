@@ -9,6 +9,7 @@ import Producers from "@/pages/Producers";
 import CreateShipment from "@/pages/CreateShipment";
 import ExportPage from "@/pages/ExportPage";
 import UserManagement from "@/pages/UserManagement";
+import Campaigns from "@/pages/Campaigns";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/producteurs" element={<Producers />} />
             <Route path="/chargements" element={<CreateShipment />} />
             <Route path="/export" element={<ExportPage />} />
+            <Route path="/campagnes" element={<Campaigns />} />
             <Route path="/gestion" element={<UserManagement />} />
           </Route>
           <Route path="*" element={<NotFound />} />

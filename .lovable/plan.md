@@ -1,147 +1,123 @@
-# Application de Gestion des Chargements de Cacao
+# Refonte Multi-Campagnes — Plan
 
 ## Vue d'ensemble
+Migrer l'application d'une logique mono-campagne (champ texte `campaign` sur `shipments`) vers une **architecture multi-campagnes** centralisée autour d'une nouvelle table `campaigns`. Toutes les données métier (producteurs, chargements, livraisons, potentiels) seront rattachées à une campagne via `campaign_id`. Une seule campagne à la fois est désignée « campagne utilisée pour les chargements ». Les anciennes campagnes restent consultables et exportables, mais ne sont jamais utilisées pour de nouveaux chargements ni dans les calculs de potentiel restant.
 
-Application web complète en **français** pour automatiser la gestion des expéditions de cacao pour une coopérative.
-
-⚠️ L'application contient des données sensibles (producteurs, reçus, livraisons).
-Donc l'accès doit être sécurisé avec Supabase Auth + RLS.
-
-Backend avec **Lovable Cloud** (base de données Supabase).
+La période officielle change : **01 septembre AAAA → 31 août AAAA+1** (au lieu d'octobre→septembre actuel).
 
 ---
 
-## Module 0 — Sécurité & Performance (Obligatoire)
+## 1. Base de données
 
-### Sécurité
+### Nouvelle table `campaigns`
+- `id` (uuid)
+- `nom` (text, unique, format `YYYY-YYYY`)
+- `date_debut` (date, 01/09/AAAA)
+- `date_fin` (date, 31/08/AAAA+1)
+- `active` (bool) — campagne visible/utilisable
+- `utilise_pour_chargement` (bool) — UNE SEULE à la fois (contrainte via index unique partiel + trigger)
+- `archived` (bool)
+- `created_at`
 
-- Activation de **Row Level Security (RLS)** sur toutes les tables
-- Accès uniquement aux utilisateurs authentifiés (agents/admin)
-- Rôles :
-  - Admin : accès complet
-  - Agent : accès limité à sa coopérative
-- Désactivation totale de l’accès public (anon)
+### Nouvelle table `producer_registry`
+Registre producteurs **par campagne** (remplace l'utilisation directe de `producers` pour les nouveaux imports) :
+- `id`, `campaign_id` (FK), `cooperative`, `nom_complet`, `numero_producteur`, `cni`, `code_producteur`, `section`, `surface_cacao_totale`, `code_plantation`, `potentiel_livraison`, `potentiel_restant`, `latitude`, `longitude`, `actif`, `sexe`, `created_at`
+- Contrainte unique : `(campaign_id, code_plantation)`
 
-### Performance & Suppression limite 1000 lignes
+### Modifications tables existantes
+- `shipments` : ajouter `campaign_id` (uuid, FK campaigns)
+- `disabled_sections` : ajouter `campaign_id`
+- Conserver `producers` actuelle pour rétrocompatibilité historique (lecture seule sur l'historique)
 
-- Pagination obligatoire avec `.range()` (pas de `.limit(1000)`)
-- Export complet via fonction Supabase RPC (pas de select direct)
-- Import massif optimisé (bulk insert)
-- Mise à jour rapide avec Supabase Realtime
+### RLS
+Toutes les nouvelles tables : RLS activée, policies `authenticated only` (cohérent avec l'existant). Policies admin pour gestion campagnes.
 
----
+### Trigger
+- Trigger sur `campaigns` : si `UPDATE` met `utilise_pour_chargement = true`, désactiver automatiquement les autres
+- Trigger : empêcher modification de `date_debut`/`date_fin` après création (sauf admin)
 
-## Module 1 — Base de données Producteurs & Plantations
+### Fonctions RPC
+- `get_active_campaign()` → campagne courante de chargement
+- `get_shipments_by_campaign(p_campaign_id uuid)`
+- `get_registry_by_campaign(p_campaign_id uuid)`
+- `get_dashboard_stats_by_campaign(p_campaign_id uuid)`
+- `get_remaining_potential_by_campaign(p_campaign_id uuid)`
 
-- Page d'importation Excel avec drag & drop
-- Colonnes :
-  Coopérative, Nom complet, N° producteur, CNI, Code producteur,
-  Section, Surface cacao totale, Code plantation, Potentiel livraison,
-  Latitude, Longitude
-
-### Validation import
-
-- Rejet si données manquantes
-- Unicité stricte du `code_plantation`
-- Affichage erreurs ligne par ligne avant confirmation
-
-### Gestion Active/Inactif
-
-- Activer/Désactiver un producteur
-- Désactiver une section entière
-- Lors de la création de chargement :
-  seuls les producteurs actifs sont utilisés
+### Migration de données
+Backfill : créer une campagne par valeur distincte de `shipments.campaign`, lier les `shipments.campaign_id`. Producteurs existants restent dans `producers` (historique global).
 
 ---
 
-## Module 2 — Création de Chargement (Automatisation)
+## 2. Frontend — Nouvelles pages / refontes
 
-- Formulaire :
-  poids total demandé, sacs déclarés, connaissement, dates livraison
+### Nouvelle page « Gestion des Campagnes » (admin uniquement)
+- Liste des campagnes avec statut (active / utilisée pour chargement / archivée)
+- Créer une nouvelle campagne (auto-calcul dates 01/09 → 31/08)
+- Activer / désactiver
+- Définir comme « campagne utilisée pour les chargements » (badge visible)
+- Archiver
 
-- Dropdowns :
-  Projet (FT/RA/Ordinaire), Partenaire, Zone,
-  Destination (Abidjan/San-Pedro), Campagne
+### Refonte `ImportProducers` → registre par campagne
+- Étape 0 obligatoire : sélectionner une campagne existante OU en créer une
+- Si import sur campagne existante : option « remplacer le registre de cette campagne » (DELETE puis bulk INSERT)
+- Validation : unicité `code_plantation` **par campagne** (plus globale)
+- Insertion dans `producer_registry` avec `campaign_id`
 
-### Automatisation
+### Refonte `CreateShipment`
+- Suppression du champ texte « Campagne » → utilisation auto de la campagne avec `utilise_pour_chargement = true`
+- Source des producteurs : `producer_registry` filtré par `campaign_id` actif + `actif = true`
+- Calcul potentiel restant basé uniquement sur la campagne active
+- Bloquer création si aucune campagne active
 
-- Distribution du poids selon potentiel restant
-- Seuil minimum : 50 kg
-- Déduction automatique (0.15%–0.20%)
-- Arrondi sacs avec total exact
-- Aperçu avant validation
+### Refonte `Producers` (gestion)
+- Sélecteur de campagne en haut
+- Affichage du registre de la campagne sélectionnée
+- Activer/désactiver producteur ou section **par campagne**
 
----
+### Refonte `Dashboard` — 2 onglets
+- **Onglet 1 — Campagne active** : KPIs, coop, graphiques, historique de la campagne courante
+- **Onglet 2 — Historique global** : toutes campagnes, tableau comparatif (Campagne / Potentiel / Livré / Restant), graphiques d'évolution
 
-## Module 3 — Fiches Livraison & Numéros de Reçu
+### Refonte `ExportPage`
+- Sélecteur campagne pour chaque export :
+  - Chargements : toutes / spécifique / active
+  - Registres : active / spécifique / global
+  - Potentiel restant : par campagne / par coopérative
+- Tous les exports passent par les RPC
 
-- Génération automatique des fiches producteur
-- Colonnes :
-  connaissement, nom, numéro reçu, section, code plantation,
-  date livraison, poids net, sacs, projet, destination
-
-### Numéro de reçu
-
-- Champ officiel dans shipments : `"numéro_de_recu"`
-- Numéros sur 6 chiffres
-- Prochain numéro = MAX("numéro_de_recu") + 1 par coopérative
-- Champ modifiable manuellement
-
----
-
-## Module 4 — Gestion des Campagnes
-
-- Campagne du 01/10/AAAA au 30/09/AAAA+1
-- Notification nouvelle campagne
-- Mise à jour des potentiels sans bloquer l’application
-
----
-
-## Module 5 — Export Excel (Illimité)
-
-- Export officiel « Knf-Modèle-FA.xlsx »
-- Export complet sans limite de lignes grâce à Supabase RPC
-- Options :
-  - Tous les chargements
-  - Par connaissement
-  - Potentiel restant par producteur
+### Refonte `ShipmentHistory`
+- Filtre par campagne
+- Annulation : restaurer le potentiel sur la campagne du chargement
 
 ---
 
-## Module 6 — Annulation de Chargement
+## 3. Sécurité (Module 0)
+État actuel : **authentification désactivée** (mode démo) suite aux demandes précédentes. Le spec demande explicitement « accès uniquement aux utilisateurs authentifiés » et désactivation de l'accès anon.
 
-- Annulation par connaissement
-- Suppression livraisons liées
-- Restauration potentiel
-- Historique conservé
+**Décision proposée** : conserver le mode démo actuel pour ne pas casser l'usage en cours. Réactiver auth uniquement si vous le confirmez.
 
 ---
 
-## Module 7 — Tableau de Bord
-
-### KPIs
-
-- Potentiel total estimé
-- Poids total livré
-- Potentiel restant
-
-### Analyse par coopérative avec détail
-
-- Poids livré par coop
-- Potentiel restant par coop
-
-### Graphiques
-
-- Répartition projet / partenaire / zone
-- Historique avec recherche
+## 4. Détails techniques
+- Realtime activé sur `campaigns`, `shipments`, `producer_registry`, `deliveries`
+- Toutes les requêtes utilisent `fetchAllRows` (pagination) ou RPC
+- Format campagne strictement `YYYY-YYYY` validé côté front + DB CHECK
+- Mise à jour `mem://logic/campaign-cycle` pour refléter le nouveau cycle 01/09 → 31/08
 
 ---
 
-## Architecture technique
+## Ordre d'exécution
+1. Migration SQL (tables + RPC + triggers + RLS + backfill)
+2. Page Gestion des Campagnes
+3. Refonte ImportProducers (registre par campagne)
+4. Refonte CreateShipment + Producers
+5. Refonte Dashboard (2 onglets)
+6. Refonte ExportPage + ShipmentHistory
+7. Realtime + tests
 
-- Frontend : React + TypeScript + Tailwind + shadcn/ui
-- Backend : Supabase via Lovable Cloud
-- Import Excel : SheetJS côté client
-- Export Excel : SheetJS + RPC Supabase
-- Realtime : Mise à jour instantanée
-- Interface : 100% français
+---
+
+## Questions avant exécution
+1. **Sécurité** : réactiver l'authentification + RLS strict (le spec le demande), ou rester en mode démo ?
+2. **Cycle** : confirmez-vous le passage de **Oct→Sept** à **Sept→Août** ? Cela contredit la mémoire projet existante.
+3. **Données existantes** : les producteurs actuels doivent-ils être migrés vers `producer_registry` sur la campagne active courante, ou rester uniquement dans `producers` comme archive ?
