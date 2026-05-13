@@ -3,51 +3,83 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToExcel } from "@/lib/excel-utils";
 import { fetchAllRows } from "@/lib/database-utils";
+import { useCampaigns, useActiveCampaign } from "@/hooks/useActiveCampaign";
 import { toast } from "@/hooks/use-toast";
-import { FileSpreadsheet, Download, Users, Ship, MapPin, Loader2 } from "lucide-react";
+import { FileSpreadsheet, Download, Users, Ship, MapPin, Loader2, Calendar } from "lucide-react";
+
+const ALL_CAMPAIGNS = "__all__";
 
 export default function ExportPage() {
   const [shipments, setShipments] = useState<any[]>([]);
   const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
   const [selectedCoop, setSelectedCoop] = useState("");
   const [selectedConnaissement, setSelectedConnaissement] = useState("");
+  const [selectedCampaign, setSelectedCampaign] = useState<string>("");
   const [loading, setLoading] = useState<string | null>(null);
+  const { campaigns } = useCampaigns();
+  const { campaign: activeCampaign } = useActiveCampaign();
 
+  // Default to active campaign when available
   useEffect(() => {
-    supabase.from("shipments").select("id, connaissement, zone, cooperative_id").eq("status", "active").order("created_at", { ascending: false }).then(({ data }) => setShipments(data || []));
+    if (!selectedCampaign && activeCampaign) {
+      setSelectedCampaign(activeCampaign.id);
+    }
+  }, [activeCampaign, selectedCampaign]);
+
+  // Reload shipments when campaign filter changes
+  useEffect(() => {
+    let q = supabase
+      .from("shipments")
+      .select("id, connaissement, zone, cooperative_id, campaign_id")
+      .eq("status", "active")
+      .order("created_at", { ascending: false });
+    if (selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS) {
+      q = q.eq("campaign_id", selectedCampaign);
+    }
+    q.then(({ data }) => setShipments(data || []));
     supabase.from("cooperatives").select("id, name").order("name").then(({ data }) => setCooperatives(data || []));
-  }, []);
+  }, [selectedCampaign]);
+
+  const campaignLabel = () => {
+    if (!selectedCampaign || selectedCampaign === ALL_CAMPAIGNS) return "Toutes-Campagnes";
+    return campaigns.find((c) => c.id === selectedCampaign)?.nom || "Campagne";
+  };
+
+  const applyCampaignFilter = (q: any, column = "campaign_id") => {
+    if (selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS) {
+      return q.eq(column, selectedCampaign);
+    }
+    return q;
+  };
 
   const exportByCooperative = async () => {
     if (!selectedCoop) { toast({ title: "Sélectionnez une coopérative", variant: "destructive" }); return; }
     setLoading("coop");
     try {
-      // Get deliveries for shipments matching this cooperative_id using pagination
       const coopShipments = await fetchAllRows(
         "shipments",
-        "id, connaissement, project, destination, campaign, zone, total_weight, total_bags, partner_id, partners(name), cooperatives(name)",
+        "id, connaissement, project, destination, campaign, zone, total_weight, total_bags, partner_id, campaign_id, partners(name), cooperatives(name)",
         {
-          filters: (q) => q.eq("cooperative_id", selectedCoop).eq("status", "active"),
+          filters: (q) => applyCampaignFilter(q.eq("cooperative_id", selectedCoop).eq("status", "active")),
           order: { column: "created_at", ascending: false },
           pageSize: 500
         }
       );
-      
-      if (!coopShipments || coopShipments.length === 0) { 
-        toast({ title: "Aucun chargement pour cette coopérative", variant: "destructive" }); 
-        setLoading(null); 
-        return; 
+
+      if (!coopShipments || coopShipments.length === 0) {
+        toast({ title: "Aucun chargement pour cette coopérative dans cette campagne", variant: "destructive" });
+        setLoading(null);
+        return;
       }
 
       const shipmentIds = coopShipments.map((s) => s.id);
-      
-      // Fetch all deliveries without 1000-row limit using pagination
       const deliveries: any[] = [];
-      const chunkSize = 100; // Supabase has limit on IN clause size
-      
+      const chunkSize = 100;
+
       for (let i = 0; i < shipmentIds.length; i += chunkSize) {
         const chunk = shipmentIds.slice(i, i + chunkSize);
         const chunkDeliveries = await fetchAllRows(
@@ -85,7 +117,7 @@ export default function ExportPage() {
 
       if (rows.length === 0) { toast({ title: "Aucune livraison trouvée", variant: "destructive" }); setLoading(null); return; }
       const coopName = cooperatives.find(c => c.id === selectedCoop)?.name || selectedCoop;
-      await exportToExcel(rows, `Chargements-${coopName}.xlsx`, "Chargement");
+      await exportToExcel(rows, `Chargements-${coopName}-${campaignLabel()}.xlsx`, "Chargement");
       toast({ title: "Export réussi" });
     } catch (err: any) { toast({ title: "Erreur", description: err.message, variant: "destructive" }); }
     setLoading(null);
@@ -101,24 +133,48 @@ export default function ExportPage() {
         const { data: shipment } = await supabase.from("shipments").select("id").eq("connaissement", selectedConnaissement).eq("status", "active").maybeSingle();
         if (!shipment) { toast({ title: "Connaissement introuvable", variant: "destructive" }); setLoading(null); return; }
         shipmentIdFilter = [shipment.id];
+      } else if (selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS) {
+        // Restrict to shipments of the selected campaign
+        const campaignShipments = await fetchAllRows("shipments", "id", {
+          filters: (q) => q.eq("campaign_id", selectedCampaign).eq("status", "active"),
+          pageSize: 500,
+        });
+        shipmentIdFilter = campaignShipments.map((s: any) => s.id);
+        if (shipmentIdFilter.length === 0) {
+          toast({ title: "Aucun chargement pour cette campagne", variant: "destructive" });
+          setLoading(null);
+          return;
+        }
       }
 
-      // Fetch all deliveries without 1000-row limit using pagination
-      const deliveries = await fetchAllRows(
-        "deliveries",
-        "*, producers(full_name, section, plantation_code, cooperative), shipments!inner(connaissement, project, destination, campaign, zone, cooperative_id, cooperatives(name), partners(name))",
-        {
-          filters: (q) => {
-            let query = q;
-            if (shipmentIdFilter) {
-              query = query.eq("shipment_id", shipmentIdFilter[0]);
+      const deliveries: any[] = [];
+      if (shipmentIdFilter && shipmentIdFilter.length > 0) {
+        const chunkSize = 100;
+        for (let i = 0; i < shipmentIdFilter.length; i += chunkSize) {
+          const chunk = shipmentIdFilter.slice(i, i + chunkSize);
+          const chunkDeliveries = await fetchAllRows(
+            "deliveries",
+            "*, producers(full_name, section, plantation_code, cooperative), shipments!inner(connaissement, project, destination, campaign, zone, cooperative_id, cooperatives(name), partners(name))",
+            {
+              filters: (q) => q.in("shipment_id", chunk),
+              order: { column: "receipt_number", ascending: true },
+              pageSize: 500
             }
-            return query;
-          },
-          order: { column: "receipt_number", ascending: true },
-          pageSize: 500
+          );
+          deliveries.push(...chunkDeliveries);
         }
-      );
+      } else {
+        // mode "all" + toutes campagnes
+        const all = await fetchAllRows(
+          "deliveries",
+          "*, producers(full_name, section, plantation_code, cooperative), shipments!inner(connaissement, project, destination, campaign, zone, cooperative_id, cooperatives(name), partners(name))",
+          {
+            order: { column: "receipt_number", ascending: true },
+            pageSize: 500,
+          }
+        );
+        deliveries.push(...all);
+      }
 
       if (!deliveries || deliveries.length === 0) { toast({ title: "Aucune donnée à exporter", variant: "destructive" }); setLoading(null); return; }
 
@@ -139,7 +195,9 @@ export default function ExportPage() {
         "Campagne": (d.shipments as any)?.campaign || "",
       }));
 
-      const filename = mode === "connaissement" ? `Chargement-${selectedConnaissement}.xlsx` : "Knf-Modèle-FA.xlsx";
+      const filename = mode === "connaissement"
+        ? `Chargement-${selectedConnaissement}.xlsx`
+        : `Knf-Modèle-FA-${campaignLabel()}.xlsx`;
       await exportToExcel(rows, filename, "Chargement");
       toast({ title: "Export réussi" });
     } catch (err: any) { toast({ title: "Erreur", description: err.message, variant: "destructive" }); }
@@ -149,28 +207,49 @@ export default function ExportPage() {
   const exportPotentialByZone = async () => {
     setLoading("potential");
     try {
-      // Fetch all producers without 1000-row limit using pagination
-      const producers = await fetchAllRows(
-        "producers",
-        "full_name, section, plantation_code, delivery_potential, remaining_potential, cooperative",
-        {
-          order: { column: "cooperative", ascending: true },
-          pageSize: 500
-        }
-      );
-      
-      if (!producers || producers.length === 0) { toast({ title: "Aucune donnée", variant: "destructive" }); setLoading(null); return; }
+      // Si une campagne est sélectionnée -> producer_registry de cette campagne
+      // Sinon -> table producers (vue globale historique)
+      let rows: any[] = [];
+      if (selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS) {
+        const registry = await fetchAllRows(
+          "producer_registry",
+          "nom_complet, section, code_plantation, potentiel_livraison, potentiel_restant, cooperative",
+          {
+            filters: (q) => q.eq("campaign_id", selectedCampaign),
+            order: { column: "cooperative", ascending: true },
+            pageSize: 500,
+          }
+        );
+        rows = registry.map((p: any) => ({
+          "Coopérative / Zone": p.cooperative,
+          "Nom complet": p.nom_complet,
+          "Section": p.section,
+          "Code plantation": p.code_plantation,
+          "Potentiel initial (kg)": p.potentiel_livraison,
+          "Potentiel restant (kg)": p.potentiel_restant,
+        }));
+      } else {
+        const producers = await fetchAllRows(
+          "producers",
+          "full_name, section, plantation_code, delivery_potential, remaining_potential, cooperative",
+          {
+            order: { column: "cooperative", ascending: true },
+            pageSize: 500,
+          }
+        );
+        rows = producers.map((p: any) => ({
+          "Coopérative / Zone": p.cooperative,
+          "Nom complet": p.full_name,
+          "Section": p.section,
+          "Code plantation": p.plantation_code,
+          "Potentiel initial (kg)": p.delivery_potential,
+          "Potentiel restant (kg)": p.remaining_potential,
+        }));
+      }
 
-      const rows = producers.map((p) => ({
-        "Coopérative / Zone": p.cooperative,
-        "Nom complet": p.full_name,
-        "Section": p.section,
-        "Code plantation": p.plantation_code,
-        "Potentiel initial (kg)": p.delivery_potential,
-        "Potentiel restant (kg)": p.remaining_potential,
-      }));
+      if (!rows.length) { toast({ title: "Aucune donnée", variant: "destructive" }); setLoading(null); return; }
 
-      await exportToExcel(rows, "Potentiel-Restant-Par-Zone.xlsx", "Potentiel");
+      await exportToExcel(rows, `Potentiel-Restant-${campaignLabel()}.xlsx`, "Potentiel");
       toast({ title: "Export réussi" });
     } catch (err: any) { toast({ title: "Erreur", description: err.message, variant: "destructive" }); }
     setLoading(null);
@@ -178,9 +257,46 @@ export default function ExportPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold flex items-center gap-2">
-        <FileSpreadsheet className="h-6 w-6 text-primary" /> Export Excel
-      </h1>
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <FileSpreadsheet className="h-6 w-6 text-primary" /> Export Excel
+        </h1>
+      </div>
+
+      {/* Sélecteur global de campagne */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Calendar className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <CardTitle className="text-base">Campagne à exporter</CardTitle>
+              <CardDescription>
+                Tous les exports ci-dessous seront filtrés sur cette campagne. Sélectionnez « Toutes les campagnes » pour exporter l'historique complet.
+              </CardDescription>
+            </div>
+            {activeCampaign && (
+              <Badge variant="secondary" className="shrink-0">
+                Active : {activeCampaign.nom}
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
+            <SelectTrigger className="max-w-md"><SelectValue placeholder="Sélectionner une campagne" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_CAMPAIGNS}>Toutes les campagnes (historique global)</SelectItem>
+              {campaigns.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.nom}{c.utilise_pour_chargement ? " (active)" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Export par coopérative */}
@@ -222,7 +338,7 @@ export default function ExportPage() {
               </div>
               <CardTitle className="text-base">Chargements</CardTitle>
             </div>
-            <CardDescription>Tous les chargements ou filtrer par connaissement</CardDescription>
+            <CardDescription>Tous les chargements de la campagne ou filtrer par connaissement</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 flex-1">
             <div className="space-y-1.5">
@@ -262,7 +378,9 @@ export default function ExportPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-3 flex-1">
             <p className="text-xs text-muted-foreground flex-1">
-              Export complet du potentiel initial et restant, regroupé par coopérative / zone.
+              {selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS
+                ? "Export du potentiel initial et restant pour la campagne sélectionnée."
+                : "Export du potentiel global (toutes campagnes confondues)."}
             </p>
             <Button onClick={exportPotentialByZone} disabled={loading === "potential"} className="w-full mt-auto">
               {loading === "potential" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
