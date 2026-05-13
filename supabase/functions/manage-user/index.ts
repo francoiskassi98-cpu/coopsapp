@@ -6,12 +6,27 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  const reqId = crypto.randomUUID().slice(0, 8);
+  const url = new URL(req.url);
+  const authHeader = req.headers.get("Authorization");
+  const apikeyHeader = req.headers.get("apikey");
+  console.log(`[manage-user][${reqId}] ▶ ${req.method} ${url.pathname}${url.search}`);
+  console.log(
+    `[manage-user][${reqId}] headers → Authorization: ${
+      authHeader ? `present (${authHeader.slice(0, 16)}…, len=${authHeader.length})` : "MISSING"
+    } | apikey: ${apikeyHeader ? "present" : "MISSING"} | content-type: ${
+      req.headers.get("content-type") ?? "—"
+    } | origin: ${req.headers.get("origin") ?? "—"}`
+  );
+
   if (req.method === "OPTIONS") {
+    console.log(`[manage-user][${reqId}] ⏎ CORS preflight OK`);
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
     // Mode démo : auth désactivée, accès libre à la gestion des utilisateurs
+    console.log(`[manage-user][${reqId}] mode=démo (auth bypass actif)`);
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
@@ -19,6 +34,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action } = body;
     const caller = { id: "" as string };
+    console.log(`[manage-user][${reqId}] body parsed → action=${action} user_id=${body?.user_id ?? "—"} role=${body?.role ?? "—"}`);
 
     if (action === "list") {
       const { data: authUsers } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
