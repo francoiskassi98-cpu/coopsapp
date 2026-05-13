@@ -49,7 +49,7 @@ export default function AppLayout() {
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-sidebar-foreground/50">Mode démo</span>
+            <span className="text-xs text-sidebar-foreground/50">© {new Date().getFullYear()} KASSI FRANCOIS</span>
           </div>
         </div>
       </aside>
