@@ -17,14 +17,18 @@ interface UserProfile {
   user_id: string;
   username: string;
   email: string;
+  cooperative: string | null;
   created_at: string;
   role: string;
   is_banned: boolean;
 }
 
+interface Coop { id: string; name: string }
+
 export default function UserManagement() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [coops, setCoops] = useState<Coop[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -34,37 +38,48 @@ export default function UserManagement() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<string>("user");
+  const [role, setRole] = useState<string>("agent");
+  const [coopName, setCoopName] = useState<string>("");
 
   const [editUser, setEditUser] = useState<UserProfile | null>(null);
   const [editUsername, setEditUsername] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  const [editRole, setEditRole] = useState("user");
+  const [editRole, setEditRole] = useState("agent");
+  const [editCoop, setEditCoop] = useState<string>("");
   const [editActive, setEditActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
-    const [{ data: profiles }, { data: roles }, banResult] = await Promise.all([
-      supabase.from("profiles").select("*"),
-      supabase.from("user_roles").select("*"),
-      supabase.functions.invoke("manage-user", { body: { action: "list" } }),
-    ]);
+    try {
+      const [{ data: profiles }, { data: roles }, banResult, { data: coopList }] = await Promise.all([
+        (supabase.from("profiles") as any).select("user_id, username, email, cooperative, created_at"),
+        supabase.from("user_roles").select("*"),
+        supabase.functions.invoke("manage-user", { body: { action: "list" } }),
+        supabase.from("cooperatives").select("id, name").order("name"),
+      ]);
 
-    const banMap: Record<string, boolean> = banResult.data?.banMap || {};
+      setCoops((coopList || []) as Coop[]);
+      const banMap: Record<string, boolean> = banResult.data?.banMap || {};
 
-    if (profiles && roles) {
-      const merged = profiles.map((p: any) => ({
-        user_id: p.user_id,
-        username: p.username,
-        email: p.email,
-        created_at: p.created_at,
-        role: roles.find((r: any) => r.user_id === p.user_id)?.role || "user",
-        is_banned: banMap[p.user_id] || false,
-      }));
-      setUsers(merged);
+      if (profiles && roles) {
+        const merged = profiles.map((p: any) => ({
+          user_id: p.user_id,
+          username: p.username,
+          email: p.email,
+          cooperative: p.cooperative ?? null,
+          created_at: p.created_at,
+          role: roles.find((r: any) => r.user_id === p.user_id)?.role || "agent",
+          is_banned: banMap[p.user_id] || false,
+        }));
+        setUsers(merged);
+      }
+    } catch (err) {
+      console.error("[UserManagement] fetchUsers", err);
+      toast({ title: "Erreur", description: "Impossible de charger les utilisateurs.", variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => { fetchUsers(); }, []);
@@ -75,19 +90,27 @@ export default function UserManagement() {
       toast({ title: "Erreur", description: "Tous les champs sont requis.", variant: "destructive" });
       return;
     }
+    if (role === "agent" && !coopName) {
+      toast({ title: "Coopérative requise", description: "Sélectionnez la coopérative de l'agent.", variant: "destructive" });
+      return;
+    }
     setCreating(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-user", {
-        body: { email, password, username, role },
+        body: { email, password, username, role, cooperative: coopName || null },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error || data?.error) {
+        console.error("[create-user]", error || data?.error);
+        toast({ title: "Erreur", description: data?.error || "Impossible de créer l'utilisateur.", variant: "destructive" });
+        return;
+      }
       toast({ title: "Utilisateur créé", description: `${username} a été ajouté.` });
-      setUsername(""); setEmail(""); setPassword(""); setRole("user");
+      setUsername(""); setEmail(""); setPassword(""); setRole("agent"); setCoopName("");
       setShowForm(false);
       fetchUsers();
-    } catch (err: any) {
-      toast({ title: "Erreur", description: err?.message || "Impossible de créer l'utilisateur.", variant: "destructive" });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setCreating(false);
     }
@@ -98,34 +121,47 @@ export default function UserManagement() {
     setEditUsername(u.username);
     setEditEmail(u.email);
     setEditRole(u.role);
+    setEditCoop(u.cooperative || "");
     setEditActive(!u.is_banned);
   };
 
   const handleUpdate = async () => {
     if (!editUser) return;
+    if (editRole === "agent" && !editCoop) {
+      toast({ title: "Coopérative requise", description: "Un agent doit être rattaché à une coopérative.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
-      // Update profile & role
       const { data, error } = await supabase.functions.invoke("manage-user", {
-        body: { action: "update", user_id: editUser.user_id, username: editUsername, email: editEmail, role: editRole },
+        body: {
+          action: "update",
+          user_id: editUser.user_id,
+          username: editUsername,
+          email: editEmail,
+          role: editRole,
+          cooperative: editCoop || null,
+        },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error || data?.error) {
+        console.error("[manage-user update]", error || data?.error);
+        toast({ title: "Erreur", description: "Impossible de modifier l'utilisateur.", variant: "destructive" });
+        return;
+      }
 
-      // Toggle active status if changed
       const wasBanned = editUser.is_banned;
-      const shouldBeActive = editActive;
-      if (wasBanned && shouldBeActive) {
+      if (wasBanned && editActive) {
         await supabase.functions.invoke("manage-user", { body: { action: "activate", user_id: editUser.user_id } });
-      } else if (!wasBanned && !shouldBeActive && editUser.user_id !== currentUser?.id) {
+      } else if (!wasBanned && !editActive && editUser.user_id !== currentUser?.id) {
         await supabase.functions.invoke("manage-user", { body: { action: "deactivate", user_id: editUser.user_id } });
       }
 
       toast({ title: "Utilisateur modifié", description: `${editUsername} a été mis à jour.` });
       setEditUser(null);
       fetchUsers();
-    } catch (err: any) {
-      toast({ title: "Erreur", description: err?.message || "Impossible de modifier l'utilisateur.", variant: "destructive" });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -137,12 +173,16 @@ export default function UserManagement() {
       const { data, error } = await supabase.functions.invoke("manage-user", {
         body: { action: activate ? "activate" : "deactivate", user_id: u.user_id },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error || data?.error) {
+        console.error("[manage-user toggle]", error || data?.error);
+        toast({ title: "Erreur", description: "Impossible de modifier le statut.", variant: "destructive" });
+        return;
+      }
       toast({ title: activate ? "Utilisateur réactivé" : "Utilisateur désactivé", description: `${u.username} a été ${activate ? "réactivé" : "désactivé"}.` });
       fetchUsers();
-    } catch (err: any) {
-      toast({ title: "Erreur", description: err?.message || "Impossible de modifier le statut.", variant: "destructive" });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setActionLoading(null);
     }
@@ -157,7 +197,7 @@ export default function UserManagement() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Users className="h-6 w-6" /> Gestion du projet
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">Gérer les utilisateurs et leurs rôles d'accès</p>
+          <p className="text-muted-foreground text-sm mt-1">Gérer les utilisateurs, rôles et coopératives</p>
         </div>
         <Button onClick={() => setShowForm(!showForm)}>
           <UserPlus className="h-4 w-4 mr-2" />
@@ -202,7 +242,20 @@ export default function UserManagement() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">Administrateur</SelectItem>
-                    <SelectItem value="user">Utilisateur simple</SelectItem>
+                    <SelectItem value="agent">Agent coopérative</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Coopérative {role === "agent" && <span className="text-destructive">*</span>}</Label>
+                <Select value={coopName} onValueChange={setCoopName}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={role === "admin" ? "Optionnel pour un administrateur" : "Sélectionner la coopérative"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {coops.map((c) => (
+                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -230,8 +283,9 @@ export default function UserManagement() {
                   <TableHead>Nom d'utilisateur</TableHead>
                   <TableHead>E-mail</TableHead>
                   <TableHead>Rôle</TableHead>
+                  <TableHead>Coopérative</TableHead>
                   <TableHead>Statut</TableHead>
-                  <TableHead>Date de création</TableHead>
+                  <TableHead>Créé le</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -242,9 +296,10 @@ export default function UserManagement() {
                     <TableCell>{u.email}</TableCell>
                     <TableCell>
                       <Badge variant={u.role === "admin" ? "default" : "secondary"}>
-                        {u.role === "admin" ? "Administrateur" : "Utilisateur simple"}
+                        {u.role === "admin" ? "Administrateur" : "Agent"}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-sm">{u.cooperative || <span className="text-muted-foreground">—</span>}</TableCell>
                     <TableCell>
                       {u.is_banned ? (
                         <Badge variant="destructive" className="gap-1">
@@ -288,7 +343,7 @@ export default function UserManagement() {
                 ))}
                 {users.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       Aucun utilisateur enregistré
                     </TableCell>
                   </TableRow>
@@ -299,7 +354,6 @@ export default function UserManagement() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
       <Dialog open={!!editUser} onOpenChange={(open) => { if (!open) setEditUser(null); }}>
         <DialogContent>
           <DialogHeader>
@@ -320,7 +374,20 @@ export default function UserManagement() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Administrateur</SelectItem>
-                  <SelectItem value="user">Utilisateur simple</SelectItem>
+                  <SelectItem value="agent">Agent coopérative</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Coopérative {editRole === "agent" && <span className="text-destructive">*</span>}</Label>
+              <Select value={editCoop} onValueChange={setEditCoop}>
+                <SelectTrigger>
+                  <SelectValue placeholder={editRole === "admin" ? "Optionnel" : "Sélectionner"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {coops.map((c) => (
+                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

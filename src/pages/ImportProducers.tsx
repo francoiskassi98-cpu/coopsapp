@@ -104,7 +104,7 @@ export default function ImportProducers() {
       });
       setImported(true);
     } catch (err: any) {
-      toast({ title: "Erreur d'importation", description: err.message, variant: "destructive" });
+      (console.error(err), toast({ title: "Erreur d'importation", description: "Une erreur est survenue.", variant: "destructive" }));
     } finally {
       setImporting(false);
     }
