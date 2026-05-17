@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ banMap }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { user_id, role, username, email } = body;
+    const { user_id, role, username, email, cooperative } = body;
 
     if (!user_id || !action) {
       return new Response(JSON.stringify({ error: "Paramètres manquants" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -74,12 +74,13 @@ Deno.serve(async (req) => {
     }
 
     if (action === "update") {
-      if (role && ["admin", "user"].includes(role)) {
+      if (role && ["admin", "agent"].includes(role)) {
         await adminClient.from("user_roles").update({ role }).eq("user_id", user_id);
       }
-      const profileUpdate: Record<string, string> = {};
+      const profileUpdate: Record<string, string | null> = {};
       if (username) profileUpdate.username = username;
       if (email) profileUpdate.email = email;
+      if (cooperative !== undefined) profileUpdate.cooperative = cooperative ? String(cooperative).trim() : null;
       if (Object.keys(profileUpdate).length > 0) {
         await adminClient.from("profiles").update(profileUpdate).eq("user_id", user_id);
       }
