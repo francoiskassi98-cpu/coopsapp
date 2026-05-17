@@ -16,7 +16,7 @@ const allNavItems = [
 
 export default function AppLayout() {
   const { campaign } = useActiveCampaign();
-  const { user, role, signOut } = useAuth();
+  const { user, role, cooperative, signOut } = useAuth();
   const navItems = allNavItems.filter((i) => !i.adminOnly || role === "admin");
 
   return (
@@ -57,6 +57,9 @@ export default function AppLayout() {
             <div className="flex flex-col gap-2">
               <span className="text-xs text-sidebar-foreground/70 truncate" title={user.email ?? ""}>
                 {user.email}
+              </span>
+              <span className="text-[10px] uppercase tracking-wide text-sidebar-foreground/50">
+                {role === "admin" ? "Administrateur" : `Agent${cooperative ? ` · ${cooperative}` : ""}`}
               </span>
               <Button
                 variant="ghost"
