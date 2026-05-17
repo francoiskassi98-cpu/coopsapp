@@ -119,7 +119,7 @@ export default function ExportPage() {
       const coopName = cooperatives.find(c => c.id === selectedCoop)?.name || selectedCoop;
       await exportToExcel(rows, `Chargements-${coopName}-${campaignLabel()}.xlsx`, "Chargement");
       toast({ title: "Export réussi" });
-    } catch (err: any) { toast({ title: "Erreur", description: err.message, variant: "destructive" }); }
+    } catch (err: any) { toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }); }
     setLoading(null);
   };
 
@@ -200,7 +200,7 @@ export default function ExportPage() {
         : `Knf-Modèle-FA-${campaignLabel()}.xlsx`;
       await exportToExcel(rows, filename, "Chargement");
       toast({ title: "Export réussi" });
-    } catch (err: any) { toast({ title: "Erreur", description: err.message, variant: "destructive" }); }
+    } catch (err: any) { toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }); }
     setLoading(null);
   };
 
@@ -251,7 +251,7 @@ export default function ExportPage() {
 
       await exportToExcel(rows, `Potentiel-Restant-${campaignLabel()}.xlsx`, "Potentiel");
       toast({ title: "Export réussi" });
-    } catch (err: any) { toast({ title: "Erreur", description: err.message, variant: "destructive" }); }
+    } catch (err: any) { toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }); }
     setLoading(null);
   };
 
