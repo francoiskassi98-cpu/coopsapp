@@ -363,7 +363,7 @@ export default function Producers() {
       setImportDone(true);
       loadProducers();
     } catch (err: any) {
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+      (console.error(err), toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }));
     } finally {
       setImporting(false);
     }
