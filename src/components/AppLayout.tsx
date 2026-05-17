@@ -1,7 +1,9 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, Truck, FileSpreadsheet, Users, Settings, Calendar } from "lucide-react";
+import { BarChart3, Truck, FileSpreadsheet, Users, Settings, Calendar, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useActiveCampaign } from "@/hooks/useActiveCampaign";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
 const allNavItems = [
   { to: "/", label: "Tableau de bord", icon: BarChart3 },
@@ -9,11 +11,14 @@ const allNavItems = [
   { to: "/producteurs", label: "Producteurs", icon: Users },
   { to: "/chargements", label: "Chargements", icon: Truck },
   { to: "/export", label: "Export", icon: FileSpreadsheet },
-  { to: "/gestion", label: "Gestion du projet", icon: Settings },
+  { to: "/gestion", label: "Gestion du projet", icon: Settings, adminOnly: true },
 ];
 
 export default function AppLayout() {
   const { campaign } = useActiveCampaign();
+  const { user, role, signOut } = useAuth();
+  const navItems = allNavItems.filter((i) => !i.adminOnly || role === "admin");
+
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col shrink-0">
@@ -22,7 +27,7 @@ export default function AppLayout() {
           <p className="text-xs text-sidebar-foreground/60 mt-1">Gestion des chargements</p>
         </div>
         <nav className="flex-1 p-3 space-y-1">
-          {allNavItems.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -48,6 +53,22 @@ export default function AppLayout() {
               {campaign?.nom ?? "—"}
             </span>
           </div>
+          {user && (
+            <div className="flex flex-col gap-2">
+              <span className="text-xs text-sidebar-foreground/70 truncate" title={user.email ?? ""}>
+                {user.email}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={signOut}
+                className="justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 h-8 px-2"
+              >
+                <LogOut className="h-3.5 w-3.5 mr-2" />
+                Se déconnecter
+              </Button>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="text-xs text-sidebar-foreground/50">© {new Date().getFullYear()} KASSI FRANCOIS</span>
           </div>
