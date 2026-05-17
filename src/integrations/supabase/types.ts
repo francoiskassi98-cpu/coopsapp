@@ -299,6 +299,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          cooperative: string | null
           created_at: string
           email: string
           id: string
@@ -307,6 +308,7 @@ export type Database = {
           username: string
         }
         Insert: {
+          cooperative?: string | null
           created_at?: string
           email: string
           id?: string
@@ -315,6 +317,7 @@ export type Database = {
           username: string
         }
         Update: {
+          cooperative?: string | null
           created_at?: string
           email?: string
           id?: string
@@ -532,9 +535,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: { Args: never; Returns: boolean }
+      my_cooperative: { Args: never; Returns: string }
+      my_cooperative_id: { Args: never; Returns: string }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "agent"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -662,7 +668,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "agent"],
     },
   },
 } as const
