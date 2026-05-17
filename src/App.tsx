@@ -4,6 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import { AuthProvider } from "@/hooks/useAuth";
+import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Producers from "@/pages/Producers";
 import CreateShipment from "@/pages/CreateShipment";
@@ -20,17 +23,24 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/producteurs" element={<Producers />} />
-            <Route path="/chargements" element={<CreateShipment />} />
-            <Route path="/export" element={<ExportPage />} />
-            <Route path="/campagnes" element={<Campaigns />} />
-            <Route path="/gestion" element={<UserManagement />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/producteurs" element={<Producers />} />
+                <Route path="/chargements" element={<CreateShipment />} />
+                <Route path="/export" element={<ExportPage />} />
+                <Route path="/campagnes" element={<Campaigns />} />
+                <Route element={<ProtectedRoute adminOnly />}>
+                  <Route path="/gestion" element={<UserManagement />} />
+                </Route>
+              </Route>
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
