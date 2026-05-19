@@ -16,7 +16,7 @@ const allNavItems = [
 
 export default function AppLayout() {
   const { campaign } = useActiveCampaign();
-  const { user, role, cooperative, signOut } = useAuth();
+  const { user, role, cooperatives, signOut } = useAuth();
   const navItems = allNavItems.filter((i) => !i.adminOnly || role === "admin");
 
   return (
@@ -59,7 +59,7 @@ export default function AppLayout() {
                 {user.email}
               </span>
               <span className="text-[10px] uppercase tracking-wide text-sidebar-foreground/50">
-                {role === "admin" ? "Administrateur" : `Agent${cooperative ? ` · ${cooperative}` : ""}`}
+                {role === "admin" ? "Administrateur" : `Agent${cooperatives.length ? ` · ${cooperatives.join(", ")}` : ""}`}
               </span>
               <Button
                 variant="ghost"
