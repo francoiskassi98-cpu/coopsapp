@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,7 @@ interface UserProfile {
   user_id: string;
   username: string;
   email: string;
-  cooperative: string | null;
+  cooperatives: string[];
   created_at: string;
   role: string;
   is_banned: boolean;
@@ -39,35 +40,36 @@ export default function UserManagement() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<string>("agent");
-  const [coopName, setCoopName] = useState<string>("");
+  const [selectedCoops, setSelectedCoops] = useState<string[]>([]);
 
   const [editUser, setEditUser] = useState<UserProfile | null>(null);
   const [editUsername, setEditUsername] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState("agent");
-  const [editCoop, setEditCoop] = useState<string>("");
+  const [editCoops, setEditCoops] = useState<string[]>([]);
   const [editActive, setEditActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const [{ data: profiles }, { data: roles }, banResult, { data: coopList }] = await Promise.all([
-        (supabase.from("profiles") as any).select("user_id, username, email, cooperative, created_at"),
+      const [{ data: profiles }, { data: roles }, manageResult, { data: coopList }] = await Promise.all([
+        (supabase.from("profiles") as any).select("user_id, username, email, created_at"),
         supabase.from("user_roles").select("*"),
         supabase.functions.invoke("manage-user", { body: { action: "list" } }),
         supabase.from("cooperatives").select("id, name").order("name"),
       ]);
 
       setCoops((coopList || []) as Coop[]);
-      const banMap: Record<string, boolean> = banResult.data?.banMap || {};
+      const banMap: Record<string, boolean> = manageResult.data?.banMap || {};
+      const coopsByUser: Record<string, string[]> = manageResult.data?.coopsByUser || {};
 
       if (profiles && roles) {
-        const merged = profiles.map((p: any) => ({
+        const merged = (profiles as any[]).map((p) => ({
           user_id: p.user_id,
           username: p.username,
           email: p.email,
-          cooperative: p.cooperative ?? null,
+          cooperatives: coopsByUser[p.user_id] || [],
           created_at: p.created_at,
           role: roles.find((r: any) => r.user_id === p.user_id)?.role || "agent",
           is_banned: banMap[p.user_id] || false,
@@ -76,7 +78,7 @@ export default function UserManagement() {
       }
     } catch (err) {
       console.error("[UserManagement] fetchUsers", err);
-      toast({ title: "Erreur", description: "Impossible de charger les utilisateurs.", variant: "destructive" });
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -84,28 +86,31 @@ export default function UserManagement() {
 
   useEffect(() => { fetchUsers(); }, []);
 
+  const toggleInList = (list: string[], value: string) =>
+    list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !email.trim() || !password.trim()) {
       toast({ title: "Erreur", description: "Tous les champs sont requis.", variant: "destructive" });
       return;
     }
-    if (role === "agent" && !coopName) {
-      toast({ title: "Coopérative requise", description: "Sélectionnez la coopérative de l'agent.", variant: "destructive" });
+    if (role === "agent" && selectedCoops.length === 0) {
+      toast({ title: "Coopératives requises", description: "Sélectionnez au moins une coopérative.", variant: "destructive" });
       return;
     }
     setCreating(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-user", {
-        body: { email, password, username, role, cooperative: coopName || null },
+        body: { email, password, username, role, cooperatives: selectedCoops },
       });
       if (error || data?.error) {
         console.error("[create-user]", error || data?.error);
-        toast({ title: "Erreur", description: data?.error || "Impossible de créer l'utilisateur.", variant: "destructive" });
+        toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
         return;
       }
       toast({ title: "Utilisateur créé", description: `${username} a été ajouté.` });
-      setUsername(""); setEmail(""); setPassword(""); setRole("agent"); setCoopName("");
+      setUsername(""); setEmail(""); setPassword(""); setRole("agent"); setSelectedCoops([]);
       setShowForm(false);
       fetchUsers();
     } catch (err) {
@@ -121,14 +126,14 @@ export default function UserManagement() {
     setEditUsername(u.username);
     setEditEmail(u.email);
     setEditRole(u.role);
-    setEditCoop(u.cooperative || "");
+    setEditCoops([...u.cooperatives]);
     setEditActive(!u.is_banned);
   };
 
   const handleUpdate = async () => {
     if (!editUser) return;
-    if (editRole === "agent" && !editCoop) {
-      toast({ title: "Coopérative requise", description: "Un agent doit être rattaché à une coopérative.", variant: "destructive" });
+    if (editRole === "agent" && editCoops.length === 0) {
+      toast({ title: "Coopératives requises", description: "Un agent doit avoir au moins une coopérative.", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -140,12 +145,12 @@ export default function UserManagement() {
           username: editUsername,
           email: editEmail,
           role: editRole,
-          cooperative: editCoop || null,
+          cooperatives: editCoops,
         },
       });
       if (error || data?.error) {
         console.error("[manage-user update]", error || data?.error);
-        toast({ title: "Erreur", description: "Impossible de modifier l'utilisateur.", variant: "destructive" });
+        toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
         return;
       }
 
@@ -175,10 +180,10 @@ export default function UserManagement() {
       });
       if (error || data?.error) {
         console.error("[manage-user toggle]", error || data?.error);
-        toast({ title: "Erreur", description: "Impossible de modifier le statut.", variant: "destructive" });
+        toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
         return;
       }
-      toast({ title: activate ? "Utilisateur réactivé" : "Utilisateur désactivé", description: `${u.username} a été ${activate ? "réactivé" : "désactivé"}.` });
+      toast({ title: activate ? "Utilisateur réactivé" : "Utilisateur désactivé", description: `${u.username}` });
       fetchUsers();
     } catch (err) {
       console.error(err);
@@ -190,6 +195,24 @@ export default function UserManagement() {
 
   const isSelf = (userId: string) => currentUser?.id === userId;
 
+  const CoopPicker = ({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) => (
+    <div className="max-h-48 overflow-y-auto rounded-md border p-3 space-y-2">
+      {coops.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Aucune coopérative disponible.</p>
+      ) : (
+        coops.map((c) => (
+          <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
+            <Checkbox
+              checked={selected.includes(c.name)}
+              onCheckedChange={() => onChange(toggleInList(selected, c.name))}
+            />
+            <span>{c.name}</span>
+          </label>
+        ))
+      )}
+    </div>
+  );
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -200,8 +223,7 @@ export default function UserManagement() {
           <p className="text-muted-foreground text-sm mt-1">Gérer les utilisateurs, rôles et coopératives</p>
         </div>
         <Button onClick={() => setShowForm(!showForm)}>
-          <UserPlus className="h-4 w-4 mr-2" />
-          Nouvel utilisateur
+          <UserPlus className="h-4 w-4 mr-2" /> Nouvel utilisateur
         </Button>
       </div>
 
@@ -226,9 +248,7 @@ export default function UserManagement() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    required
-                    minLength={6}
-                    className="pr-10"
+                    required minLength={6} className="pr-10"
                   />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1}>
@@ -247,17 +267,13 @@ export default function UserManagement() {
                 </Select>
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label>Coopérative {role === "agent" && <span className="text-destructive">*</span>}</Label>
-                <Select value={coopName} onValueChange={setCoopName}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={role === "admin" ? "Optionnel pour un administrateur" : "Sélectionner la coopérative"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {coops.map((c) => (
-                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>
+                  Coopératives {role === "agent" && <span className="text-destructive">*</span>}
+                  <span className="text-xs text-muted-foreground ml-2">
+                    (sélection multiple — l'agent accédera aux données de toutes ses coopératives)
+                  </span>
+                </Label>
+                <CoopPicker selected={selectedCoops} onChange={setSelectedCoops} />
               </div>
               <div className="md:col-span-2 flex gap-2">
                 <Button type="submit" disabled={creating}>
@@ -283,7 +299,7 @@ export default function UserManagement() {
                   <TableHead>Nom d'utilisateur</TableHead>
                   <TableHead>E-mail</TableHead>
                   <TableHead>Rôle</TableHead>
-                  <TableHead>Coopérative</TableHead>
+                  <TableHead>Coopératives</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead>Créé le</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -299,18 +315,22 @@ export default function UserManagement() {
                         {u.role === "admin" ? "Administrateur" : "Agent"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm">{u.cooperative || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="text-sm">
+                      {u.cooperatives.length === 0 ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {u.cooperatives.map((c) => (
+                            <Badge key={c} variant="outline" className="text-xs">{c}</Badge>
+                          ))}
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {u.is_banned ? (
-                        <Badge variant="destructive" className="gap-1">
-                          <span className="inline-block w-2 h-2 rounded-full bg-red-300" />
-                          Désactivé
-                        </Badge>
+                        <Badge variant="destructive">Désactivé</Badge>
                       ) : (
-                        <Badge className="gap-1 bg-green-600 hover:bg-green-600/80 text-white border-transparent">
-                          <span className="inline-block w-2 h-2 rounded-full bg-green-300" />
-                          Actif
-                        </Badge>
+                        <Badge className="bg-green-600 hover:bg-green-600/80 text-white border-transparent">Actif</Badge>
                       )}
                     </TableCell>
                     <TableCell>{new Date(u.created_at).toLocaleDateString("fr-FR")}</TableCell>
@@ -321,8 +341,7 @@ export default function UserManagement() {
                         </Button>
                         {!isSelf(u.user_id) && (
                           <Button
-                            variant="ghost"
-                            size="icon"
+                            variant="ghost" size="icon"
                             onClick={() => handleToggleActive(u, u.is_banned)}
                             disabled={actionLoading === u.user_id}
                             title={u.is_banned ? "Activer" : "Désactiver"}
@@ -355,7 +374,7 @@ export default function UserManagement() {
       </Card>
 
       <Dialog open={!!editUser} onOpenChange={(open) => { if (!open) setEditUser(null); }}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Modifier l'utilisateur</DialogTitle>
           </DialogHeader>
@@ -379,17 +398,11 @@ export default function UserManagement() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Coopérative {editRole === "agent" && <span className="text-destructive">*</span>}</Label>
-              <Select value={editCoop} onValueChange={setEditCoop}>
-                <SelectTrigger>
-                  <SelectValue placeholder={editRole === "admin" ? "Optionnel" : "Sélectionner"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {coops.map((c) => (
-                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>
+                Coopératives {editRole === "agent" && <span className="text-destructive">*</span>}
+                <span className="text-xs text-muted-foreground ml-2">(sélection multiple)</span>
+              </Label>
+              <CoopPicker selected={editCoops} onChange={setEditCoops} />
             </div>
             {editUser && !isSelf(editUser.user_id) && (
               <div className="flex items-center justify-between rounded-lg border p-3">
