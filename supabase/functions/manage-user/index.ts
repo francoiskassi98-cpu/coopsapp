@@ -7,43 +7,29 @@ const corsHeaders = {
 
 Deno.serve(async (req) => {
   const reqId = crypto.randomUUID().slice(0, 8);
-
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      console.warn(`[manage-user][${reqId}] 401 missing Authorization header`);
       return new Response(JSON.stringify({ error: "Non autorisé" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const callerClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const callerClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: { user: caller }, error: authErr } = await callerClient.auth.getUser();
     if (authErr || !caller) {
-      console.warn(`[manage-user][${reqId}] 401 invalid token`);
       return new Response(JSON.stringify({ error: "Non autorisé" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Admin role check
     const { data: roleData } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", caller.id)
-      .eq("role", "admin")
-      .maybeSingle();
+      .from("user_roles").select("role").eq("user_id", caller.id).eq("role", "admin").maybeSingle();
     if (!roleData) {
-      console.warn(`[manage-user][${reqId}] 403 non-admin user ${caller.id}`);
       return new Response(JSON.stringify({ error: "Accès refusé. Réservé aux administrateurs." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -52,7 +38,10 @@ Deno.serve(async (req) => {
     console.log(`[manage-user][${reqId}] caller=${caller.id} action=${action}`);
 
     if (action === "list") {
-      const { data: authUsers, error: listErr } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+      const [{ data: authUsers, error: listErr }, { data: ucRows }] = await Promise.all([
+        adminClient.auth.admin.listUsers({ perPage: 1000 }),
+        adminClient.from("user_cooperatives").select("user_id, cooperative"),
+      ]);
       if (listErr) console.error(`[manage-user][${reqId}] listUsers error:`, listErr.message);
       const banMap: Record<string, boolean> = {};
       if (authUsers?.users) {
@@ -60,10 +49,14 @@ Deno.serve(async (req) => {
           banMap[u.id] = u.banned_until ? new Date(u.banned_until) > new Date() : false;
         }
       }
-      return new Response(JSON.stringify({ banMap }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const coopsByUser: Record<string, string[]> = {};
+      for (const r of (ucRows || []) as { user_id: string; cooperative: string }[]) {
+        (coopsByUser[r.user_id] ||= []).push(r.cooperative);
+      }
+      return new Response(JSON.stringify({ banMap, coopsByUser }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { user_id, role, username, email, cooperative } = body;
+    const { user_id, role, username, email, cooperatives } = body;
 
     if (!user_id || !action) {
       return new Response(JSON.stringify({ error: "Paramètres manquants" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -77,28 +70,40 @@ Deno.serve(async (req) => {
       if (role && ["admin", "agent"].includes(role)) {
         await adminClient.from("user_roles").update({ role }).eq("user_id", user_id);
       }
-      const profileUpdate: Record<string, string | null> = {};
+      const profileUpdate: Record<string, string> = {};
       if (username) profileUpdate.username = username;
       if (email) profileUpdate.email = email;
-      if (cooperative !== undefined) profileUpdate.cooperative = cooperative ? String(cooperative).trim() : null;
       if (Object.keys(profileUpdate).length > 0) {
         await adminClient.from("profiles").update(profileUpdate).eq("user_id", user_id);
       }
       if (email) {
         await adminClient.auth.admin.updateUserById(user_id, { email });
       }
+      if (Array.isArray(cooperatives)) {
+        const coops: string[] = cooperatives.map((c: unknown) => String(c).trim()).filter(Boolean);
+        const effectiveRole = role || (await adminClient.from("user_roles").select("role").eq("user_id", user_id).maybeSingle()).data?.role;
+        if (effectiveRole === "agent" && coops.length === 0) {
+          return new Response(JSON.stringify({ error: "Un agent doit avoir au moins une coopérative." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        await adminClient.from("user_cooperatives").delete().eq("user_id", user_id);
+        if (coops.length > 0) {
+          await adminClient.from("user_cooperatives").insert(
+            coops.map((c) => ({ user_id, cooperative: c }))
+          );
+        }
+      }
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action === "deactivate") {
       const { error } = await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "876000h" });
-      if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (error) return new Response(JSON.stringify({ error: "Erreur serveur" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action === "activate") {
       const { error } = await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "none" });
-      if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (error) return new Response(JSON.stringify({ error: "Erreur serveur" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
