@@ -299,7 +299,6 @@ export type Database = {
       }
       profiles: {
         Row: {
-          cooperative: string | null
           created_at: string
           email: string
           id: string
@@ -308,7 +307,6 @@ export type Database = {
           username: string
         }
         Insert: {
-          cooperative?: string | null
           created_at?: string
           email: string
           id?: string
@@ -317,7 +315,6 @@ export type Database = {
           username: string
         }
         Update: {
-          cooperative?: string | null
           created_at?: string
           email?: string
           id?: string
@@ -436,6 +433,27 @@ export type Database = {
           },
         ]
       }
+      user_cooperatives: {
+        Row: {
+          cooperative: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          cooperative: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          cooperative?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -536,8 +554,8 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
-      my_cooperative: { Args: never; Returns: string }
-      my_cooperative_id: { Args: never; Returns: string }
+      my_cooperative_ids: { Args: never; Returns: string[] }
+      my_cooperative_names: { Args: never; Returns: string[] }
     }
     Enums: {
       app_role: "admin" | "agent"
