@@ -351,6 +351,50 @@ export type Database = {
         }
         Relationships: []
       }
+      reports_ppt_history: {
+        Row: {
+          campaign_id: string | null
+          campaign_name: string | null
+          cooperatives: string[]
+          created_at: string
+          file_name: string
+          id: string
+          params: Json
+          type_rapport: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          campaign_name?: string | null
+          cooperatives?: string[]
+          created_at?: string
+          file_name: string
+          id?: string
+          params?: Json
+          type_rapport: string
+          user_id?: string
+        }
+        Update: {
+          campaign_id?: string | null
+          campaign_name?: string | null
+          cooperatives?: string[]
+          created_at?: string
+          file_name?: string
+          id?: string
+          params?: Json
+          type_rapport?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_ppt_history_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shipments: {
         Row: {
           avg_bag_weight: number
