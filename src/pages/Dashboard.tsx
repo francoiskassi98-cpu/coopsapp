@@ -160,6 +160,13 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <Tabs defaultValue="apercu" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="apercu">Aperçu</TabsTrigger>
+          <TabsTrigger value="powerpoint">PowerPoint</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="apercu" className="space-y-6">
       {showCampaignAlert && (
         <Card className="border-warning bg-warning/10">
           <CardContent className="flex items-center gap-3 p-4">
