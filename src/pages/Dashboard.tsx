@@ -281,6 +281,12 @@ export default function Dashboard() {
           campaign: selectedCampaign !== "all" ? selectedCampaign : getCurrentCampaign(),
         }}
       />
+        </TabsContent>
+
+        <TabsContent value="powerpoint">
+          <ReportGenerator />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
