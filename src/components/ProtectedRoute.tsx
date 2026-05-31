@@ -18,7 +18,17 @@ export default function ProtectedRoute({ adminOnly = false }: Props) {
   }
 
   if (!session) return <Navigate to="/auth" replace />;
-  if (adminOnly && role !== "admin") return <Navigate to="/" replace />;
+
+  if (adminOnly) {
+    if (role === null) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+    if (role !== "admin") return <Navigate to="/" replace />;
+  }
 
   return <Outlet />;
 }

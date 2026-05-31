@@ -1,38 +1,28 @@
-## Simplification du module Rapports PowerPoint
+## Problèmes identifiés
 
-### Objectif
-Réduire l'interface de génération à 2 filtres uniquement : **Campagne** et **Période (Du / Au)**. Le rapport généré couvrira automatiquement **tous les éléments** (toutes coopératives accessibles, tous projets, toutes destinations, tous partenaires) de la campagne et de la période choisies.
+### 1. « Tout l'écran bouge » à chaque clic
+Cause : la zone de contenu (`<main>` dans `AppLayout.tsx`) utilise `overflow-y-auto`. Quand on passe d'une page courte à une page longue (ou inversement), la barre de défilement apparaît/disparaît et tout le contenu se décale horizontalement. De plus, la position de défilement n'est pas remise à zéro lors d'un changement de route, ce qui donne l'impression que la page « saute ».
 
-### Modifications UI — `src/components/dashboard/ReportGenerator.tsx`
+### 2. « Gestion du projet ne passe pas »
+La page `/gestion` est protégée par `ProtectedRoute adminOnly`. Si l'utilisateur courant n'a pas le rôle `admin` dans `user_roles`, il est redirigé silencieusement vers `/`. Les logs edge ne montrent aucune erreur sur `manage-user` — donc la page ne s'ouvre tout simplement pas pour ce compte, ou s'ouvre mais sans qu'on en perçoive le résultat parce que le hook `useAuth` initialise `role = null` puis "agent" par défaut avant que la vraie valeur n'arrive (race avec ProtectedRoute).
 
-Supprimer de l'interface :
-- Le bloc **Type de rapport** (radio 5 options)
-- Les selects **Projet**, **Destination**, **Partenaire**
-- Le bloc **Coopératives** (checkboxes + chargement de la liste)
-- Les états React associés (`type`, `project`, `destination`, `partnerId`, `coopSel`, `coopsAll`, `partners`)
-- Les chargements `cooperatives` et `partners` du `useEffect`
+Dans `useAuth.tsx`, `fetchProfile` est déclenchée via `setTimeout(..., 0)` après `onAuthStateChange`, mais `setLoading(false)` est appelé **avant** que le rôle ne soit résolu. Résultat : `ProtectedRoute` lit `role !== "admin"` (encore `null`) et redirige vers `/` même pour un admin.
 
-Conserver :
-- Le select **Campagne** (préselectionné sur la campagne `utilise_pour_chargement`)
-- Les inputs **Du** / **Au** (date)
-- Le bouton **Générer & Télécharger**
-- Le composant `ReportHistory`
+## Corrections prévues
 
-### Logique de génération
+### A. Stabiliser la mise en page (fin du « saut »)
+- `src/index.css` : ajouter `html { scrollbar-gutter: stable; }` et appliquer la même chose au conteneur scrollable principal pour réserver l'espace de la scrollbar.
+- `src/components/AppLayout.tsx` : ajouter `style={{ scrollbarGutter: "stable" }}` (ou classe utilitaire) sur le `<main>`.
+- Créer `src/components/ScrollToTop.tsx` qui remet `window.scrollTo(0,0)` et le scroll du `<main>` à 0 à chaque changement de `pathname`.
+- Brancher `<ScrollToTop />` dans `src/App.tsx` à l'intérieur de `<BrowserRouter>`.
 
-- Un **seul type de rapport** consolidé est produit (on réutilise le builder `campaign` existant qui contient déjà KPIs, évolution mensuelle, projets, destinations, partenaires, coopératives, top sections, échantillon de chargements). Il devient le rapport unique "Rapport de campagne".
-- Appel à `loadReportData("campaign", { campaignId, campaignName, cooperatives: [], project: null, destination: null, partnerId: null, dateFrom, dateTo })`.
-- `cooperatives: []` => `loadReportData` ne filtre pas par coopérative ; la RLS Supabase restreint déjà automatiquement les données aux coopératives accessibles à l'agent (admin voit tout).
-- Insertion dans `reports_ppt_history` avec `type_rapport = 'campaign'`, `cooperatives = []`, `params = { dateFrom, dateTo }`.
+### B. Réparer l'accès à /gestion
+- `src/hooks/useAuth.tsx` : ne passer `loading` à `false` **qu'après** que `fetchProfile` ait terminé (await dans `onAuthStateChange` et dans `getSession().then`). Cela évite que `ProtectedRoute adminOnly` redirige un admin avant que le rôle soit chargé.
+- `src/components/ProtectedRoute.tsx` : pendant que `role` est encore `null` mais `session` existe, afficher le loader au lieu de rediriger. Cela protège aussi les cas où le rôle arrive juste après la session.
 
-### Sécurité (inchangée)
-- RLS reste la garantie principale : un agent ne récupère via Supabase que les `shipments` / `producer_registry` de ses coopératives — donc même sans filtre UI, le rapport est automatiquement scopé.
-- Messages d'erreur génériques (`toast.error("Une erreur est survenue.")`).
+### C. Vérification après correction
+- Aller sur `/`, puis cliquer sur chaque entrée du menu : le contenu ne doit plus bouger horizontalement et la page doit s'ouvrir en haut.
+- Avec un compte admin, ouvrir `/gestion` : la page « Gestion du projet » doit se charger (liste des utilisateurs visible).
+- Avec un compte agent, `/gestion` reste interdit (redirection vers `/`), comportement attendu.
 
-### Hors-périmètre
-- Pas de changement DB / migrations.
-- Pas de changement à `pptx-report-generator.ts` ni `useReportData.ts`.
-- `ReportHistory.tsx` inchangé (affiche tous les types existants).
-
-### Fichier modifié
-- `src/components/dashboard/ReportGenerator.tsx` uniquement.
+Aucune modification de schéma DB, de RLS, d'edge function ou de logique métier.

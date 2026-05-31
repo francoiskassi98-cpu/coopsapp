@@ -79,7 +79,7 @@ export default function AppLayout() {
       </aside>
 
       <div className="flex flex-col flex-1 overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-muted/30">
+        <main className="flex-1 overflow-y-auto bg-muted/30" style={{ scrollbarGutter: "stable" }}>
           <Outlet />
         </main>
       </div>
