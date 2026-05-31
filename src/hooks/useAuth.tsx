@@ -29,29 +29,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [cooperatives, setCooperatives] = useState<string[]>([]);
 
   const fetchProfile = async (userId: string) => {
-    const [{ data: roleRow }, { data: ucRows }] = await Promise.all([
-      supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
-      (supabase.from("user_cooperatives") as any).select("cooperative").eq("user_id", userId),
-    ]);
-    setRole(((roleRow?.role as AppRole) ?? "agent"));
-    setCooperatives(((ucRows as { cooperative: string }[] | null) ?? []).map((r) => r.cooperative));
+    try {
+      const [{ data: roleRow }, { data: ucRows }] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
+        (supabase.from("user_cooperatives") as any).select("cooperative").eq("user_id", userId),
+      ]);
+      setRole(((roleRow?.role as AppRole) ?? "agent"));
+      setCooperatives(((ucRows as { cooperative: string }[] | null) ?? []).map((r) => r.cooperative));
+    } catch (e) {
+      console.error("[useAuth] fetchProfile", e);
+      setRole("agent");
+      setCooperatives([]);
+    }
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session?.user) {
-        setTimeout(() => fetchProfile(session.user.id), 0);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      if (newSession?.user) {
+        // Defer to avoid deadlocks with the auth client
+        setTimeout(async () => {
+          await fetchProfile(newSession.user.id);
+          setLoading(false);
+        }, 0);
       } else {
         setRole(null);
         setCooperatives([]);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) fetchProfile(session.user.id);
+    supabase.auth.getSession().then(async ({ data: { session: existing } }) => {
+      setSession(existing);
+      if (existing?.user) {
+        await fetchProfile(existing.user.id);
+      }
       setLoading(false);
     });
 
