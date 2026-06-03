@@ -3,20 +3,38 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { Loader2 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ScrollToTop from "@/components/ScrollToTop";
 import { AuthProvider } from "@/hooks/useAuth";
-import Auth from "@/pages/Auth";
-import Dashboard from "@/pages/Dashboard";
-import Producers from "@/pages/Producers";
-import CreateShipment from "@/pages/CreateShipment";
-import ExportPage from "@/pages/ExportPage";
-import UserManagement from "@/pages/UserManagement";
-import Campaigns from "@/pages/Campaigns";
-import NotFound from "@/pages/NotFound";
 
-const queryClient = new QueryClient();
+const Auth = lazy(() => import("@/pages/Auth"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Producers = lazy(() => import("@/pages/Producers"));
+const CreateShipment = lazy(() => import("@/pages/CreateShipment"));
+const ExportPage = lazy(() => import("@/pages/ExportPage"));
+const UserManagement = lazy(() => import("@/pages/UserManagement"));
+const Campaigns = lazy(() => import("@/pages/Campaigns"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 min — évite de recharger en boucle
+      gcTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
+
+const PageFallback = () => (
+  <div className="min-h-[40vh] flex items-center justify-center">
+    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -26,22 +44,24 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <ScrollToTop />
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route element={<ProtectedRoute />}>
-              <Route element={<AppLayout />}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/producteurs" element={<Producers />} />
-                <Route path="/chargements" element={<CreateShipment />} />
-                <Route path="/export" element={<ExportPage />} />
-                <Route path="/campagnes" element={<Campaigns />} />
-                <Route element={<ProtectedRoute adminOnly />}>
-                  <Route path="/gestion" element={<UserManagement />} />
+          <Suspense fallback={<PageFallback />}>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route element={<ProtectedRoute />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/producteurs" element={<Producers />} />
+                  <Route path="/chargements" element={<CreateShipment />} />
+                  <Route path="/export" element={<ExportPage />} />
+                  <Route path="/campagnes" element={<Campaigns />} />
+                  <Route element={<ProtectedRoute adminOnly />}>
+                    <Route path="/gestion" element={<UserManagement />} />
+                  </Route>
                 </Route>
               </Route>
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
