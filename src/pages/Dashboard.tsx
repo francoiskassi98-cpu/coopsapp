@@ -118,6 +118,8 @@ export default function Dashboard() {
       map[key] = (map[key] || 0) + Number(s.total_weight);
     });
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([label, value]) => ({ label, value }));
+  }, [shipments]);
+
 
   const coopStats = useMemo(() => {
     const coopPotentialMap: Record<string, { potentiel: number; remaining: number }> = {};
