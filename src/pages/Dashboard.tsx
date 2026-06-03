@@ -163,7 +163,7 @@ export default function Dashboard() {
       <Tabs defaultValue="apercu" className="space-y-6">
         <TabsList>
           <TabsTrigger value="apercu">Aperçu</TabsTrigger>
-          <TabsTrigger value="powerpoint">PowerPoint</TabsTrigger>
+          <TabsTrigger value="powerpoint">Rapport campagne</TabsTrigger>
         </TabsList>
 
         <TabsContent value="apercu" className="space-y-6">
