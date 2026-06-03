@@ -39,8 +39,9 @@ export async function loadReportData(
   if (filters.project) shQ = shQ.eq("project", filters.project);
   if (filters.destination) shQ = shQ.eq("destination", filters.destination);
   if (filters.partnerId) shQ = shQ.eq("partner_id", filters.partnerId);
-  if (filters.dateFrom) shQ = shQ.gte("delivery_start", filters.dateFrom);
-  if (filters.dateTo) shQ = shQ.lte("delivery_end", filters.dateTo);
+  // Overlap logic: include shipments whose delivery window touches the period
+  if (filters.dateFrom) shQ = shQ.gte("delivery_end", filters.dateFrom);
+  if (filters.dateTo) shQ = shQ.lte("delivery_start", filters.dateTo);
   shQ = shQ.eq("is_cancelled", false).order("created_at", { ascending: true });
   let shipments = await fetchAll(shQ);
 
