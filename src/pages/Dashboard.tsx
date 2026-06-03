@@ -240,6 +240,23 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      <Card>
+        <CardHeader><CardTitle className="text-base">Chargements par mois (kg)</CardTitle></CardHeader>
+        <CardContent className="h-72">
+          {byMonth.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={byMonth}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <Tooltip formatter={(v: number) => `${v.toLocaleString("fr-FR")} kg`} contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))" }} />
+                <Bar dataKey="value" fill="hsl(25, 65%, 32%)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (<p className="text-sm text-muted-foreground flex items-center justify-center h-full">Aucune donnée</p>)}
+        </CardContent>
+      </Card>
+
       <CoopTable coopStats={coopStats} totalDelivered={stats.totalDelivered} totalRemaining={stats.remaining} onViewDetail={setCoopDetailName} />
 
       <Dialog open={!!coopDetailName} onOpenChange={() => setCoopDetailName(null)}>
