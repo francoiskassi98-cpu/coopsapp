@@ -106,12 +106,12 @@ function kpiSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total: 
 
 function monthlySlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total: number) {
   const s = pptx.addSlide();
-  header(s, pptx, "Évolution mensuelle des livraisons", `Campagne ${payload.campaign}`, page, total);
+  header(s, pptx, "Histogramme des chargements par mois", `Campagne ${payload.campaign}`, page, total);
   if (payload.monthly.length === 0) {
     s.addText("Aucune donnée mensuelle disponible.", { x: 0.6, y: 3, w: 12, h: 0.6, fontSize: 14, color: TH.muted, align: "center" });
     return;
   }
-  s.addChart(pptx.ChartType.line, [{
+  s.addChart(pptx.ChartType.bar, [{
     name: "Livré (kg)",
     labels: payload.monthly.map((m) => m.label),
     values: payload.monthly.map((m) => m.value),
@@ -120,9 +120,9 @@ function monthlySlide(pptx: PptxGenJS, payload: ReportPayload, page: number, tot
     chartColors: [TH.primary],
     showLegend: false,
     showTitle: false,
+    barDir: "col",
     catAxisLabelFontSize: 10,
     valAxisLabelFontSize: 10,
-    lineDataSymbol: "circle",
   });
 }
 

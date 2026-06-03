@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { generateReport } from "@/lib/pptx-report-generator";
 import { loadReportData } from "@/hooks/useReportData";
 import { normalizeCampaign } from "@/lib/shipment-utils";
-import ReportHistory from "./ReportHistory";
+
 
 interface Campaign { id: string; nom: string }
 
@@ -22,7 +22,7 @@ export default function ReportGenerator() {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [generating, setGenerating] = useState(false);
-  const [historyRefresh, setHistoryRefresh] = useState(0);
+  
 
   useEffect(() => {
     (async () => {
@@ -65,21 +65,7 @@ export default function ReportGenerator() {
       );
       const { fileName } = await generateReport("campaign", payload);
 
-      try {
-        await (supabase.from("reports_ppt_history") as any).insert({
-          user_id: user?.id,
-          type_rapport: "campaign",
-          campaign_id: campaignId,
-          campaign_name: camp?.nom ? normalizeCampaign(camp.nom) : null,
-          cooperatives: [],
-          file_name: fileName,
-          params: { dateFrom, dateTo },
-        });
-        setHistoryRefresh((n) => n + 1);
-      } catch (e) {
-        console.error("history insert", e);
-      }
-
+      void fileName;
       toast.success("Rapport PowerPoint généré et téléchargé.");
     } catch (e) {
       console.error(e);
@@ -135,7 +121,6 @@ export default function ReportGenerator() {
         </CardContent>
       </Card>
 
-      <ReportHistory refreshKey={historyRefresh} />
     </div>
   );
 }
