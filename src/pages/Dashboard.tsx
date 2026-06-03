@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
@@ -15,15 +16,26 @@ import DashboardFilters from "@/components/dashboard/DashboardFilters";
 import ReportDialog from "@/components/dashboard/ReportDialog";
 import ReportGenerator from "@/components/dashboard/ReportGenerator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { CoopStats } from "@/components/dashboard/CoopPerformance";
 
 const PIE_COLORS = ["hsl(25, 65%, 32%)", "hsl(140, 35%, 40%)", "hsl(35, 70%, 55%)", "hsl(200, 50%, 50%)", "hsl(280, 40%, 50%)", "hsl(0, 50%, 50%)", "hsl(60, 50%, 45%)"];
 
+async function fetchAllRows(query: any) {
+  let allData: any[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await query.range(from, from + pageSize - 1);
+    if (error || !data || data.length === 0) break;
+    allData = allData.concat(data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return allData;
+}
+
 export default function Dashboard() {
-  const [allShipments, setAllShipments] = useState<any[]>([]);
-  const [allProducers, setAllProducers] = useState<any[]>([]);
+  const queryClient = useQueryClient();
   const [showCampaignAlert, setShowCampaignAlert] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [coopDetailName, setCoopDetailName] = useState<string | null>(null);
   const [showReportDialog, setShowReportDialog] = useState(false);
 
@@ -33,39 +45,29 @@ export default function Dashboard() {
 
   useEffect(() => {
     setShowCampaignAlert(isCampaignStart());
-    loadData();
   }, []);
 
-  async function fetchAllRows(query: any) {
-    let allData: any[] = [];
-    let from = 0;
-    const pageSize = 1000;
-    while (true) {
-      const { data, error } = await query.range(from, from + pageSize - 1);
-      if (error || !data || data.length === 0) break;
-      allData = allData.concat(data);
-      if (data.length < pageSize) break;
-      from += pageSize;
-    }
-    return allData;
-  }
+  const { data: allProducers = [], isLoading: loadingProducers } = useQuery({
+    queryKey: ["dashboard", "producers"],
+    queryFn: () => fetchAllRows(supabase.from("producers").select("delivery_potential, remaining_potential, cooperative")),
+  });
 
-  async function loadData() {
-    setLoading(true);
-    try {
-      const [producers, shipmentsData] = await Promise.all([
-        fetchAllRows(supabase.from("producers").select("delivery_potential, remaining_potential, cooperative")),
-        fetchAllRows(supabase.from("shipments").select("*, partners(name), cooperatives(name)").order("created_at", { ascending: false })),
-      ]);
-      setAllProducers(producers);
-      setAllShipments(shipmentsData);
-    } catch (e) {
-      console.error("Erreur chargement données:", e);
-      toast.error("Erreur lors du chargement des données");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { data: allShipments = [], isLoading: loadingShipments } = useQuery({
+    queryKey: ["dashboard", "shipments"],
+    queryFn: () => fetchAllRows(
+      supabase
+        .from("shipments")
+        .select("id, project, destination, total_weight, total_bags, created_at, campaign, zone, connaissement, partners(name), cooperatives(name)")
+        .order("created_at", { ascending: false })
+    ),
+  });
+
+  const loading = loadingProducers || loadingShipments;
+
+  const loadData = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    toast.success("Données actualisées");
+  };
 
   // Available campaigns
   const campaigns = useMemo(() => {
@@ -164,7 +166,7 @@ export default function Dashboard() {
             <Mail className="h-4 w-4" />
             Envoyer un rapport
           </Button>
-          <Button onClick={() => { loadData().then(() => toast.success("Données actualisées")); }} disabled={loading} variant="outline">
+          <Button onClick={() => { loadData(); }} disabled={loading} variant="outline">
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Actualiser
           </Button>
