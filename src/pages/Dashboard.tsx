@@ -110,6 +110,15 @@ export default function Dashboard() {
     return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [shipments]);
 
+  const byMonth = useMemo(() => {
+    const map: Record<string, number> = {};
+    shipments.forEach((s) => {
+      const d = new Date(s.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      map[key] = (map[key] || 0) + Number(s.total_weight);
+    });
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([label, value]) => ({ label, value }));
+
   const coopStats = useMemo(() => {
     const coopPotentialMap: Record<string, { potentiel: number; remaining: number }> = {};
     allProducers.forEach((p) => {
