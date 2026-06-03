@@ -166,7 +166,7 @@ export default function Dashboard() {
             <Mail className="h-4 w-4" />
             Envoyer un rapport
           </Button>
-          <Button onClick={() => { loadData().then(() => toast.success("Données actualisées")); }} disabled={loading} variant="outline">
+          <Button onClick={() => { loadData(); }} disabled={loading} variant="outline">
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Actualiser
           </Button>
