@@ -73,7 +73,7 @@ export default function AppLayout() {
             </div>
           )}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-sidebar-foreground/50">© {new Date().getFullYear()} KASSI FRANCOIS</span>
+            <span className="text-xs text-sidebar-foreground/50">© {new Date().getFullYear()} {user?.email ? user.email.split('@')[0] : 'Utilisateur'}</span>
           </div>
         </div>
       </aside>
