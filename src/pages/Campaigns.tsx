@@ -29,7 +29,8 @@ export default function Campaigns() {
     });
     setCreating(false);
     if (error) {
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      console.error(error);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
       return;
     }
     toast({ title: "Campagne créée", description: nom });
