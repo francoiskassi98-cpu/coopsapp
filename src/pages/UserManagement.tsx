@@ -11,7 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, UserPlus, Eye, EyeOff, Users, Pencil, Ban, CheckCircle2 } from "lucide-react";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, UserPlus, Eye, EyeOff, Users, Pencil, Ban, CheckCircle2, KeyRound, Mail, Calendar, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 interface UserProfile {
@@ -22,6 +24,7 @@ interface UserProfile {
   created_at: string;
   role: string;
   is_banned: boolean;
+  last_sign_in_at: string | null;
 }
 
 interface Coop { id: string; name: string }
@@ -50,6 +53,9 @@ export default function UserManagement() {
   const [editActive, setEditActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [detailUser, setDetailUser] = useState<UserProfile | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
@@ -63,6 +69,7 @@ export default function UserManagement() {
       setCoops((coopList || []) as Coop[]);
       const banMap: Record<string, boolean> = manageResult.data?.banMap || {};
       const coopsByUser: Record<string, string[]> = manageResult.data?.coopsByUser || {};
+      const lastSignInMap: Record<string, string | null> = manageResult.data?.lastSignInMap || {};
 
       if (profiles && roles) {
         const merged = (profiles as any[]).map((p) => ({
@@ -73,6 +80,7 @@ export default function UserManagement() {
           created_at: p.created_at,
           role: roles.find((r: any) => r.user_id === p.user_id)?.role || "agent",
           is_banned: banMap[p.user_id] || false,
+          last_sign_in_at: lastSignInMap[p.user_id] || null,
         }));
         setUsers(merged);
       }
@@ -195,6 +203,33 @@ export default function UserManagement() {
 
   const isSelf = (userId: string) => currentUser?.id === userId;
 
+  const handleResetPassword = async (u: UserProfile) => {
+    setResetLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-user", {
+        body: {
+          action: "reset_password",
+          user_id: u.user_id,
+          redirectTo: `${window.location.origin}/reset-password`,
+        },
+      });
+      if (error || data?.error) {
+        console.error("[manage-user reset]", error || data?.error);
+        toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Lien envoyé", description: `Un email de réinitialisation a été envoyé à ${u.email}.` });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const fmtDate = (d: string | null | undefined) =>
+    d ? new Date(d).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" }) : "Jamais";
+
   const CoopPicker = ({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) => (
     <div className="max-h-48 overflow-y-auto rounded-md border p-3 space-y-2">
       {coops.length === 0 ? (
@@ -307,7 +342,11 @@ export default function UserManagement() {
               </TableHeader>
               <TableBody>
                 {users.map((u) => (
-                  <TableRow key={u.user_id} className={u.is_banned ? "opacity-60" : ""}>
+                  <TableRow
+                    key={u.user_id}
+                    onClick={() => setDetailUser(u)}
+                    className={`cursor-pointer hover:bg-muted/40 ${u.is_banned ? "opacity-60" : ""}`}
+                  >
                     <TableCell className="font-medium">{u.username}</TableCell>
                     <TableCell>{u.email}</TableCell>
                     <TableCell>
@@ -334,10 +373,18 @@ export default function UserManagement() {
                       )}
                     </TableCell>
                     <TableCell>{new Date(u.created_at).toLocaleDateString("fr-FR")}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" onClick={() => openEdit(u)} title="Modifier">
                           <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon"
+                          onClick={() => handleResetPassword(u)}
+                          disabled={resetLoading}
+                          title="Envoyer un lien de réinitialisation"
+                        >
+                          <KeyRound className="h-4 w-4" />
                         </Button>
                         {!isSelf(u.user_id) && (
                           <Button
@@ -425,6 +472,128 @@ export default function UserManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Sheet open={!!detailUser} onOpenChange={(open) => { if (!open) setDetailUser(null); }}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          {detailUser && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  {detailUser.username}
+                </SheetTitle>
+                <SheetDescription>{detailUser.email}</SheetDescription>
+              </SheetHeader>
+
+              <div className="mt-6 space-y-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={detailUser.role === "admin" ? "default" : "secondary"}>
+                    <Shield className="h-3 w-3 mr-1" />
+                    {detailUser.role === "admin" ? "Administrateur" : "Agent"}
+                  </Badge>
+                  {detailUser.is_banned ? (
+                    <Badge variant="destructive">Désactivé</Badge>
+                  ) : (
+                    <Badge className="bg-green-600 hover:bg-green-600/80 text-white border-transparent">Actif</Badge>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-1 gap-3 text-sm">
+                  <div className="flex items-start gap-2">
+                    <Mail className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Email</div>
+                      <div className="font-medium break-all">{detailUser.email}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Date de création</div>
+                      <div className="font-medium">{fmtDate(detailUser.created_at)}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Dernière connexion</div>
+                      <div className="font-medium">{fmtDate(detailUser.last_sign_in_at)}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm">
+                      Coopératives attribuées
+                      <span className="ml-2 text-xs text-muted-foreground">({detailUser.cooperatives.length})</span>
+                    </Label>
+                  </div>
+                  {detailUser.cooperatives.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Aucune coopérative attribuée.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {detailUser.cooperatives.map((c) => (
+                        <Badge key={c} variant="outline">{c}</Badge>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Pour ajouter ou retirer une coopérative, utilisez le bouton « Modifier ».
+                  </p>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => { openEdit(detailUser); setDetailUser(null); }}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Modifier l'utilisateur
+                  </Button>
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    disabled={resetLoading}
+                    onClick={() => handleResetPassword(detailUser)}
+                  >
+                    {resetLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <KeyRound className="h-4 w-4 mr-2" />}
+                    Envoyer un lien de réinitialisation
+                  </Button>
+                  {!isSelf(detailUser.user_id) && (
+                    <Button
+                      className="w-full"
+                      variant={detailUser.is_banned ? "default" : "destructive"}
+                      disabled={actionLoading === detailUser.user_id}
+                      onClick={() => handleToggleActive(detailUser, detailUser.is_banned)}
+                    >
+                      {actionLoading === detailUser.user_id ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : detailUser.is_banned ? (
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                      ) : (
+                        <Ban className="h-4 w-4 mr-2" />
+                      )}
+                      {detailUser.is_banned ? "Réactiver le compte" : "Désactiver le compte"}
+                    </Button>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-muted-foreground pt-2 border-t">
+                  Les mots de passe sont chiffrés et gérés exclusivement par le système d'authentification. Ils ne sont jamais affichés ni stockés en clair.
+                </p>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

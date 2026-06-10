@@ -16,8 +16,9 @@ const allNavItems = [
 
 export default function AppLayout() {
   const { campaign } = useActiveCampaign();
-  const { user, role, cooperatives, signOut } = useAuth();
+  const { user, role, cooperatives, profile, signOut } = useAuth();
   const navItems = allNavItems.filter((i) => !i.adminOnly || role === "admin");
+  const displayName = profile?.username?.trim() || (user?.email ? user.email.split("@")[0] : "Utilisateur");
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -73,7 +74,7 @@ export default function AppLayout() {
             </div>
           )}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-sidebar-foreground/50">© {new Date().getFullYear()} {user?.email ? user.email.split('@')[0] : 'Utilisateur'}</span>
+            <span className="text-xs text-sidebar-foreground/50">© {new Date().getFullYear()} {displayName}</span>
           </div>
         </div>
       </aside>

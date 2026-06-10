@@ -44,16 +44,18 @@ Deno.serve(async (req) => {
       ]);
       if (listErr) console.error(`[manage-user][${reqId}] listUsers error:`, listErr.message);
       const banMap: Record<string, boolean> = {};
+      const lastSignInMap: Record<string, string | null> = {};
       if (authUsers?.users) {
         for (const u of authUsers.users) {
           banMap[u.id] = u.banned_until ? new Date(u.banned_until) > new Date() : false;
+          lastSignInMap[u.id] = u.last_sign_in_at ?? null;
         }
       }
       const coopsByUser: Record<string, string[]> = {};
       for (const r of (ucRows || []) as { user_id: string; cooperative: string }[]) {
         (coopsByUser[r.user_id] ||= []).push(r.cooperative);
       }
-      return new Response(JSON.stringify({ banMap, coopsByUser }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ banMap, coopsByUser, lastSignInMap }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { user_id, role, username, email, cooperatives } = body;
@@ -104,6 +106,21 @@ Deno.serve(async (req) => {
     if (action === "activate") {
       const { error } = await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "none" });
       if (error) return new Response(JSON.stringify({ error: "Erreur serveur" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (action === "reset_password") {
+      // Look up user's email then generate a recovery link (sent automatically by Supabase if SMTP is configured).
+      const { data: targetUser, error: getErr } = await adminClient.auth.admin.getUserById(user_id);
+      if (getErr || !targetUser?.user?.email) {
+        return new Response(JSON.stringify({ error: "Utilisateur introuvable" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const redirectTo = body.redirectTo || undefined;
+      const { error: resetErr } = await adminClient.auth.resetPasswordForEmail(targetUser.user.email, redirectTo ? { redirectTo } : undefined);
+      if (resetErr) {
+        console.error(`[manage-user][${reqId}] reset error:`, resetErr.message);
+        return new Response(JSON.stringify({ error: "Erreur serveur" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
