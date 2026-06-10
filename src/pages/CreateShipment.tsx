@@ -253,7 +253,8 @@ export default function CreateShipment() {
     if (!newPartnerName.trim()) return;
     const { data, error } = await supabase.from("partners").insert({ name: newPartnerName.trim() }).select().single();
     if (error) {
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      console.error(error);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } else {
       setPartners([...partners, data]);
       setPartnerId(data.id);
