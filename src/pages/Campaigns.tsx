@@ -43,7 +43,8 @@ export default function Campaigns() {
       .update({ utilise_pour_chargement: true, active: true, archived: false })
       .eq("id", id);
     if (error) {
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      console.error(error);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
       return;
     }
     toast({ title: "Campagne définie pour les chargements" });
