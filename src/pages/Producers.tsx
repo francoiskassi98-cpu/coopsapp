@@ -144,7 +144,8 @@ export default function Producers() {
     const { error } = await supabase.from("producers").update(editForm).eq("id", editProducer.id);
     setSaving(false);
     if (error) {
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      console.error(error);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } else {
       toast({ title: "Producteur modifié avec succès" });
       setEditProducer(null);
