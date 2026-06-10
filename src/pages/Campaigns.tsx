@@ -63,7 +63,7 @@ export default function Campaigns() {
     const { error } = await (supabase.from as any)("campaigns")
       .update({ archived: !current })
       .eq("id", id);
-    if (error) toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    if (error) { console.error(error); toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }); }
     else refetch();
   }
 
