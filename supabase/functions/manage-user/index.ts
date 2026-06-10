@@ -44,16 +44,18 @@ Deno.serve(async (req) => {
       ]);
       if (listErr) console.error(`[manage-user][${reqId}] listUsers error:`, listErr.message);
       const banMap: Record<string, boolean> = {};
+      const lastSignInMap: Record<string, string | null> = {};
       if (authUsers?.users) {
         for (const u of authUsers.users) {
           banMap[u.id] = u.banned_until ? new Date(u.banned_until) > new Date() : false;
+          lastSignInMap[u.id] = u.last_sign_in_at ?? null;
         }
       }
       const coopsByUser: Record<string, string[]> = {};
       for (const r of (ucRows || []) as { user_id: string; cooperative: string }[]) {
         (coopsByUser[r.user_id] ||= []).push(r.cooperative);
       }
-      return new Response(JSON.stringify({ banMap, coopsByUser }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ banMap, coopsByUser, lastSignInMap }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { user_id, role, username, email, cooperatives } = body;
