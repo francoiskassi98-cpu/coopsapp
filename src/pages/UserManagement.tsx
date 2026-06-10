@@ -11,7 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, UserPlus, Eye, EyeOff, Users, Pencil, Ban, CheckCircle2 } from "lucide-react";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, UserPlus, Eye, EyeOff, Users, Pencil, Ban, CheckCircle2, KeyRound, Mail, Calendar, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 interface UserProfile {
@@ -22,6 +24,7 @@ interface UserProfile {
   created_at: string;
   role: string;
   is_banned: boolean;
+  last_sign_in_at: string | null;
 }
 
 interface Coop { id: string; name: string }
@@ -50,6 +53,9 @@ export default function UserManagement() {
   const [editActive, setEditActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [detailUser, setDetailUser] = useState<UserProfile | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
@@ -63,6 +69,7 @@ export default function UserManagement() {
       setCoops((coopList || []) as Coop[]);
       const banMap: Record<string, boolean> = manageResult.data?.banMap || {};
       const coopsByUser: Record<string, string[]> = manageResult.data?.coopsByUser || {};
+      const lastSignInMap: Record<string, string | null> = manageResult.data?.lastSignInMap || {};
 
       if (profiles && roles) {
         const merged = (profiles as any[]).map((p) => ({
@@ -73,6 +80,7 @@ export default function UserManagement() {
           created_at: p.created_at,
           role: roles.find((r: any) => r.user_id === p.user_id)?.role || "agent",
           is_banned: banMap[p.user_id] || false,
+          last_sign_in_at: lastSignInMap[p.user_id] || null,
         }));
         setUsers(merged);
       }
