@@ -342,7 +342,11 @@ export default function UserManagement() {
               </TableHeader>
               <TableBody>
                 {users.map((u) => (
-                  <TableRow key={u.user_id} className={u.is_banned ? "opacity-60" : ""}>
+                  <TableRow
+                    key={u.user_id}
+                    onClick={() => setDetailUser(u)}
+                    className={`cursor-pointer hover:bg-muted/40 ${u.is_banned ? "opacity-60" : ""}`}
+                  >
                     <TableCell className="font-medium">{u.username}</TableCell>
                     <TableCell>{u.email}</TableCell>
                     <TableCell>
@@ -369,10 +373,18 @@ export default function UserManagement() {
                       )}
                     </TableCell>
                     <TableCell>{new Date(u.created_at).toLocaleDateString("fr-FR")}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" onClick={() => openEdit(u)} title="Modifier">
                           <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon"
+                          onClick={() => handleResetPassword(u)}
+                          disabled={resetLoading}
+                          title="Envoyer un lien de réinitialisation"
+                        >
+                          <KeyRound className="h-4 w-4" />
                         </Button>
                         {!isSelf(u.user_id) && (
                           <Button
