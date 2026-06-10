@@ -4,12 +4,18 @@ import type { Session, User } from "@supabase/supabase-js";
 
 type AppRole = "admin" | "agent";
 
+interface Profile {
+  username: string | null;
+  email: string | null;
+}
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
   role: AppRole | null;
   cooperatives: string[];
+  profile: Profile | null;
   signOut: () => Promise<void>;
 }
 
@@ -19,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   role: null,
   cooperatives: [],
+  profile: null,
   signOut: async () => {},
 });
 
@@ -27,19 +34,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<AppRole | null>(null);
   const [cooperatives, setCooperatives] = useState<string[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   const fetchProfile = async (userId: string) => {
     try {
-      const [{ data: roleRow }, { data: ucRows }] = await Promise.all([
+      const [{ data: roleRow }, { data: ucRows }, { data: profileRow }] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
         (supabase.from("user_cooperatives") as any).select("cooperative").eq("user_id", userId),
+        (supabase.from("profiles") as any).select("username, email").eq("user_id", userId).maybeSingle(),
       ]);
       setRole(((roleRow?.role as AppRole) ?? "agent"));
       setCooperatives(((ucRows as { cooperative: string }[] | null) ?? []).map((r) => r.cooperative));
+      setProfile((profileRow as Profile | null) ?? null);
     } catch (e) {
       console.error("[useAuth] fetchProfile", e);
       setRole("agent");
       setCooperatives([]);
+      setProfile(null);
     }
   };
 
@@ -47,7 +58,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       if (newSession?.user) {
-        // Defer to avoid deadlocks with the auth client
         setTimeout(async () => {
           await fetchProfile(newSession.user.id);
           setLoading(false);
@@ -55,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setRole(null);
         setCooperatives([]);
+        setProfile(null);
         setLoading(false);
       }
     });
@@ -73,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => { await supabase.auth.signOut(); };
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, role, cooperatives, signOut }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, role, cooperatives, profile, signOut }}>
       {children}
     </AuthContext.Provider>
   );
