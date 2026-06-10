@@ -109,6 +109,21 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    if (action === "reset_password") {
+      // Look up user's email then generate a recovery link (sent automatically by Supabase if SMTP is configured).
+      const { data: targetUser, error: getErr } = await adminClient.auth.admin.getUserById(user_id);
+      if (getErr || !targetUser?.user?.email) {
+        return new Response(JSON.stringify({ error: "Utilisateur introuvable" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const redirectTo = body.redirectTo || undefined;
+      const { error: resetErr } = await adminClient.auth.resetPasswordForEmail(targetUser.user.email, redirectTo ? { redirectTo } : undefined);
+      if (resetErr) {
+        console.error(`[manage-user][${reqId}] reset error:`, resetErr.message);
+        return new Response(JSON.stringify({ error: "Erreur serveur" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     return new Response(JSON.stringify({ error: "Action inconnue" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error(`[manage-user][${reqId}] 500:`, err instanceof Error ? err.message : err);
