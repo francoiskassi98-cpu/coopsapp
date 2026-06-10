@@ -159,7 +159,8 @@ export default function Producers() {
     const { error } = await supabase.from("producers").delete().eq("id", deleteProducer.id);
     setSaving(false);
     if (error) {
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      console.error(error);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } else {
       toast({ title: "Producteur supprimé" });
       setDeleteProducer(null);
