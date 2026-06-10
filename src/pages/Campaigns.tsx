@@ -29,7 +29,8 @@ export default function Campaigns() {
     });
     setCreating(false);
     if (error) {
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      console.error(error);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
       return;
     }
     toast({ title: "Campagne créée", description: nom });
@@ -42,7 +43,8 @@ export default function Campaigns() {
       .update({ utilise_pour_chargement: true, active: true, archived: false })
       .eq("id", id);
     if (error) {
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      console.error(error);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
       return;
     }
     toast({ title: "Campagne définie pour les chargements" });
@@ -53,7 +55,7 @@ export default function Campaigns() {
     const { error } = await (supabase.from as any)("campaigns")
       .update({ active: !current })
       .eq("id", id);
-    if (error) toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    if (error) { console.error(error); toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }); }
     else refetch();
   }
 
@@ -61,7 +63,7 @@ export default function Campaigns() {
     const { error } = await (supabase.from as any)("campaigns")
       .update({ archived: !current })
       .eq("id", id);
-    if (error) toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    if (error) { console.error(error); toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }); }
     else refetch();
   }
 
