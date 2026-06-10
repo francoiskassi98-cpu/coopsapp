@@ -203,6 +203,33 @@ export default function UserManagement() {
 
   const isSelf = (userId: string) => currentUser?.id === userId;
 
+  const handleResetPassword = async (u: UserProfile) => {
+    setResetLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-user", {
+        body: {
+          action: "reset_password",
+          user_id: u.user_id,
+          redirectTo: `${window.location.origin}/reset-password`,
+        },
+      });
+      if (error || data?.error) {
+        console.error("[manage-user reset]", error || data?.error);
+        toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Lien envoyé", description: `Un email de réinitialisation a été envoyé à ${u.email}.` });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const fmtDate = (d: string | null | undefined) =>
+    d ? new Date(d).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" }) : "Jamais";
+
   const CoopPicker = ({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) => (
     <div className="max-h-48 overflow-y-auto rounded-md border p-3 space-y-2">
       {coops.length === 0 ? (
