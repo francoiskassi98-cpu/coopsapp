@@ -59,6 +59,7 @@ const App = () => (
                   <Route element={<ProtectedRoute adminOnly />}>
                     <Route path="/campagnes" element={<Campaigns />} />
                     <Route path="/gestion" element={<UserManagement />} />
+                    <Route path="/audit" element={<AuditLog />} />
                   </Route>
                 </Route>
               </Route>
