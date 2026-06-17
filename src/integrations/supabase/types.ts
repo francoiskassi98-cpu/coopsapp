@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          campaign_id: string | null
+          changed_at: string
+          changed_by: string | null
+          changed_by_email: string | null
+          cooperative: string | null
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          campaign_id?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_email?: string | null
+          cooperative?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          campaign_id?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_email?: string | null
+          cooperative?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           active: boolean

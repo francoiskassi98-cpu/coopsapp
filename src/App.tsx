@@ -18,6 +18,7 @@ const CreateShipment = lazy(() => import("@/pages/CreateShipment"));
 const ExportPage = lazy(() => import("@/pages/ExportPage"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
 const Campaigns = lazy(() => import("@/pages/Campaigns"));
+const AuditLog = lazy(() => import("@/pages/AuditLog"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -58,6 +59,7 @@ const App = () => (
                   <Route element={<ProtectedRoute adminOnly />}>
                     <Route path="/campagnes" element={<Campaigns />} />
                     <Route path="/gestion" element={<UserManagement />} />
+                    <Route path="/audit" element={<AuditLog />} />
                   </Route>
                 </Route>
               </Route>

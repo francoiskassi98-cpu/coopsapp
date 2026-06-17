@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, Truck, FileSpreadsheet, Users, Settings, Calendar, LogOut } from "lucide-react";
+import { BarChart3, Truck, FileSpreadsheet, Users, Settings, Calendar, LogOut, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useActiveCampaign } from "@/hooks/useActiveCampaign";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,6 +12,7 @@ const allNavItems = [
   { to: "/chargements", label: "Chargements", icon: Truck },
   { to: "/export", label: "Export", icon: FileSpreadsheet },
   { to: "/gestion", label: "Gestion du projet", icon: Settings, adminOnly: true },
+  { to: "/audit", label: "Journal d'audit", icon: ShieldCheck, adminOnly: true },
 ];
 
 export default function AppLayout() {
