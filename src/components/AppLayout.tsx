@@ -12,6 +12,7 @@ const allNavItems = [
   { to: "/chargements", label: "Chargements", icon: Truck },
   { to: "/export", label: "Export", icon: FileSpreadsheet },
   { to: "/gestion", label: "Gestion du projet", icon: Settings, adminOnly: true },
+  { to: "/audit", label: "Journal d'audit", icon: ShieldCheck, adminOnly: true },
 ];
 
 export default function AppLayout() {
