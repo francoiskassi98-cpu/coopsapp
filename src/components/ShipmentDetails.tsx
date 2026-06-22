@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Package, Users, Weight, Truck } from "lucide-react";
+import { Pencil, Package, Users, Weight, Truck, FileSpreadsheet, Loader2 } from "lucide-react";
+import { generateShipmentFiche } from "@/services/excel/shipment-fiche-excel";
 
 interface ShipmentWithDetails {
   id: string;
@@ -37,6 +38,19 @@ export default function ShipmentDetails() {
   const [partners, setPartners] = useState<{ id: string; name: string }[]>([]);
   const [cooperativesList, setCooperativesList] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+
+  const handleGenerateFiche = async (id: string) => {
+    setGeneratingId(id);
+    try {
+      await generateShipmentFiche(id);
+      toast({ title: "Fiche générée" });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+    }
+    setGeneratingId(null);
+  };
 
   // Edit form state
   const [editCoopId, setEditCoopId] = useState("");
@@ -228,9 +242,24 @@ export default function ShipmentDetails() {
                       <TableCell>{s.partner_name}</TableCell>
                       <TableCell className="text-xs">{s.campaign}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Télécharger la fiche d'accompagnement"
+                            disabled={generatingId === s.id}
+                            onClick={() => handleGenerateFiche(s.id)}
+                          >
+                            {generatingId === s.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <FileSpreadsheet className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
