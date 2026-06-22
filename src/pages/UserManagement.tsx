@@ -494,9 +494,9 @@ export default function UserManagement() {
 
               <div className="mt-6 space-y-5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={detailUser.role === "admin" ? "default" : "secondary"}>
+                  <Badge variant={detailUser.role === "agent" ? "secondary" : "default"}>
                     <Shield className="h-3 w-3 mr-1" />
-                    {detailUser.role === "admin" ? "Administrateur" : "Agent"}
+                    {ROLE_LABEL[detailUser.role] ?? detailUser.role}
                   </Badge>
                   {detailUser.is_banned ? (
                     <Badge variant="destructive">Désactivé</Badge>
