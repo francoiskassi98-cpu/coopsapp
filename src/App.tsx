@@ -23,6 +23,7 @@ const AuditLog = lazy(() => import("@/pages/AuditLog"));
 const CreateCooperative = lazy(() => import("@/pages/CreateCooperative"));
 const Trash = lazy(() => import("@/pages/Trash"));
 const LoginEvents = lazy(() => import("@/pages/LoginEvents"));
+const Partners = lazy(() => import("@/pages/Partners"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 const queryClient = new QueryClient({
