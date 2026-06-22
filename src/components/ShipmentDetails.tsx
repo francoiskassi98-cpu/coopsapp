@@ -242,9 +242,24 @@ export default function ShipmentDetails() {
                       <TableCell>{s.partner_name}</TableCell>
                       <TableCell className="text-xs">{s.campaign}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Télécharger la fiche d'accompagnement"
+                            disabled={generatingId === s.id}
+                            onClick={() => handleGenerateFiche(s.id)}
+                          >
+                            {generatingId === s.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <FileSpreadsheet className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
