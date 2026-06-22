@@ -552,7 +552,14 @@ export default function CreateShipment() {
                   <p className="text-xs text-muted-foreground">Campagne actuelle : {getCurrentCampaign()}</p>
                 </div>
 
-                <Button onClick={handleCalculate} className="w-full">Calculer la distribution</Button>
+                {missingFields.length > 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Champs requis manquants : {missingFields.join(", ")}.
+                  </p>
+                )}
+                <Button onClick={handleCalculate} className="w-full" disabled={missingFields.length > 0}>
+                  Calculer la distribution
+                </Button>
               </CardContent>
             </Card>
 
