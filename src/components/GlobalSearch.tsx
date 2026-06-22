@@ -12,23 +12,15 @@ import {
 } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-
+import { useDebounce } from "@/hooks/useDebounce";
 
 type Hit = { id: string; label: string; sub?: string; route: string; icon: any };
 
-function useDebounceValue<T>(value: T, delay = 250) {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return v;
-}
 
 export default function GlobalSearch() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
-  const debounced = useDebounceValue(q, 250);
+  const debounced = useDebounce(q, 250);
   const [hits, setHits] = useState<Hit[]>([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
