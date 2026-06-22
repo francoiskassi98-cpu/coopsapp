@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, Truck, FileSpreadsheet, Users, Settings, Calendar, LogOut, ShieldCheck } from "lucide-react";
+import { BarChart3, Truck, FileSpreadsheet, Users, Settings, Calendar, LogOut, ShieldCheck, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useActiveCampaign } from "@/hooks/useActiveCampaign";
 import { useAuth } from "@/hooks/useAuth";
