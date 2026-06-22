@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Handshake, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Handshake, Plus, Pencil, Trash2, Loader2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 
 type Partner = {
@@ -16,38 +16,57 @@ type Partner = {
   contact: string | null;
   logo_url: string | null;
   status: string;
-  cooperative_id: string | null;
 };
 
-type Coop = { id: string; name: string };
+const BUCKET = "partner-logos";
+
+const signedUrl = async (path: string) => {
+  const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
+  return data?.signedUrl ?? null;
+};
 
 export default function Partners() {
   const [items, setItems] = useState<Partner[]>([]);
-  const [coops, setCoops] = useState<Coop[]>([]);
+  const [logoUrls, setLogoUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partner | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     name: "",
     contact: "",
     logo_url: "",
     status: "actif",
-    cooperative_id: "",
   });
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const [{ data: p, error: e1 }, { data: c }] = await Promise.all([
-      supabase.from("partners").select("*").is("deleted_at", null).order("name"),
-      supabase.from("cooperatives").select("id,name").is("deleted_at", null).order("name"),
-    ]);
-    if (e1) {
-      console.error(e1);
+    const { data, error } = await supabase
+      .from("partners")
+      .select("id,name,contact,logo_url,status")
+      .is("deleted_at", null)
+      .order("name");
+    if (error) {
+      console.error(error);
       toast.error("Une erreur est survenue.");
     }
-    setItems((p as Partner[]) || []);
-    setCoops((c as Coop[]) || []);
+    const list = (data as Partner[]) || [];
+    setItems(list);
+
+    // Resolve signed URLs for stored logos
+    const map: Record<string, string> = {};
+    await Promise.all(
+      list.map(async (p) => {
+        if (p.logo_url) {
+          const url = p.logo_url.startsWith("http") ? p.logo_url : await signedUrl(p.logo_url);
+          if (url) map[p.id] = url;
+        }
+      })
+    );
+    setLogoUrls(map);
     setLoading(false);
   };
 
@@ -57,7 +76,9 @@ export default function Partners() {
 
   const resetForm = () => {
     setEditing(null);
-    setForm({ name: "", contact: "", logo_url: "", status: "actif", cooperative_id: "" });
+    setForm({ name: "", contact: "", logo_url: "", status: "actif" });
+    setPreviewUrl(null);
+    if (fileRef.current) fileRef.current.value = "";
   };
 
   const openCreate = () => {
@@ -65,16 +86,60 @@ export default function Partners() {
     setOpen(true);
   };
 
-  const openEdit = (p: Partner) => {
+  const openEdit = async (p: Partner) => {
     setEditing(p);
     setForm({
       name: p.name,
       contact: p.contact ?? "",
       logo_url: p.logo_url ?? "",
       status: p.status ?? "actif",
-      cooperative_id: p.cooperative_id ?? "",
     });
+    if (p.logo_url) {
+      const url = p.logo_url.startsWith("http") ? p.logo_url : await signedUrl(p.logo_url);
+      setPreviewUrl(url);
+    } else {
+      setPreviewUrl(null);
+    }
     setOpen(true);
+  };
+
+  const handleFile = async (file: File) => {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Fichier trop volumineux (max 2 Mo).");
+      return;
+    }
+    setUploading(true);
+    const ext = file.name.split(".").pop() ?? "png";
+    const path = `${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type,
+    });
+    if (error) {
+      console.error(error);
+      toast.error("Une erreur est survenue.");
+      setUploading(false);
+      return;
+    }
+    // Remove old logo when replacing
+    if (form.logo_url && !form.logo_url.startsWith("http")) {
+      await supabase.storage.from(BUCKET).remove([form.logo_url]);
+    }
+    const url = await signedUrl(path);
+    setForm((f) => ({ ...f, logo_url: path }));
+    setPreviewUrl(url);
+    setUploading(false);
+  };
+
+  const clearLogo = async () => {
+    if (form.logo_url && !form.logo_url.startsWith("http")) {
+      await supabase.storage.from(BUCKET).remove([form.logo_url]);
+    }
+    setForm((f) => ({ ...f, logo_url: "" }));
+    setPreviewUrl(null);
+    if (fileRef.current) fileRef.current.value = "";
   };
 
   const submit = async () => {
@@ -86,9 +151,8 @@ export default function Partners() {
     const payload = {
       name: form.name.trim(),
       contact: form.contact.trim() || null,
-      logo_url: form.logo_url.trim() || null,
+      logo_url: form.logo_url || null,
       status: form.status,
-      cooperative_id: form.cooperative_id || null,
     };
     const { error } = editing
       ? await supabase.from("partners").update(payload).eq("id", editing.id)
@@ -151,9 +215,9 @@ export default function Partners() {
           {items.map((p) => (
             <Card key={p.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-                <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
-                  {p.logo_url ? (
-                    <img src={p.logo_url} alt={p.name} className="h-full w-full object-cover" />
+                <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                  {logoUrls[p.id] ? (
+                    <img src={logoUrls[p.id]} alt={p.name} className="h-full w-full object-cover" />
                   ) : (
                     <Handshake className="h-6 w-6 text-muted-foreground" />
                   )}
@@ -183,7 +247,7 @@ export default function Partners() {
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editing ? "Modifier le partenaire" : "Nouveau partenaire"}</DialogTitle>
@@ -202,44 +266,48 @@ export default function Partners() {
               />
             </div>
             <div className="space-y-2">
-              <Label>URL du logo</Label>
-              <Input
-                value={form.logo_url}
-                onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
-                placeholder="https://…"
-              />
+              <Label>Logo</Label>
+              <div className="flex items-center gap-3">
+                <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0 border">
+                  {previewUrl ? (
+                    <img src={previewUrl} alt="logo" className="h-full w-full object-cover" />
+                  ) : (
+                    <Handshake className="h-7 w-7 text-muted-foreground" />
+                  )}
+                </div>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+                />
+                <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                  {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                  {form.logo_url ? "Remplacer" : "Téléverser"}
+                </Button>
+                {form.logo_url && (
+                  <Button type="button" variant="ghost" size="sm" onClick={clearLogo}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">PNG, JPG ou SVG — 2 Mo max.</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Statut</Label>
-                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="actif">Actif</SelectItem>
-                    <SelectItem value="inactif">Inactif</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Coopérative</Label>
-                <Select
-                  value={form.cooperative_id || "none"}
-                  onValueChange={(v) => setForm({ ...form, cooperative_id: v === "none" ? "" : v })}
-                >
-                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Aucune</SelectItem>
-                    {coops.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label>Statut</Label>
+              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="actif">Actif</SelectItem>
+                  <SelectItem value="inactif">Inactif</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Annuler</Button>
-            <Button onClick={submit} disabled={saving}>
+            <Button onClick={submit} disabled={saving || uploading}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {editing ? "Enregistrer" : "Créer"}
             </Button>
