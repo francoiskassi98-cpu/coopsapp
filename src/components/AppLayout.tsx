@@ -62,7 +62,7 @@ export default function AppLayout() {
                 {user.email}
               </span>
               <span className="text-[10px] uppercase tracking-wide text-sidebar-foreground/50">
-                {role === "admin" ? "Administrateur" : `Agent${cooperatives.length ? ` · ${cooperatives.join(", ")}` : ""}`}
+                {role === "super_admin" ? "Super administrateur" : role === "coop_admin" ? `Admin coop · ${cooperatives.join(", ") || "—"}` : `Agent${cooperatives.length ? ` · ${cooperatives.join(", ")}` : ""}`}
               </span>
               <Button
                 variant="ghost"
