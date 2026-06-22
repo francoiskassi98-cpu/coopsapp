@@ -19,6 +19,7 @@ const ExportPage = lazy(() => import("@/pages/ExportPage"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
 const Campaigns = lazy(() => import("@/pages/Campaigns"));
 const AuditLog = lazy(() => import("@/pages/AuditLog"));
+const CreateCooperative = lazy(() => import("@/pages/CreateCooperative"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 const queryClient = new QueryClient({
