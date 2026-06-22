@@ -38,6 +38,19 @@ export default function ShipmentDetails() {
   const [partners, setPartners] = useState<{ id: string; name: string }[]>([]);
   const [cooperativesList, setCooperativesList] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+
+  const handleGenerateFiche = async (id: string) => {
+    setGeneratingId(id);
+    try {
+      await generateShipmentFiche(id);
+      toast({ title: "Fiche générée" });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+    }
+    setGeneratingId(null);
+  };
 
   // Edit form state
   const [editCoopId, setEditCoopId] = useState("");
