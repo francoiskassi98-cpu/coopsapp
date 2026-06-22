@@ -231,7 +231,11 @@ export default function CreateShipment() {
           campaign: normalizeCampaign(getCurrentCampaign()),
           delivery_start: startDate,
           delivery_end: endDate,
-        })
+          driver_name: driverName.trim() || null,
+          truck_number: truckNumber.trim() || null,
+          trailer_number: trailerNumber.trim() || null,
+          departure_date: departureDate || null,
+        } as any)
         .select()
         .single();
 
