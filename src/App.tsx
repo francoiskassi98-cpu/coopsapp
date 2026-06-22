@@ -23,6 +23,7 @@ const AuditLog = lazy(() => import("@/pages/AuditLog"));
 const CreateCooperative = lazy(() => import("@/pages/CreateCooperative"));
 const Trash = lazy(() => import("@/pages/Trash"));
 const LoginEvents = lazy(() => import("@/pages/LoginEvents"));
+const Partners = lazy(() => import("@/pages/Partners"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -61,6 +62,7 @@ const App = () => (
                     <Route path="/producteurs" element={<Producers />} />
                     <Route path="/chargements" element={<CreateShipment />} />
                     <Route path="/export" element={<ExportPage />} />
+                    <Route path="/partenaires" element={<Partners />} />
                     <Route element={<ProtectedRoute adminOnly />}>
                       <Route path="/campagnes" element={<Campaigns />} />
                       <Route path="/gestion" element={<UserManagement />} />
