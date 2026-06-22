@@ -10,7 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { FileSpreadsheet, Plus, Pencil, Trash2, Star } from "lucide-react";
+import { FileSpreadsheet, Plus, Pencil, Trash2, Star, Eye } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TemplatePreview } from "@/components/shipments/TemplatePreview";
 
 interface Coop { id: string; name: string }
 
@@ -199,12 +201,18 @@ export default function ShipmentTemplates() {
 
       {/* Edit dialog */}
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto">
+        <DialogContent className="max-w-5xl max-h-[92vh] overflow-auto">
           <DialogHeader>
             <DialogTitle>{(editing as any)?.id ? "Modifier le modèle" : "Nouveau modèle"}</DialogTitle>
           </DialogHeader>
           {editing && (
-            <div className="space-y-4">
+            <Tabs defaultValue="config" className="w-full">
+              <TabsList>
+                <TabsTrigger value="config"><Pencil className="h-4 w-4 mr-1" />Configuration</TabsTrigger>
+                <TabsTrigger value="preview"><Eye className="h-4 w-4 mr-1" />Aperçu</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="config" className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Coopérative *</Label>
@@ -280,7 +288,18 @@ export default function ShipmentTemplates() {
                   ))}
                 </div>
               </div>
-            </div>
+              </TabsContent>
+
+              <TabsContent value="preview">
+                <p className="text-xs text-muted-foreground mb-2">
+                  Aperçu indicatif — les données présentées sont fictives.
+                </p>
+                <TemplatePreview
+                  {...(editing as any)}
+                  coopName={coops.find(c => c.id === editing.cooperative_id)?.name}
+                />
+              </TabsContent>
+            </Tabs>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Annuler</Button>
