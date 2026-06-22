@@ -21,6 +21,10 @@ export default function CreateShipment() {
   const [totalWeight, setTotalWeight] = useState("");
   const [totalBags, setTotalBags] = useState("");
   const [connaissement, setConnaissement] = useState("");
+  const [driverName, setDriverName] = useState("");
+  const [truckNumber, setTruckNumber] = useState("");
+  const [trailerNumber, setTrailerNumber] = useState("");
+  const [departureDate, setDepartureDate] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [project, setProject] = useState("");
