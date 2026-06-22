@@ -268,6 +268,10 @@ export default function CreateShipment() {
       setConnaissement("");
       setTotalWeight("");
       setTotalBags("");
+      setDriverName("");
+      setTruckNumber("");
+      setTrailerNumber("");
+      setDepartureDate("");
     } catch (err: any) {
       (console.error(err), toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }));
     } finally {
