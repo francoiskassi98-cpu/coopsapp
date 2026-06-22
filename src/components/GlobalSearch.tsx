@@ -20,7 +20,7 @@ type Hit = { id: string; label: string; sub?: string; route: string; icon: any }
 export default function GlobalSearch() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
-  const debounced = useDebounceValue(q, 250);
+  const debounced = useDebounce(q, 250);
   const [hits, setHits] = useState<Hit[]>([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
