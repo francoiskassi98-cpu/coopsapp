@@ -92,8 +92,27 @@ export default function GlobalSearch() {
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput placeholder="Producteur, coopérative, partenaire, chargement…" value={q} onValueChange={setQ} />
         <CommandList>
-          {loading && <div className="p-3 text-xs text-muted-foreground text-center">Recherche…</div>}
-          {!loading && debounced.length >= 2 && hits.length === 0 && <CommandEmpty>Aucun résultat</CommandEmpty>}
+          {loading && (
+            <div className="p-3 space-y-3">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-[92%]" />
+              <Skeleton className="h-9 w-[85%]" />
+              <Skeleton className="h-9 w-[95%]" />
+            </div>
+          )}
+          {!loading && debounced.length >= 2 && hits.length === 0 && (
+            <CommandEmpty className="py-10">
+              <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                <div className="rounded-full bg-muted p-3">
+                  <Inbox className="h-6 w-6" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium">Aucun résultat trouvé</p>
+                  <p className="text-xs mt-1">Essayez un autre terme ou vérifiez l’orthographe.</p>
+                </div>
+              </div>
+            </CommandEmpty>
+          )}
           {groupBy("Producteurs", Users).length > 0 && (
             <CommandGroup heading="Producteurs">
               {groupBy("Producteurs", Users).map((h) => (
