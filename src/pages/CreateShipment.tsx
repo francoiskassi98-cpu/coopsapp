@@ -135,9 +135,27 @@ export default function CreateShipment() {
     return { potentiel: pot.potentiel, delivered: del, remaining: pot.remaining };
   }, [zone, coopPotential, coopDelivered]);
 
+  const missingFields = useMemo(() => {
+    const m: string[] = [];
+    if (!totalWeight) m.push("Poids total");
+    if (!totalBags) m.push("Nombre de sacs");
+    if (!connaissement.trim()) m.push("N° Connaissement");
+    if (!startDate) m.push("Date début");
+    if (!endDate) m.push("Date fin");
+    if (!project) m.push("Projet");
+    if (!partnerId) m.push("Partenaire");
+    if (!selectedCoopId) m.push("Coopérative");
+    if (!destination) m.push("Destination");
+    if (!driverName.trim()) m.push("Chauffeur");
+    if (!truckNumber.trim()) m.push("N° Camion");
+    if (!trailerNumber.trim()) m.push("N° Remorque");
+    if (!departureDate) m.push("Date départ");
+    return m;
+  }, [totalWeight, totalBags, connaissement, startDate, endDate, project, partnerId, selectedCoopId, destination, driverName, truckNumber, trailerNumber, departureDate]);
+
   const handleCalculate = async () => {
-    if (!totalWeight || !totalBags || !startDate || !endDate || !project || !destination || !zone) {
-      toast({ title: "Champs requis manquants", description: "Veuillez remplir tous les champs obligatoires, y compris la coopérative.", variant: "destructive" });
+    if (missingFields.length > 0) {
+      toast({ title: "Champs requis manquants", description: `Renseignez : ${missingFields.join(", ")}.`, variant: "destructive" });
       return;
     }
 
