@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { BarChart3, Truck, FileSpreadsheet, Users, Settings, Calendar, LogOut, ShieldCheck, Building2, Sprout, Handshake } from "lucide-react";
+import { BarChart3, Truck, FileSpreadsheet, Users, Settings, Calendar, LogOut, ShieldCheck, Building2, Sprout, Handshake, Trash2, KeyRound } from "lucide-react";
+import AppHeader from "@/components/AppHeader";
 import { cn } from "@/lib/utils";
 import { useActiveCampaign } from "@/hooks/useActiveCampaign";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,6 +33,8 @@ const groups: NavGroup[] = [
       { to: "/gestion", label: "Gestion du projet", icon: Settings, adminOnly: true },
       { to: "/gestion/cooperatives/nouvelle", label: "Nouvelle coopérative", icon: Building2, superAdminOnly: true },
       { to: "/audit", label: "Journal d'audit", icon: ShieldCheck, adminOnly: true },
+      { to: "/audit/connexions", label: "Journal de connexion", icon: KeyRound, adminOnly: true },
+      { to: "/corbeille", label: "Corbeille", icon: Trash2, adminOnly: true },
     ],
   },
 ];
@@ -140,6 +143,7 @@ export default function AppLayout() {
       </aside>
 
       <div className="flex flex-col flex-1 overflow-hidden">
+        <AppHeader />
         <main className="flex-1 overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
           <AnimatePresence mode="wait">
             <motion.div

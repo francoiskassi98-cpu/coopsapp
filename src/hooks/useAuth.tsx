@@ -75,12 +75,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       if (newSession?.user) {
         setTimeout(async () => {
           await fetchProfile(newSession.user.id);
           setLoading(false);
+          if (event === "SIGNED_IN") {
+            try {
+              await (supabase.rpc as any)("log_login_event", { p_user_agent: navigator.userAgent });
+            } catch (e) { console.error("[useAuth] log_login_event", e); }
+          }
         }, 0);
       } else {
         setRole(null);
