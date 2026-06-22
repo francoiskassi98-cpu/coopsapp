@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Users, Truck, Building2, Handshake } from "lucide-react";
+import { Search, Users, Truck, Building2, Handshake, Inbox } from "lucide-react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -11,6 +11,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useDebounce } from "@/hooks/useDebounce";
 
