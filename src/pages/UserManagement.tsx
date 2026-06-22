@@ -245,8 +245,8 @@ export default function UserManagement() {
         coops.map((c) => (
           <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
             <Checkbox
-              checked={selected.includes(c.name)}
-              onCheckedChange={() => onChange(toggleInList(selected, c.name))}
+              checked={selected.includes(c.id)}
+              onCheckedChange={() => onChange(toggleInList(selected, c.id))}
             />
             <span>{c.name}</span>
           </label>
