@@ -4,9 +4,10 @@ import { Loader2 } from "lucide-react";
 
 interface Props {
   adminOnly?: boolean;
+  superAdminOnly?: boolean;
 }
 
-export default function ProtectedRoute({ adminOnly = false }: Props) {
+export default function ProtectedRoute({ adminOnly = false, superAdminOnly = false }: Props) {
   const { session, loading, role } = useAuth();
 
   if (loading) {
@@ -19,7 +20,7 @@ export default function ProtectedRoute({ adminOnly = false }: Props) {
 
   if (!session) return <Navigate to="/auth" replace />;
 
-  if (adminOnly) {
+  if (adminOnly || superAdminOnly) {
     if (role === null) {
       return (
         <div className="min-h-screen flex items-center justify-center">
