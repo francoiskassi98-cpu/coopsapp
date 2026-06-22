@@ -12,13 +12,14 @@ const allNavItems = [
   { to: "/chargements", label: "Chargements", icon: Truck },
   { to: "/export", label: "Export", icon: FileSpreadsheet },
   { to: "/gestion", label: "Gestion du projet", icon: Settings, adminOnly: true },
+  { to: "/gestion/cooperatives/nouvelle", label: "Nouvelle coopérative", icon: Building2, superAdminOnly: true },
   { to: "/audit", label: "Journal d'audit", icon: ShieldCheck, adminOnly: true },
 ];
 
 export default function AppLayout() {
   const { campaign } = useActiveCampaign();
-  const { user, role, cooperatives, profile, signOut } = useAuth();
-  const navItems = allNavItems.filter((i) => !i.adminOnly || role === "admin");
+  const { user, role, cooperatives, profile, signOut, isSuperAdmin } = useAuth();
+  const navItems = allNavItems.filter((i) => (!i.adminOnly || isSuperAdmin) && (!i.superAdminOnly || isSuperAdmin));
   const displayName = profile?.username?.trim() || (user?.email ? user.email.split("@")[0] : "Utilisateur");
 
   return (
