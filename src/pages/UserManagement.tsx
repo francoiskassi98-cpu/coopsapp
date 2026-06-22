@@ -20,7 +20,7 @@ interface UserProfile {
   user_id: string;
   username: string;
   email: string;
-  cooperatives: string[];
+  cooperatives: Array<{ id: string; name: string }>;
   created_at: string;
   role: string;
   is_banned: boolean;
@@ -28,6 +28,12 @@ interface UserProfile {
 }
 
 interface Coop { id: string; name: string }
+
+const ROLE_LABEL: Record<string, string> = {
+  super_admin: "Super administrateur",
+  coop_admin: "Admin coopérative",
+  agent: "Agent",
+};
 
 export default function UserManagement() {
   const { user: currentUser } = useAuth();
@@ -43,13 +49,13 @@ export default function UserManagement() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<string>("agent");
-  const [selectedCoops, setSelectedCoops] = useState<string[]>([]);
+  const [selectedCoops, setSelectedCoops] = useState<string[]>([]); // IDs
 
   const [editUser, setEditUser] = useState<UserProfile | null>(null);
   const [editUsername, setEditUsername] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState("agent");
-  const [editCoops, setEditCoops] = useState<string[]>([]);
+  const [editCoops, setEditCoops] = useState<string[]>([]); // IDs
   const [editActive, setEditActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -68,7 +74,7 @@ export default function UserManagement() {
 
       setCoops((coopList || []) as Coop[]);
       const banMap: Record<string, boolean> = manageResult.data?.banMap || {};
-      const coopsByUser: Record<string, string[]> = manageResult.data?.coopsByUser || {};
+      const coopsByUser: Record<string, Array<{ id: string; name: string }>> = manageResult.data?.coopsByUser || {};
       const lastSignInMap: Record<string, string | null> = manageResult.data?.lastSignInMap || {};
 
       if (profiles && roles) {
@@ -91,6 +97,7 @@ export default function UserManagement() {
       setLoading(false);
     }
   };
+
 
   useEffect(() => { fetchUsers(); }, []);
 
