@@ -342,6 +342,127 @@ export type Database = {
           },
         ]
       }
+      producer_bonus_results: {
+        Row: {
+          calculated_bonus: number
+          cooperative_id: string
+          created_at: string
+          id: string
+          period_end: string
+          period_start: string
+          producer_id: string
+          rate: number
+          setting_id: string | null
+          volume_delivered: number
+        }
+        Insert: {
+          calculated_bonus?: number
+          cooperative_id: string
+          created_at?: string
+          id?: string
+          period_end: string
+          period_start: string
+          producer_id: string
+          rate?: number
+          setting_id?: string | null
+          volume_delivered?: number
+        }
+        Update: {
+          calculated_bonus?: number
+          cooperative_id?: string
+          created_at?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          producer_id?: string
+          rate?: number
+          setting_id?: string | null
+          volume_delivered?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_bonus_results_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_bonus_results_producer_id_fkey"
+            columns: ["producer_id"]
+            isOneToOne: false
+            referencedRelation: "producers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_bonus_results_setting_id_fkey"
+            columns: ["setting_id"]
+            isOneToOne: false
+            referencedRelation: "producer_bonus_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      producer_bonus_settings: {
+        Row: {
+          amount: number
+          bonus_type: string
+          campaign_id: string | null
+          cooperative_id: string
+          created_at: string
+          created_by: string | null
+          end_date: string
+          id: string
+          label: string | null
+          section: string | null
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          bonus_type: string
+          campaign_id?: string | null
+          cooperative_id: string
+          created_at?: string
+          created_by?: string | null
+          end_date: string
+          id?: string
+          label?: string | null
+          section?: string | null
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bonus_type?: string
+          campaign_id?: string | null
+          cooperative_id?: string
+          created_at?: string
+          created_by?: string | null
+          end_date?: string
+          id?: string
+          label?: string | null
+          section?: string | null
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_bonus_settings_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_bonus_settings_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       producer_registry: {
         Row: {
           actif: boolean
@@ -582,6 +703,104 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipment_excel_templates: {
+        Row: {
+          coop_logo_url: string | null
+          cooperative_id: string
+          created_at: string
+          created_by: string | null
+          custom_footer: string | null
+          custom_header: string | null
+          id: string
+          is_default: boolean
+          logo_position: string
+          partner_logo_url: string | null
+          show_bill_of_lading: boolean
+          show_departure_date: boolean
+          show_destination: boolean
+          show_driver: boolean
+          show_num_bags: boolean
+          show_num_producers: boolean
+          show_partner: boolean
+          show_partner_logo: boolean
+          show_project: boolean
+          show_total_weight: boolean
+          show_trailer: boolean
+          show_truck: boolean
+          slogan: string | null
+          subtitle: string | null
+          template_name: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          coop_logo_url?: string | null
+          cooperative_id: string
+          created_at?: string
+          created_by?: string | null
+          custom_footer?: string | null
+          custom_header?: string | null
+          id?: string
+          is_default?: boolean
+          logo_position?: string
+          partner_logo_url?: string | null
+          show_bill_of_lading?: boolean
+          show_departure_date?: boolean
+          show_destination?: boolean
+          show_driver?: boolean
+          show_num_bags?: boolean
+          show_num_producers?: boolean
+          show_partner?: boolean
+          show_partner_logo?: boolean
+          show_project?: boolean
+          show_total_weight?: boolean
+          show_trailer?: boolean
+          show_truck?: boolean
+          slogan?: string | null
+          subtitle?: string | null
+          template_name?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          coop_logo_url?: string | null
+          cooperative_id?: string
+          created_at?: string
+          created_by?: string | null
+          custom_footer?: string | null
+          custom_header?: string | null
+          id?: string
+          is_default?: boolean
+          logo_position?: string
+          partner_logo_url?: string | null
+          show_bill_of_lading?: boolean
+          show_departure_date?: boolean
+          show_destination?: boolean
+          show_driver?: boolean
+          show_num_bags?: boolean
+          show_num_producers?: boolean
+          show_partner?: boolean
+          show_partner_logo?: boolean
+          show_project?: boolean
+          show_total_weight?: boolean
+          show_trailer?: boolean
+          show_truck?: boolean
+          slogan?: string | null
+          subtitle?: string | null
+          template_name?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_excel_templates_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
             referencedColumns: ["id"]
           },
         ]
