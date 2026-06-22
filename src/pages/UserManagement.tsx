@@ -303,7 +303,8 @@ export default function UserManagement() {
                 <Select value={role} onValueChange={setRole}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Administrateur</SelectItem>
+                    <SelectItem value="super_admin">Super administrateur</SelectItem>
+                    <SelectItem value="coop_admin">Admin coopérative</SelectItem>
                     <SelectItem value="agent">Agent coopérative</SelectItem>
                   </SelectContent>
                 </Select>
