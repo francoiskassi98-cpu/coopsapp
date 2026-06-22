@@ -1,126 +1,129 @@
-# Plan — Inscription coopératives & refonte rôles
 
-> Inscription **fermée au public** : seul un `SUPER_ADMIN` peut créer une nouvelle coopérative + son `COOP_ADMIN`. La page `/auth` ne propose que **Connexion** + **Mot de passe oublié** (déjà existants). La création coop+admin se fait depuis une nouvelle page admin `/gestion/cooperatives/nouvelle`.
+# Plan — Génération du prompt complet du projet (PROJET.md)
 
----
+## Objectif
 
-## 1. Migration BD (un seul script, ordre critique)
+Créer un fichier `PROJET.md` à la racine du repo contenant la spécification complète du projet, structurée en sections, optimisée pour être collée dans un nouveau projet Lovable afin de recréer l'application à l'identique.
 
-### 1.1 Enum rôles
-- Renommer `app_role` valeurs : `admin` → `super_admin`, `agent` → `agent`, ajout `coop_admin`.
-- Postgres ne permet pas le rename direct d'une valeur d'enum utilisée → on crée `app_role_new ('super_admin','coop_admin','agent')`, migre `user_roles.role`, drop ancien enum, rename.
-- Mise à jour `has_role()`, `is_admin()` → renommer en `is_super_admin()` + ajout `is_coop_admin(uuid)`.
+## Livrable
 
-### 1.2 Table `cooperatives` (ALTER, pas CREATE)
-Colonnes nullable ajoutées : `acronym`, `rccm`, `tax_number`, `phone`, `address`, `city`, `country`, `official_email` (unique), `logo_url`, `president_name`, `estimated_producers int`, `certification_type` (enum `fairtrade|rainforest|eudr|ordinaire`), `subscription_status` (enum `trial|active|suspended|expired`), `updated_at`.
+Un seul fichier : **`PROJET.md`** (~10 pages, Markdown structuré, 100% en français).
 
-### 1.3 Table `user_cooperatives` — migration vers `cooperative_id`
-- Ajout colonne `cooperative_id uuid REFERENCES cooperatives(id)`.
-- Backfill via `UPDATE … FROM cooperatives WHERE lower(name)=lower(cooperative)`.
-- Lignes orphelines : insertion auto dans `cooperatives` puis backfill.
-- DROP colonne `cooperative` (texte) une fois OK.
-- Refonte `my_cooperative_ids()`, suppression `my_cooperative_names()` (remplacé par join).
-- Mise à jour **toutes** les policies RLS qui réfèrent `cooperative` (texte) sur `producers`, `producer_registry`, `shipments`, `deliveries`, `disabled_sections`.
+## Structure du document
 
-### 1.4 Table `profiles`
-Ajout `full_name`, `phone`, `active boolean default true`. (Ne PAS ajouter `role` — reste dans `user_roles`.)
-Trigger `handle_new_user` mis à jour : lit `full_name`, `phone` depuis `raw_user_meta_data`, défaut rôle = `agent` (le COOP_ADMIN sera assigné explicitement par l'edge function).
+### 1. Contexte & Objectif métier
+- Plateforme de gestion des coopératives agricoles cacao (Côte d'Ivoire / Afrique de l'Ouest).
+- Modules : producteurs, chargements, livraisons, campagnes, dashboard, reporting PPTX, audit, multi-coopératives SaaS.
+- Cible : super_admin (éditeur SaaS), coop_admin (responsable coop), agent (saisie terrain).
 
-### 1.5 Nouvelle table `subscriptions`
-Colonnes : `cooperative_id` (FK), `plan_name`, `amount numeric`, `start_date`, `end_date`, `status` (enum), `payment_date`, `created_by`, timestamps.
-RLS : SUPER_ADMIN lecture/écriture totale ; COOP_ADMIN lecture sur sa coop.
-GRANT authenticated + service_role.
+### 2. Stack technique
+- React 18 + TypeScript + Vite 5
+- Tailwind CSS v3 + shadcn/ui
+- Supabase (Lovable Cloud) : Postgres, Auth, Storage, Edge Functions
+- Recharts (graphiques), PptxGenJS (rapports), ExcelJS (imports/exports — jamais xlsx)
+- React Router, TanStack Query, Sonner (toasts)
 
-### 1.6 Storage bucket `cooperative-logos` (privé)
-Policies : SUPER_ADMIN write ; lecture authentifiée pour les users de la coop.
+### 3. Identité visuelle
+- Thème sombre : fond `#0A0A0F`, sidebar `#2a004a`
+- Accents : turquoise, jaune, rouge corail, menthe
+- UI 100% en français, responsive
+- Police, tokens sémantiques dans `index.css` (jamais de couleurs en dur)
 
----
+### 4. Modèle de données (schéma Postgres)
+Pour chacune des 15 tables, lister : colonnes principales, FK, contraintes, index.
+- `cooperatives` (17 colonnes : name, acronym, rccm, tax_number, phone, address, city, country, official_email, logo_url, president_name, estimated_producers, certification_type, subscription_status, …)
+- `profiles` (user_id, username, email, full_name, phone, active)
+- `user_roles` (enum `app_role`: super_admin | coop_admin | agent — table séparée pour anti-escalade)
+- `user_cooperatives` (user_id, cooperative_id UUID FK)
+- `subscriptions` (cooperative_id, plan_name, amount, start_date, end_date, status, payment_date, created_by)
+- `campaigns` (libellé YYYY-YYYY, dates strictes 1 sept → 31 août, `utilise_pour_chargement` unique)
+- `producers` (full_name, section, plantation_code, delivery_potential, remaining_potential, cooperative, sexe, is_active)
+- `producer_registry` (snapshot par campagne, potentiel_livraison/restant)
+- `shipments` (cooperative_id, campaign_id, total_weight, num_bags, destination, partner, project, is_cancelled=false toujours)
+- `deliveries` (shipment_id, producer_id, receipt_number 6 chiffres, delivery_date, net_weight, num_bags)
+- `disabled_sections`, `partners`, `audit_logs`, `reports_ppt_history`, `rapports_envoyes`
 
-## 2. Edge Function `create-cooperative` (nouvelle)
+### 5. Sécurité & RLS
+- Helpers SECURITY DEFINER : `is_super_admin()`, `is_coop_admin()`, `has_role()`, `my_cooperative_ids()`, `my_cooperative_names()`, `is_admin()` (alias)
+- Toutes les tables business : RLS scopée par `my_cooperative_ids()` pour coop_admin/agent, accès global pour super_admin
+- `user_roles` : lecture authenticated, écriture service_role uniquement
+- GRANTs explicites obligatoires sur toutes les tables `public`
+- Storage : bucket privé `cooperative-logos` (RLS super_admin pour écriture)
+- Auth : inscription publique désactivée, HIBP activé, ProtectedRoute, routes `/gestion` et `/audit` super_admin only
 
-Appelée uniquement par SUPER_ADMIN. Vérifie JWT + rôle en DB.
+### 6. Edge Functions
+- `create-cooperative` : super_admin only, transactionnelle via RPC `create_cooperative_with_admin` (upload logo → coop → admin user → role coop_admin → subscription pilote 1 sept → 30 nov)
+- `create-user`, `manage-user` : provisioning utilisateurs (super_admin / coop_admin scopé)
+- Toutes vérifient JWT + rôle DB
 
-Reçoit : payload coopérative + payload admin (email, full_name, phone, password) + logoBase64 optionnel.
+### 7. Modules fonctionnels (avec routes)
+Pour chacun : route, rôle requis, composants clés, règles métier.
+- **Dashboard** (`/`) — KPIs, filtres date/campagne, projection, top coopératives
+- **Producteurs** (`/producteurs`) — CRUD, import Excel, registre par campagne
+- **Chargements** (`/chargements/nouveau`) — création manuelle, validation 14j, plafond 110%, plafond potentiel
+- **Import chargements historiques** (`/import-chargements`) — bypass contraintes (mode historique)
+- **Campagnes** (`/campagnes`) — gestion stricte YYYY-YYYY, une seule active
+- **Export** (`/exports`) — modes multiples, pagination contournée via RPC
+- **Gestion** (`/gestion`, super_admin) — utilisateurs, coopératives (`/gestion/cooperatives/nouvelle`)
+- **Audit** (`/audit`, super_admin) — journal complet via trigger `log_audit`
+- **Auth** (`/auth`), **Reset password** (`/reset-password`)
 
-Étapes (transactionnelles côté SQL via RPC `create_cooperative_with_admin`) :
-1. Upload logo si fourni → `logo_url`.
-2. INSERT `cooperatives` (toutes les colonnes).
-3. `supabase.auth.admin.createUser` (email confirmé auto par SUPER_ADMIN, password fourni).
-4. UPDATE `profiles` (créé par trigger) : `full_name`, `phone`.
-5. UPSERT `user_roles` → `coop_admin`.
-6. INSERT `user_cooperatives (user_id, cooperative_id)`.
-7. INSERT `subscriptions` : `plan_name='pilote'`, période **1er sept année courante → 30 nov année courante**, `status='trial'`.
-8. INSERT `audit_logs` manuel pour traçabilité.
+### 8. Règles métier critiques
+- Campagne : strictement "YYYY-YYYY", 1 sept → 31 août
+- Distribution chargement : règle 40%, plafond moyenne 110%, tri A-Z des sections
+- Reçus : numérotation 6 chiffres séquentielle via RPC `get_max_receipt_number`
+- 14 jours minimum entre livraisons d'un même producteur
+- Pas d'annulation de chargements (jamais)
+- Potentiel restant = potentiel_livraison − somme livrée
+- Excel : ExcelJS uniquement, jamais xlsx (sécurité)
+- Erreurs frontend : message générique "Une erreur est survenue.", détails via `console.error`
 
-Erreurs → rollback (suppression user auth si étapes suivantes échouent).
+### 9. RPCs Postgres principales
+- `create_cooperative_with_admin(p_user_id, p_full_name, p_phone, p_coop jsonb)`
+- `get_active_campaign()`, `get_dashboard_stats_by_campaign(p_campaign_id)`
+- `get_remaining_potential_by_campaign(p_campaign_id)`
+- `get_max_receipt_number(p_cooperative_id)`
+- `export_all_producers()`, `export_all_deliveries()`
+- `handle_new_user()` trigger, `enforce_single_chargement_campaign()` trigger, `log_audit()` trigger
 
-Retour : `{ cooperative_id, user_id }`.
+### 10. Audit trail
+- Table `audit_logs` : table_name, record_id, action, old_data jsonb, new_data jsonb, changed_by, changed_by_email, cooperative, campaign_id, created_at
+- Trigger générique `log_audit()` attaché aux tables business
+- Page `/audit` : filtres par utilisateur, table, action, période, coopérative, campagne
 
----
+### 11. Reporting PPTX
+- `pptx-report-generator.ts` : génère présentations par coopérative/campagne
+- Historique persistant dans `reports_ppt_history`
 
-## 3. Frontend
+### 12. Onboarding coopérative (SaaS)
+- Création par super_admin uniquement (formulaire 3 étapes : coop → admin → récap)
+- Plan pilote automatique 3 mois (1 sept → 30 nov), statut `trial`
+- Logo upload bucket privé
 
-### 3.1 Nouvelle page `src/pages/CreateCooperative.tsx` (SUPER_ADMIN only, route `/gestion/cooperatives/nouvelle`)
-Formulaire multi-étapes (3 steps shadcn) :
-- **Étape 1** — Informations coopérative (nom, sigle, RCCM, contribuable, tél, adresse, ville, pays, email, président, nb producteurs, certification select, upload logo)
-- **Étape 2** — Administrateur (nom complet, email, tél, mot de passe + confirmation)
-- **Étape 3** — Récap + soumission
+### 13. Conventions de code
+- Tokens sémantiques uniquement (jamais `bg-white`, `text-black`)
+- Composants shadcn customisés via variants
+- `useAuth` expose : `isSuperAdmin`, `isCoopAdmin`, `isAgent`, `isAdmin` (alias), `cooperativeRefs`
+- Toutes les routes protégées par `<ProtectedRoute>` avec props `adminOnly` / `superAdminOnly`
 
-Validation : `zod` + `react-hook-form`. Règles : email valide, mot de passe ≥8 + maj/min/chiffre, confirmation identique, unicité email vérifiée par l'edge function.
+### 14. Données seed / configuration initiale
+- 1 super_admin créé manuellement
+- Enum `app_role`, `certification_type`, `subscription_status` à créer en premier
+- Storage bucket `cooperative-logos` (privé)
 
-Submit → `supabase.functions.invoke('create-cooperative', …)`. Sur succès : toast + redirection `/gestion`.
+### 15. Hors scope (à ne pas implémenter)
+- Inscription publique
+- Annulation de chargements
+- Emails transactionnels (nécessite domaine custom)
+- Roles stockés sur `profiles` (anti-pattern de sécurité)
 
-### 3.2 Ajout entrée sidebar
-Section "Gestion" → lien "Nouvelle coopérative" visible si `super_admin`.
+## Étapes d'implémentation
 
-### 3.3 Mise à jour `useAuth.tsx`
-- Helper `isSuperAdmin`, `isCoopAdmin`, `isAgent` (remplace `isAdmin` ; on garde un alias `isAdmin = isSuperAdmin || isCoopAdmin` pour ne pas tout casser).
-- Lecture coops par join `user_cooperatives → cooperatives`.
+1. Créer `PROJET.md` à la racine avec les 15 sections ci-dessus, en détail (~10 pages).
+2. Inclure les snippets SQL clés (enums, helpers RLS, RPC `create_cooperative_with_admin`).
+3. Inclure l'arborescence des routes et la matrice rôle × route.
+4. Vérifier que le document est auto-suffisant pour recréer le projet de zéro dans un nouveau Lovable.
 
-### 3.4 `ProtectedRoute`
-- Prop `adminOnly` → check `super_admin` (comportement actuel préservé pour /gestion, /audit).
-- Nouvelle prop `superAdminOnly`.
+## Aucune autre modification
 
-### 3.5 Pages existantes
-- `UserManagement.tsx`, `AuditLog.tsx`, `Producers.tsx`, `CreateShipment.tsx`, `ExportPage.tsx` : remplacement des références `user_cooperatives.cooperative` (texte) par join `cooperative_id → name`.
-- Aucun changement UX visible.
-
-### 3.6 Auth.tsx
-Pas de changement majeur (pas d'onglet Inscription — règle confirmée). Ajout d'un message "Pour créer une coopérative, contactez votre administrateur."
-
----
-
-## 4. Notifications email (différé)
-L'envoi automatique d'email de bienvenue nécessite le setup domaine email. Hors scope de cette itération — proposé à la fin une fois le flux validé.
-
----
-
-## 5. Mise à jour mémoire projet
-- Core : rôles `super_admin | coop_admin | agent` (au lieu de `admin | agent`).
-- Core : `/gestion/cooperatives/nouvelle` réservée super_admin.
-- Nouveau memory file `mem://features/cooperative-onboarding` : flux create-cooperative, abonnement pilote 1 sept→30 nov, RPC transactionnelle.
-- Update `mem://auth/rbac-system` et `mem://auth/multi-coop-security`.
-
----
-
-## 6. Détails techniques
-
-### Ordre d'exécution
-1. Migration BD (rôles + cooperatives + user_cooperatives + profiles + subscriptions + bucket + policies + RPC `create_cooperative_with_admin`).
-2. Régénération types automatique.
-3. Edge function `create-cooperative` + déploiement.
-4. Refactor `useAuth` + `ProtectedRoute`.
-5. Refactor pages existantes (cooperative_id).
-6. Nouvelle page `CreateCooperative.tsx` + route + lien sidebar.
-7. Mise à jour `.lovable/plan.md` et mémoire.
-
-### Risques
-- Migration `user_cooperatives` : si nom de coop ambigu (doublons casse), backfill peut échouer. Mitigation : `lower()` + log lignes non matchées avant DROP.
-- Trigger `handle_new_user` change le rôle par défaut. Vérifier impact sur edge function `create-user` existante.
-- Toutes les RLS qui faisaient `EXISTS … cooperative = …` doivent être réécrites.
-
-### Hors scope
-- Inscription publique (refusée par règle projet).
-- Onglet "Inscription" dans `/auth`.
-- Cron expiration abonnement (itération 4 du plan global).
-- Emails de bienvenue (nécessite setup domaine).
+Aucun changement de code applicatif, de base de données, ou de configuration. Le seul artefact produit est `PROJET.md`.
