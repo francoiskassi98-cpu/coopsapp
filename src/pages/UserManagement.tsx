@@ -141,7 +141,7 @@ export default function UserManagement() {
     setEditUsername(u.username);
     setEditEmail(u.email);
     setEditRole(u.role);
-    setEditCoops([...u.cooperatives]);
+    setEditCoops(u.cooperatives.map((c) => c.id));
     setEditActive(!u.is_banned);
   };
 
