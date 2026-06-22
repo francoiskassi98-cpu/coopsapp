@@ -24,6 +24,7 @@ const CreateCooperative = lazy(() => import("@/pages/CreateCooperative"));
 const Trash = lazy(() => import("@/pages/Trash"));
 const LoginEvents = lazy(() => import("@/pages/LoginEvents"));
 const Partners = lazy(() => import("@/pages/Partners"));
+const ShipmentTemplates = lazy(() => import("@/pages/ShipmentTemplates"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -67,6 +68,7 @@ const App = () => (
                       <Route path="/campagnes" element={<Campaigns />} />
                       <Route path="/gestion" element={<UserManagement />} />
                       <Route path="/gestion/cooperatives/nouvelle" element={<CreateCooperative />} />
+                      <Route path="/gestion/modeles-chargement" element={<ShipmentTemplates />} />
                       <Route path="/audit" element={<AuditLog />} />
                       <Route path="/audit/connexions" element={<LoginEvents />} />
                       <Route path="/corbeille" element={<Trash />} />
