@@ -357,8 +357,8 @@ export default function UserManagement() {
                     <TableCell className="font-medium">{u.username}</TableCell>
                     <TableCell>{u.email}</TableCell>
                     <TableCell>
-                      <Badge variant={u.role === "admin" ? "default" : "secondary"}>
-                        {u.role === "admin" ? "Administrateur" : "Agent"}
+                      <Badge variant={u.role === "super_admin" ? "default" : u.role === "coop_admin" ? "default" : "secondary"}>
+                        {ROLE_LABEL[u.role] ?? u.role}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">
@@ -367,7 +367,7 @@ export default function UserManagement() {
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {u.cooperatives.map((c) => (
-                            <Badge key={c} variant="outline" className="text-xs">{c}</Badge>
+                            <Badge key={c.id} variant="outline" className="text-xs">{c.name}</Badge>
                           ))}
                         </div>
                       )}
