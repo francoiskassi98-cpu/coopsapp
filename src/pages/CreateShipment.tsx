@@ -401,8 +401,30 @@ export default function CreateShipment() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>N° Connaissement (optionnel)</Label>
-                  <Input value={connaissement} onChange={(e) => setConnaissement(e.target.value)} />
+                  <Label>N° Connaissement *</Label>
+                  <Input value={connaissement} onChange={(e) => setConnaissement(e.target.value)} placeholder="SC101410-..." />
+                </div>
+
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase">Informations transport (obligatoires)</p>
+                  <div className="space-y-2">
+                    <Label>Nom du chauffeur *</Label>
+                    <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="KONATÉ SEYDOU" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>N° Camion *</Label>
+                      <Input value={truckNumber} onChange={(e) => setTruckNumber(e.target.value)} placeholder="AA886EA04" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>N° Remorque *</Label>
+                      <Input value={trailerNumber} onChange={(e) => setTrailerNumber(e.target.value)} placeholder="8142KT03" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Date départ *</Label>
+                    <Input type="date" value={departureDate} onChange={(e) => setDepartureDate(e.target.value)} />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
