@@ -8,57 +8,109 @@ html, body {
 
 @layer base {
   :root {
-    --background: 240 33% 4%;
-    --foreground: 0 0% 100%;
+    /* AgroServices Digital — palette premium */
+    --background: 240 17% 5%;            /* #0A0A0F */
+    --foreground: 210 40% 98%;           /* #F8FAFC */
 
-    --card: 240 25% 8%;
-    --card-foreground: 0 0% 100%;
+    --card: 240 17% 8%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 240 25% 8%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 240 17% 8%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 174 58% 55%;
-    --primary-foreground: 240 33% 4%;
+    --primary: 181 100% 41%;             /* #00D2D3 turquoise */
+    --primary-foreground: 240 17% 5%;
+    --primary-glow: 181 100% 55%;
 
-    --secondary: 240 25% 12%;
-    --secondary-foreground: 240 15% 75%;
+    --secondary: 43 100% 70%;            /* #FFD166 jaune */
+    --secondary-foreground: 240 17% 5%;
 
-    --muted: 240 20% 15%;
-    --muted-foreground: 240 10% 55%;
+    --muted: 240 15% 14%;
+    --muted-foreground: 240 10% 65%;
 
-    --accent: 240 25% 3%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 272 60% 18%;
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 70% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 100% 71%;           /* #FF6B6B */
+    --destructive-foreground: 240 17% 5%;
 
-    --border: 240 20% 18%;
-    --input: 240 20% 18%;
-    --ring: 174 58% 55%;
+    --success: 158 95% 43%;              /* #06D6A0 */
+    --success-foreground: 240 17% 5%;
+    --warning: 43 100% 70%;
+    --warning-foreground: 240 17% 5%;
 
-    --radius: 0.5rem;
+    --border: 240 15% 16%;
+    --input: 240 15% 16%;
+    --ring: 181 100% 41%;
 
-    --sidebar-background: 270 100% 15%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 45 100% 55%;
-    --sidebar-primary-foreground: 270 100% 15%;
-    --sidebar-accent: 270 60% 22%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 270 50% 25%;
-    --sidebar-ring: 45 100% 55%;
+    --radius: 0.875rem;
 
-    --success: 150 50% 68%;
-    --success-foreground: 240 33% 4%;
-    --warning: 48 95% 62%;
-    --warning-foreground: 240 33% 4%;
+    /* Sidebar — deep purple */
+    --sidebar-background: 272 100% 14%;  /* #2A004A */
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 181 100% 55%;
+    --sidebar-primary-foreground: 272 100% 10%;
+    --sidebar-accent: 272 60% 22%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 272 50% 22%;
+    --sidebar-ring: 181 100% 55%;
+
+    /* Gradients & shadows premium */
+    --gradient-primary: linear-gradient(135deg, hsl(181 100% 41%), hsl(181 100% 55%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(272 100% 14%) 0%, hsl(272 80% 8%) 100%);
+    --gradient-hero: radial-gradient(ellipse at top left, hsl(272 100% 18% / 0.7), transparent 60%),
+                     radial-gradient(ellipse at bottom right, hsl(181 100% 25% / 0.4), transparent 55%),
+                     hsl(240 17% 5%);
+    --gradient-card: linear-gradient(160deg, hsl(240 17% 10% / 0.9), hsl(272 30% 9% / 0.7));
+
+    --shadow-glass: 0 1px 0 hsl(0 0% 100% / 0.04) inset, 0 8px 32px hsl(240 50% 2% / 0.6);
+    --shadow-float: 0 20px 60px -20px hsl(181 100% 41% / 0.25), 0 8px 24px hsl(240 50% 2% / 0.5);
+    --shadow-glow: 0 0 40px hsl(181 100% 55% / 0.35);
+
+    --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    background-image: var(--gradient-hero);
+    background-attachment: fixed;
   }
 }
+
+@layer components {
+  .glass-card {
+    @apply bg-card/60 backdrop-blur-xl border border-white/5 rounded-[var(--radius)];
+    box-shadow: var(--shadow-glass);
+  }
+  .glass-panel {
+    @apply bg-card/40 backdrop-blur-2xl border border-white/5;
+    box-shadow: var(--shadow-glass);
+  }
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: var(--gradient-primary);
+  }
+  .hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-0.5;
+  }
+  .hover-lift:hover { box-shadow: var(--shadow-float); }
+}
+
+@layer utilities {
+  .bg-gradient-primary { background-image: var(--gradient-primary); }
+  .bg-gradient-sidebar { background-image: var(--gradient-sidebar); }
+  .bg-gradient-hero    { background-image: var(--gradient-hero); }
+  .bg-gradient-card    { background-image: var(--gradient-card); }
+  .shadow-glass { box-shadow: var(--shadow-glass); }
+  .shadow-float { box-shadow: var(--shadow-float); }
+  .shadow-glow  { box-shadow: var(--shadow-glow); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in 0.4s ease-out both; }

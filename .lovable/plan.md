@@ -1,129 +1,134 @@
+# Plan — AgroServices Digital : paramètres manquants + nouveau design
 
-# Plan — Génération du prompt complet du projet (PROJET.md)
+Objectif : aligner le projet existant sur la spec complète (modèle SaaS multi-coop, EUDR-ready) et appliquer le design system premium (Linear/Stripe/Notion inspired).
 
-## Objectif
+---
 
-Créer un fichier `PROJET.md` à la racine du repo contenant la spécification complète du projet, structurée en sections, optimisée pour être collée dans un nouveau projet Lovable afin de recréer l'application à l'identique.
+## 1. Paramètres manquants à intégrer
 
-## Livrable
+### a) Coopératives — dates d'abonnement paramétrables
+Aujourd'hui `create_cooperative_with_admin` force `start_date = 1er sept` et `end_date = 30 nov`. À rendre dynamique :
+- Ajouter `subscription_start_date` et `subscription_end_date` dans le formulaire `CreateCooperative.tsx` (étape abonnement).
+- Modifier la RPC `create_cooperative_with_admin` pour accepter ces deux dates en paramètres (avec fallback pilote 3 mois si non fournis).
+- Édition coopérative dans `/gestion/cooperatives` : éditer dates, statut (`active`/`trial`/`suspended`), plan.
 
-Un seul fichier : **`PROJET.md`** (~10 pages, Markdown structuré, 100% en français).
+### b) Module Partenaires (manquant)
+- Page `/partenaires` (CRUD).
+- Ajouter colonne `logo_url` à `partners` + bucket storage `partner-logos` (privé, RLS coop_admin/super_admin).
+- Sélecteur partenaire dans `CreateShipment` affiche logo.
+- Logo partenaire injecté dans exports Excel et PPTX.
 
-## Structure du document
+### c) Lots auto-numérotés `LOT-0001`
+- Ajouter colonne `lot_number text` à `shipments` (séquence par coopérative + campagne).
+- Génération automatique côté création de chargement (RPC `next_lot_number(coop_id, campaign_id)`).
+- Affichage dans fiche, exports, historique.
 
-### 1. Contexte & Objectif métier
-- Plateforme de gestion des coopératives agricoles cacao (Côte d'Ivoire / Afrique de l'Ouest).
-- Modules : producteurs, chargements, livraisons, campagnes, dashboard, reporting PPTX, audit, multi-coopératives SaaS.
-- Cible : super_admin (éditeur SaaS), coop_admin (responsable coop), agent (saisie terrain).
+### d) Audit logs — pages manquantes / déclencheurs
+- Vérifier triggers `log_audit()` sur : `cooperatives`, `producers`, `shipments`, `deliveries`, `partners`, `campaigns`, `subscriptions`, `user_roles`, `user_cooperatives`.
+- Page `/audit` : filtres (table, utilisateur, coop, date), diff old/new.
 
-### 2. Stack technique
-- React 18 + TypeScript + Vite 5
-- Tailwind CSS v3 + shadcn/ui
-- Supabase (Lovable Cloud) : Postgres, Auth, Storage, Edge Functions
-- Recharts (graphiques), PptxGenJS (rapports), ExcelJS (imports/exports — jamais xlsx)
-- React Router, TanStack Query, Sonner (toasts)
+### e) Notifications intelligentes
+- Hook `useNotifications` : abonnement expire <30j, campagne inactive, chargement incomplet.
+- Bell icon dans header avec badge + popover.
 
-### 3. Identité visuelle
-- Thème sombre : fond `#0A0A0F`, sidebar `#2a004a`
-- Accents : turquoise, jaune, rouge corail, menthe
-- UI 100% en français, responsive
-- Police, tokens sémantiques dans `index.css` (jamais de couleurs en dur)
+### f) Recherche globale (`⌘K`)
+- Composant `GlobalSearch` (shadcn Command) : producteurs / coopératives / chargements / partenaires.
 
-### 4. Modèle de données (schéma Postgres)
-Pour chacune des 15 tables, lister : colonnes principales, FK, contraintes, index.
-- `cooperatives` (17 colonnes : name, acronym, rccm, tax_number, phone, address, city, country, official_email, logo_url, president_name, estimated_producers, certification_type, subscription_status, …)
-- `profiles` (user_id, username, email, full_name, phone, active)
-- `user_roles` (enum `app_role`: super_admin | coop_admin | agent — table séparée pour anti-escalade)
-- `user_cooperatives` (user_id, cooperative_id UUID FK)
-- `subscriptions` (cooperative_id, plan_name, amount, start_date, end_date, status, payment_date, created_by)
-- `campaigns` (libellé YYYY-YYYY, dates strictes 1 sept → 31 août, `utilise_pour_chargement` unique)
-- `producers` (full_name, section, plantation_code, delivery_potential, remaining_potential, cooperative, sexe, is_active)
-- `producer_registry` (snapshot par campagne, potentiel_livraison/restant)
-- `shipments` (cooperative_id, campaign_id, total_weight, num_bags, destination, partner, project, is_cancelled=false toujours)
-- `deliveries` (shipment_id, producer_id, receipt_number 6 chiffres, delivery_date, net_weight, num_bags)
-- `disabled_sections`, `partners`, `audit_logs`, `reports_ppt_history`, `rapports_envoyes`
+### g) Soft delete + corbeille
+- Ajouter `deleted_at timestamptz` aux tables métier (`producers`, `shipments`, `partners`, `cooperatives`).
+- Vues filtrent `deleted_at IS NULL`. Page corbeille admin.
 
-### 5. Sécurité & RLS
-- Helpers SECURITY DEFINER : `is_super_admin()`, `is_coop_admin()`, `has_role()`, `my_cooperative_ids()`, `my_cooperative_names()`, `is_admin()` (alias)
-- Toutes les tables business : RLS scopée par `my_cooperative_ids()` pour coop_admin/agent, accès global pour super_admin
-- `user_roles` : lecture authenticated, écriture service_role uniquement
-- GRANTs explicites obligatoires sur toutes les tables `public`
-- Storage : bucket privé `cooperative-logos` (RLS super_admin pour écriture)
-- Auth : inscription publique désactivée, HIBP activé, ProtectedRoute, routes `/gestion` et `/audit` super_admin only
+### h) Journal de connexion
+- Table `login_events (user_id, ip, user_agent, occurred_at)`.
+- Edge function ou trigger sur signin (via webhook auth).
 
-### 6. Edge Functions
-- `create-cooperative` : super_admin only, transactionnelle via RPC `create_cooperative_with_admin` (upload logo → coop → admin user → role coop_admin → subscription pilote 1 sept → 30 nov)
-- `create-user`, `manage-user` : provisioning utilisateurs (super_admin / coop_admin scopé)
-- Toutes vérifient JWT + rôle DB
+### i) Dark/Light toggle
+- `ThemeProvider` (next-themes pattern) + bouton dans header. Tokens HSL déjà semantic, ajout variant light.
 
-### 7. Modules fonctionnels (avec routes)
-Pour chacun : route, rôle requis, composants clés, règles métier.
-- **Dashboard** (`/`) — KPIs, filtres date/campagne, projection, top coopératives
-- **Producteurs** (`/producteurs`) — CRUD, import Excel, registre par campagne
-- **Chargements** (`/chargements/nouveau`) — création manuelle, validation 14j, plafond 110%, plafond potentiel
-- **Import chargements historiques** (`/import-chargements`) — bypass contraintes (mode historique)
-- **Campagnes** (`/campagnes`) — gestion stricte YYYY-YYYY, une seule active
-- **Export** (`/exports`) — modes multiples, pagination contournée via RPC
-- **Gestion** (`/gestion`, super_admin) — utilisateurs, coopératives (`/gestion/cooperatives/nouvelle`)
-- **Audit** (`/audit`, super_admin) — journal complet via trigger `log_audit`
-- **Auth** (`/auth`), **Reset password** (`/reset-password`)
+### j) Mobile-first
+- Sidebar collapse auto < md, bottom-nav sur `/chargements/nouveau` et `/producteurs` pour usage tablette/terrain.
 
-### 8. Règles métier critiques
-- Campagne : strictement "YYYY-YYYY", 1 sept → 31 août
-- Distribution chargement : règle 40%, plafond moyenne 110%, tri A-Z des sections
-- Reçus : numérotation 6 chiffres séquentielle via RPC `get_max_receipt_number`
-- 14 jours minimum entre livraisons d'un même producteur
-- Pas d'annulation de chargements (jamais)
-- Potentiel restant = potentiel_livraison − somme livrée
-- Excel : ExcelJS uniquement, jamais xlsx (sécurité)
-- Erreurs frontend : message générique "Une erreur est survenue.", détails via `console.error`
+---
 
-### 9. RPCs Postgres principales
-- `create_cooperative_with_admin(p_user_id, p_full_name, p_phone, p_coop jsonb)`
-- `get_active_campaign()`, `get_dashboard_stats_by_campaign(p_campaign_id)`
-- `get_remaining_potential_by_campaign(p_campaign_id)`
-- `get_max_receipt_number(p_cooperative_id)`
-- `export_all_producers()`, `export_all_deliveries()`
-- `handle_new_user()` trigger, `enforce_single_chargement_campaign()` trigger, `log_audit()` trigger
+## 2. Nouveau design premium
 
-### 10. Audit trail
-- Table `audit_logs` : table_name, record_id, action, old_data jsonb, new_data jsonb, changed_by, changed_by_email, cooperative, campaign_id, created_at
-- Trigger générique `log_audit()` attaché aux tables business
-- Page `/audit` : filtres par utilisateur, table, action, période, coopérative, campagne
+### Tokens (`src/index.css` + `tailwind.config.ts`)
+Remplacer la palette actuelle par :
 
-### 11. Reporting PPTX
-- `pptx-report-generator.ts` : génère présentations par coopérative/campagne
-- Historique persistant dans `reports_ppt_history`
+```
+--background: 240 17% 5%       /* #0A0A0F */
+--sidebar-bg: 272 100% 14%     /* #2A004A */
+--primary: 181 100% 41%        /* #00D2D3 turquoise */
+--secondary: 43 100% 70%       /* #FFD166 jaune */
+--destructive: 0 100% 71%      /* #FF6B6B */
+--success: 158 95% 43%         /* #06D6A0 */
+--foreground: 210 40% 98%      /* #F8FAFC */
+```
 
-### 12. Onboarding coopérative (SaaS)
-- Création par super_admin uniquement (formulaire 3 étapes : coop → admin → récap)
-- Plan pilote automatique 3 mois (1 sept → 30 nov), statut `trial`
-- Logo upload bucket privé
++ gradients (`--gradient-primary`, `--gradient-sidebar`), ombres (`--shadow-glass`, `--shadow-float`), radius `--radius: 0.875rem`.
 
-### 13. Conventions de code
-- Tokens sémantiques uniquement (jamais `bg-white`, `text-black`)
-- Composants shadcn customisés via variants
-- `useAuth` expose : `isSuperAdmin`, `isCoopAdmin`, `isAgent`, `isAdmin` (alias), `cooperativeRefs`
-- Toutes les routes protégées par `<ProtectedRoute>` avec props `adminOnly` / `superAdminOnly`
+### Composants visuels premium
+- `GlassCard` : `bg-card/60 backdrop-blur-xl border border-white/5 shadow-[var(--shadow-glass)]`.
+- `StatCard` flottante avec gradient subtil + sparkline Recharts.
+- Skeletons partout (TanStack Query `isPending`).
+- Animations Framer Motion : page transitions (`AnimatePresence`), stagger des cards dashboard, hover scale 1.02 sur cartes.
+- Tableaux : sticky header, row hover lift, pagination fluide.
 
-### 14. Données seed / configuration initiale
-- 1 super_admin créé manuellement
-- Enum `app_role`, `certification_type`, `subscription_status` à créer en premier
-- Storage bucket `cooperative-logos` (privé)
+### Page Auth refonte (split-screen)
+- Gauche : branding AgroServices Digital, logo, slogan, illustration agricole, stats animées (compteurs), citations en rotation.
+- Droite : carte glassmorphism — email, password (toggle visibilité), "mot de passe oublié", bouton avec loader, gestion erreurs inline.
+- Background : gradient + grain subtil.
 
-### 15. Hors scope (à ne pas implémenter)
-- Inscription publique
-- Annulation de chargements
-- Emails transactionnels (nécessite domaine custom)
-- Roles stockés sur `profiles` (anti-pattern de sécurité)
+### Sidebar refonte
+- Fond `#2A004A`, icônes Lucide, sections groupées (Pilotage / Opérations / Administration), badge "PILOTE" sous logo coop, footer user menu avec avatar + rôle.
 
-## Étapes d'implémentation
+### Header global
+- Breadcrumb + GlobalSearch (`⌘K`) + Notifications bell + Theme toggle + Avatar menu.
 
-1. Créer `PROJET.md` à la racine avec les 15 sections ci-dessus, en détail (~10 pages).
-2. Inclure les snippets SQL clés (enums, helpers RLS, RPC `create_cooperative_with_admin`).
-3. Inclure l'arborescence des routes et la matrice rôle × route.
-4. Vérifier que le document est auto-suffisant pour recréer le projet de zéro dans un nouveau Lovable.
+### Dashboard refonte
+- Grille KPIs (8 cards animées, sparklines).
+- 2 graphiques principaux : Évolution tonnage (Area), Performance coop (Bar horizontal).
+- Top sections / Top partenaires (cards latérales).
+- Filtre campagne + période sticky.
 
-## Aucune autre modification
+---
 
-Aucun changement de code applicatif, de base de données, ou de configuration. Le seul artefact produit est `PROJET.md`.
+## 3. Migrations DB nécessaires
+
+1. `subscriptions` : aucune (dates déjà présentes), juste rendre RPC paramétrable.
+2. `partners` : `ADD COLUMN logo_url text`, `ADD COLUMN cooperative_id uuid`, `ADD COLUMN deleted_at timestamptz`.
+3. `shipments` : `ADD COLUMN lot_number text`, unique `(cooperative_id, campaign_id, lot_number)`.
+4. `cooperatives`, `producers`, `shipments` : `ADD COLUMN deleted_at timestamptz`.
+5. `login_events` : nouvelle table + GRANT + RLS (lecture super_admin only).
+6. RPC `next_lot_number(p_coop uuid, p_campaign uuid)` SECURITY DEFINER.
+7. RPC `create_cooperative_with_admin` : signature étendue `(…, p_sub_start date, p_sub_end date, p_plan text)`.
+8. Triggers `log_audit` sur tables manquantes.
+9. Bucket storage `partner-logos` (privé) + policies.
+
+---
+
+## 4. Ordre d'implémentation (build)
+
+1. Migrations DB (1 seul appel) + bucket `partner-logos`.
+2. Tokens design + utilitaires glass/shadow + Framer Motion installé.
+3. Refonte `AppLayout` (sidebar + header + theme + global search + notifications).
+4. Refonte `Auth.tsx` split-screen.
+5. Refonte `Dashboard` (KPIs animés, graphiques).
+6. Module `/partenaires` (CRUD + upload logo).
+7. `CreateShipment` : lot_number auto + sélecteur partenaire avec logo.
+8. `CreateCooperative` : dates abonnement paramétrables.
+9. `/gestion/cooperatives` : édition dates/statut/plan.
+10. Exports Excel + PPTX : injection logo partenaire.
+11. Soft delete + page corbeille.
+12. Journal de connexion + page `/audit/connexions`.
+
+---
+
+## 5. Hors scope (à confirmer plus tard)
+- IA prédictive (architecture seulement, pas d'implémentation).
+- Mode offline (cache local) — préparation TanStack Query persist seulement.
+- Inscription publique — reste fermée (création via super_admin).
+
+---
+
+Confirme et je passe en build. Souhaites-tu que je traite **tout** en une seule passe, ou que je découpe en jalons (ex: jalon 1 = design + auth + dashboard ; jalon 2 = partenaires + lots + dates ; jalon 3 = audit + notif + recherche + soft delete) ?

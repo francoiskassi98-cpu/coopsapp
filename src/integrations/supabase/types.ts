@@ -99,6 +99,7 @@ export type Database = {
           city: string | null
           country: string | null
           created_at: string
+          deleted_at: string | null
           estimated_producers: number | null
           id: string
           logo_url: string | null
@@ -120,6 +121,7 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
+          deleted_at?: string | null
           estimated_producers?: number | null
           id?: string
           logo_url?: string | null
@@ -141,6 +143,7 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
+          deleted_at?: string | null
           estimated_producers?: number | null
           id?: string
           logo_url?: string | null
@@ -237,21 +240,47 @@ export type Database = {
       }
       partners: {
         Row: {
+          contact: string | null
+          cooperative_id: string | null
           created_at: string
+          deleted_at: string | null
           id: string
+          logo_url: string | null
           name: string
+          status: string
+          updated_at: string
         }
         Insert: {
+          contact?: string | null
+          cooperative_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           id?: string
+          logo_url?: string | null
           name: string
+          status?: string
+          updated_at?: string
         }
         Update: {
+          contact?: string | null
+          cooperative_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           id?: string
+          logo_url?: string | null
           name?: string
+          status?: string
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "partners_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       producer_registry: {
         Row: {
@@ -325,6 +354,7 @@ export type Database = {
         Row: {
           cooperative: string
           created_at: string
+          deleted_at: string | null
           delivery_potential: number
           full_name: string
           id: string
@@ -346,6 +376,7 @@ export type Database = {
         Insert: {
           cooperative: string
           created_at?: string
+          deleted_at?: string | null
           delivery_potential?: number
           full_name: string
           id?: string
@@ -367,6 +398,7 @@ export type Database = {
         Update: {
           cooperative?: string
           created_at?: string
+          deleted_at?: string | null
           delivery_potential?: number
           full_name?: string
           id?: string
@@ -502,11 +534,13 @@ export type Database = {
           connaissement: string | null
           cooperative_id: string | null
           created_at: string
+          deleted_at: string | null
           delivery_end: string
           delivery_start: string
           destination: string
           id: string
           is_cancelled: boolean
+          lot_number: string | null
           partner_id: string | null
           project: string
           status: string
@@ -521,11 +555,13 @@ export type Database = {
           connaissement?: string | null
           cooperative_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           delivery_end: string
           delivery_start: string
           destination: string
           id?: string
           is_cancelled?: boolean
+          lot_number?: string | null
           partner_id?: string | null
           project: string
           status?: string
@@ -540,11 +576,13 @@ export type Database = {
           connaissement?: string | null
           cooperative_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           delivery_end?: string
           delivery_start?: string
           destination?: string
           id?: string
           is_cancelled?: boolean
+          lot_number?: string | null
           partner_id?: string | null
           project?: string
           status?: string
@@ -678,15 +716,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      create_cooperative_with_admin: {
-        Args: {
-          p_coop: Json
-          p_full_name: string
-          p_phone: string
-          p_user_id: string
-        }
-        Returns: string
-      }
+      create_cooperative_with_admin:
+        | {
+            Args: {
+              p_coop: Json
+              p_full_name: string
+              p_phone: string
+              p_user_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_coop: Json
+              p_full_name: string
+              p_phone: string
+              p_plan?: string
+              p_sub_end?: string
+              p_sub_start?: string
+              p_user_id: string
+            }
+            Returns: string
+          }
       export_all_deliveries: {
         Args: never
         Returns: {
@@ -768,6 +819,10 @@ export type Database = {
       is_super_admin: { Args: never; Returns: boolean }
       my_cooperative_ids: { Args: never; Returns: string[] }
       my_cooperative_names: { Args: never; Returns: string[] }
+      next_lot_number: {
+        Args: { p_campaign: string; p_coop: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "super_admin" | "coop_admin" | "agent"

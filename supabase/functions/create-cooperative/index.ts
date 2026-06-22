@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { cooperative, admin, logoBase64, logoFileName } = body ?? {};
+    const { cooperative, admin, logoBase64, logoFileName, subscription } = body ?? {};
 
     // ---- Validation côté serveur ----
     if (!cooperative?.name || !cooperative?.acronym || !cooperative?.rccm || !cooperative?.tax_number
@@ -114,6 +114,9 @@ Deno.serve(async (req) => {
       p_full_name: admin.full_name,
       p_phone: admin.phone ?? null,
       p_coop: { ...cooperative, logo_url },
+      p_sub_start: subscription?.start_date ?? null,
+      p_sub_end: subscription?.end_date ?? null,
+      p_plan: subscription?.plan_name ?? "Pilote",
     });
 
     if (rpcErr) {

@@ -42,6 +42,13 @@ function validatePassword(pw: string): string | null {
   return null;
 }
 
+function defaultPilotDates() {
+  const y = new Date().getFullYear();
+  const start = `${y}-09-01`;
+  const end = `${y}-11-30`;
+  return { start, end };
+}
+
 export default function CreateCooperative() {
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -51,6 +58,10 @@ export default function CreateCooperative() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const _def = defaultPilotDates();
+  const [subStart, setSubStart] = useState<string>(_def.start);
+  const [subEnd, setSubEnd] = useState<string>(_def.end);
+  const [subPlan, setSubPlan] = useState<string>("Pilote");
 
   const upd = <T,>(setter: (s: T) => void, s: T) => (k: keyof T) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setter({ ...s, [k]: e.target.value });
@@ -124,6 +135,11 @@ export default function CreateCooperative() {
           },
           logoBase64,
           logoFileName,
+          subscription: {
+            start_date: subStart || null,
+            end_date: subEnd || null,
+            plan_name: subPlan || "Pilote",
+          },
         },
       });
       if (error || data?.error) {
@@ -284,9 +300,28 @@ export default function CreateCooperative() {
                   <div><span className="text-muted-foreground">Rôle :</span> Admin coopérative</div>
                 </div>
               </section>
-              <section className="rounded-md bg-primary/5 border border-primary/20 p-4 text-sm">
-                <strong className="text-foreground">Abonnement pilote</strong> activé automatiquement :
-                période 1<sup>er</sup> septembre → 30 novembre {new Date().getFullYear()}, statut <em>trial</em>.
+              <section className="rounded-md bg-primary/5 border border-primary/20 p-4 text-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <strong className="text-foreground">Abonnement</strong>
+                  <span className="text-xs text-muted-foreground">Paramétrable — pas de dates figées</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Plan</Label>
+                    <Input value={subPlan} onChange={(e) => setSubPlan(e.target.value)} placeholder="Pilote" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Date de début</Label>
+                    <Input type="date" value={subStart} onChange={(e) => setSubStart(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Date de fin</Label>
+                    <Input type="date" value={subEnd} onChange={(e) => setSubEnd(e.target.value)} />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  L'abonnement sera créé avec le statut <em>trial</em>. Vous pourrez modifier les dates et le statut à tout moment depuis la gestion des coopératives.
+                </p>
               </section>
             </div>
           )}
