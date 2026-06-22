@@ -545,7 +545,7 @@ export default function UserManagement() {
                   ) : (
                     <div className="flex flex-wrap gap-1.5">
                       {detailUser.cooperatives.map((c) => (
-                        <Badge key={c} variant="outline">{c}</Badge>
+                        <Badge key={c.id} variant="outline">{c.name}</Badge>
                       ))}
                     </div>
                   )}
