@@ -1,134 +1,60 @@
-# Plan — AgroServices Digital : paramètres manquants + nouveau design
+# Plan — Producteurs Analytics, Prime Producteur & Modèles Excel Chargements
 
-Objectif : aligner le projet existant sur la spec complète (modèle SaaS multi-coop, EUDR-ready) et appliquer le design system premium (Linear/Stripe/Notion inspired).
+Trois chantiers liés. Je propose une livraison **en 3 phases** pour rester revuable.
 
----
+## Phase 1 — Backend (migration unique)
 
-## 1. Paramètres manquants à intégrer
+Nouvelles tables, toutes avec `cooperative_id uuid` + RLS multi-tenant (super_admin global, coop_admin/agent scopés via `my_cooperative_ids()`).
 
-### a) Coopératives — dates d'abonnement paramétrables
-Aujourd'hui `create_cooperative_with_admin` force `start_date = 1er sept` et `end_date = 30 nov`. À rendre dynamique :
-- Ajouter `subscription_start_date` et `subscription_end_date` dans le formulaire `CreateCooperative.tsx` (étape abonnement).
-- Modifier la RPC `create_cooperative_with_admin` pour accepter ces deux dates en paramètres (avec fallback pilote 3 mois si non fournis).
-- Édition coopérative dans `/gestion/cooperatives` : éditer dates, statut (`active`/`trial`/`suspended`), plan.
+- `producer_bonus_settings` — config d'un calcul (campagne, période, type `total`/`per_kg`, montant, créateur).
+- `producer_bonus_results` — snapshot des primes calculées (producer_id, volume, prime).
+- `shipment_excel_templates` — paramétrage du modèle Excel chargement (libellés, toggles de colonnes, position logos, footer).
 
-### b) Module Partenaires (manquant)
-- Page `/partenaires` (CRUD).
-- Ajouter colonne `logo_url` à `partners` + bucket storage `partner-logos` (privé, RLS coop_admin/super_admin).
-- Sélecteur partenaire dans `CreateShipment` affiche logo.
-- Logo partenaire injecté dans exports Excel et PPTX.
+GRANT `authenticated` + `service_role`, triggers `updated_at`, policies basées sur `is_super_admin() OR cooperative_id = ANY(my_cooperative_ids())`.
 
-### c) Lots auto-numérotés `LOT-0001`
-- Ajouter colonne `lot_number text` à `shipments` (séquence par coopérative + campagne).
-- Génération automatique côté création de chargement (RPC `next_lot_number(coop_id, campaign_id)`).
-- Affichage dans fiche, exports, historique.
+## Phase 2 — Module Producteurs Analytics
 
-### d) Audit logs — pages manquantes / déclencheurs
-- Vérifier triggers `log_audit()` sur : `cooperatives`, `producers`, `shipments`, `deliveries`, `partners`, `campaigns`, `subscriptions`, `user_roles`, `user_cooperatives`.
-- Page `/audit` : filtres (table, utilisateur, coop, date), diff old/new.
+Remplacer la page `/producteurs` par un **dashboard analytics premium** (les listes/CRUD existantes restent accessibles via onglet).
 
-### e) Notifications intelligentes
-- Hook `useNotifications` : abonnement expire <30j, campagne inactive, chargement incomplet.
-- Bell icon dans header avec badge + popover.
+- `src/pages/Producers.tsx` : refactor → layout à onglets `Vue d'ensemble` / `Liste` / `Prime`.
+- `src/components/producers/ProducersAnalytics.tsx` :
+  - KPI cards (total, hommes, femmes, % H/F, actifs, potentiel total, livré, restant) avec icônes Lucide, glassmorphism léger (déjà dans la charte), animations `animate-fade-in`/`animate-scale-in`.
+  - Filtres : campagne, période, section, coopérative (super_admin uniquement).
+  - Graphiques Recharts : Pie H/F, LineChart livraisons, BarChart top sections, BarChart volume par campagne, BarChart actifs.
+  - Skeletons via `Skeleton`, responsive grid Tailwind.
+- `src/hooks/useProducersAnalytics.ts` : agrégations Supabase (pagination 1000 par page selon la règle large data), memoization.
 
-### f) Recherche globale (`⌘K`)
-- Composant `GlobalSearch` (shadcn Command) : producteurs / coopératives / chargements / partenaires.
+Pas de Framer Motion installé → j'utilise les animations Tailwind du projet (`animate-fade-in`, `hover-scale`) — équivalent visuel sans dépendance.
 
-### g) Soft delete + corbeille
-- Ajouter `deleted_at timestamptz` aux tables métier (`producers`, `shipments`, `partners`, `cooperatives`).
-- Vues filtrent `deleted_at IS NULL`. Page corbeille admin.
+## Phase 3 — Prime Producteur + Modèles Excel Chargements
 
-### h) Journal de connexion
-- Table `login_events (user_id, ip, user_agent, occurred_at)`.
-- Edge function ou trigger sur signin (via webhook auth).
+### Prime producteur
+- `src/components/producers/PrimeProducer.tsx` (onglet "Prime") :
+  - Form : période, campagne, coop, section optionnelle, type prime (montant total / par kg), montant.
+  - Calcul côté client à partir des `deliveries` agrégées par producteur sur la période.
+  - Tableau récap (N°, Producteur, Section, Volume Kg, Taux, Montant) + total.
+  - Bouton "Enregistrer le calcul" → insert dans `producer_bonus_settings` + `producer_bonus_results`.
+  - Export `Prime-{NomCoop}-{Periode}.xlsx` via **ExcelJS** (logo coop, titre, tableau stylisé, total, A4 paysage).
+- `src/lib/prime-excel.ts` : générateur ExcelJS dédié.
 
-### i) Dark/Light toggle
-- `ThemeProvider` (next-themes pattern) + bouton dans header. Tokens HSL déjà semantic, ajout variant light.
+### Modèles Excel Chargements
+- `src/pages/ShipmentTemplates.tsx` route `/gestion/modeles-chargement` (super_admin only, `adminOnly`) :
+  - Liste des templates par coop, form CRUD : titre, sous-titre, slogan, logos (URL via buckets existants), position logo, toggles colonnes (chauffeur, camion, remorque, connaissement, destination, projet, partenaire, date départ, sacs, poids, nb producteurs), header/footer custom.
+- `src/lib/shipment-excel-utils.ts` : adapter le générateur existant pour lire le template actif de la coop (fallback défaut si aucun), respecter toggles colonnes + libellés, A4 paysage, en-tête répété à l'impression, lignes alternées, bordures — calé sur le fichier `FICHIER EXEMPLE.xlsx` fourni.
+- Lien dans la sidebar `/gestion`.
 
-### j) Mobile-first
-- Sidebar collapse auto < md, bottom-nav sur `/chargements/nouveau` et `/producteurs` pour usage tablette/terrain.
+## Points techniques
 
----
+- **ExcelJS** uniquement (jamais `xlsx`) — règle déjà mémorisée.
+- **Large data** : pagination 1000 lignes pour les agrégations producteurs/livraisons.
+- **Sécurité** : toutes les nouvelles RPC/queries respectent `is_super_admin() OR cooperative_id = ANY(my_cooperative_ids())`. Frontend masque la sélection coop pour les non-super_admin.
+- **Erreurs** : toast générique "Une erreur est survenue.", détails via `console.error`.
+- **FR** strict pour UI et libellés.
 
-## 2. Nouveau design premium
+## Ordre d'exécution
 
-### Tokens (`src/index.css` + `tailwind.config.ts`)
-Remplacer la palette actuelle par :
+1. Migration Phase 1 (validation utilisateur requise).
+2. Après types régénérés → Phase 2 (Analytics).
+3. Phase 3 (Prime + Modèles Excel).
 
-```
---background: 240 17% 5%       /* #0A0A0F */
---sidebar-bg: 272 100% 14%     /* #2A004A */
---primary: 181 100% 41%        /* #00D2D3 turquoise */
---secondary: 43 100% 70%       /* #FFD166 jaune */
---destructive: 0 100% 71%      /* #FF6B6B */
---success: 158 95% 43%         /* #06D6A0 */
---foreground: 210 40% 98%      /* #F8FAFC */
-```
-
-+ gradients (`--gradient-primary`, `--gradient-sidebar`), ombres (`--shadow-glass`, `--shadow-float`), radius `--radius: 0.875rem`.
-
-### Composants visuels premium
-- `GlassCard` : `bg-card/60 backdrop-blur-xl border border-white/5 shadow-[var(--shadow-glass)]`.
-- `StatCard` flottante avec gradient subtil + sparkline Recharts.
-- Skeletons partout (TanStack Query `isPending`).
-- Animations Framer Motion : page transitions (`AnimatePresence`), stagger des cards dashboard, hover scale 1.02 sur cartes.
-- Tableaux : sticky header, row hover lift, pagination fluide.
-
-### Page Auth refonte (split-screen)
-- Gauche : branding AgroServices Digital, logo, slogan, illustration agricole, stats animées (compteurs), citations en rotation.
-- Droite : carte glassmorphism — email, password (toggle visibilité), "mot de passe oublié", bouton avec loader, gestion erreurs inline.
-- Background : gradient + grain subtil.
-
-### Sidebar refonte
-- Fond `#2A004A`, icônes Lucide, sections groupées (Pilotage / Opérations / Administration), badge "PILOTE" sous logo coop, footer user menu avec avatar + rôle.
-
-### Header global
-- Breadcrumb + GlobalSearch (`⌘K`) + Notifications bell + Theme toggle + Avatar menu.
-
-### Dashboard refonte
-- Grille KPIs (8 cards animées, sparklines).
-- 2 graphiques principaux : Évolution tonnage (Area), Performance coop (Bar horizontal).
-- Top sections / Top partenaires (cards latérales).
-- Filtre campagne + période sticky.
-
----
-
-## 3. Migrations DB nécessaires
-
-1. `subscriptions` : aucune (dates déjà présentes), juste rendre RPC paramétrable.
-2. `partners` : `ADD COLUMN logo_url text`, `ADD COLUMN cooperative_id uuid`, `ADD COLUMN deleted_at timestamptz`.
-3. `shipments` : `ADD COLUMN lot_number text`, unique `(cooperative_id, campaign_id, lot_number)`.
-4. `cooperatives`, `producers`, `shipments` : `ADD COLUMN deleted_at timestamptz`.
-5. `login_events` : nouvelle table + GRANT + RLS (lecture super_admin only).
-6. RPC `next_lot_number(p_coop uuid, p_campaign uuid)` SECURITY DEFINER.
-7. RPC `create_cooperative_with_admin` : signature étendue `(…, p_sub_start date, p_sub_end date, p_plan text)`.
-8. Triggers `log_audit` sur tables manquantes.
-9. Bucket storage `partner-logos` (privé) + policies.
-
----
-
-## 4. Ordre d'implémentation (build)
-
-1. Migrations DB (1 seul appel) + bucket `partner-logos`.
-2. Tokens design + utilitaires glass/shadow + Framer Motion installé.
-3. Refonte `AppLayout` (sidebar + header + theme + global search + notifications).
-4. Refonte `Auth.tsx` split-screen.
-5. Refonte `Dashboard` (KPIs animés, graphiques).
-6. Module `/partenaires` (CRUD + upload logo).
-7. `CreateShipment` : lot_number auto + sélecteur partenaire avec logo.
-8. `CreateCooperative` : dates abonnement paramétrables.
-9. `/gestion/cooperatives` : édition dates/statut/plan.
-10. Exports Excel + PPTX : injection logo partenaire.
-11. Soft delete + page corbeille.
-12. Journal de connexion + page `/audit/connexions`.
-
----
-
-## 5. Hors scope (à confirmer plus tard)
-- IA prédictive (architecture seulement, pas d'implémentation).
-- Mode offline (cache local) — préparation TanStack Query persist seulement.
-- Inscription publique — reste fermée (création via super_admin).
-
----
-
-Confirme et je passe en build. Souhaites-tu que je traite **tout** en une seule passe, ou que je découpe en jalons (ex: jalon 1 = design + auth + dashboard ; jalon 2 = partenaires + lots + dates ; jalon 3 = audit + notif + recherche + soft delete) ?
+Confirmes-tu ce découpage ? Si oui, je lance la migration Phase 1.
