@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { useDebounce } from "@/hooks/use-mobile";
+
 
 type Hit = { id: string; label: string; sub?: string; route: string; icon: any };
 
