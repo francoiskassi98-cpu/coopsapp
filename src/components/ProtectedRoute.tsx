@@ -27,7 +27,7 @@ export default function ProtectedRoute({ adminOnly = false }: Props) {
         </div>
       );
     }
-    if (role !== "admin") return <Navigate to="/" replace />;
+    if (role !== "super_admin") return <Navigate to="/" replace />;
   }
 
   return <Outlet />;

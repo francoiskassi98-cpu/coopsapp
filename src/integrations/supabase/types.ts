@@ -91,19 +91,67 @@ export type Database = {
       }
       cooperatives: {
         Row: {
+          acronym: string | null
+          address: string | null
+          certification_type:
+            | Database["public"]["Enums"]["certification_type"]
+            | null
+          city: string | null
+          country: string | null
           created_at: string
+          estimated_producers: number | null
           id: string
+          logo_url: string | null
           name: string
+          official_email: string | null
+          phone: string | null
+          president_name: string | null
+          rccm: string | null
+          subscription_status: Database["public"]["Enums"]["subscription_status"]
+          tax_number: string | null
+          updated_at: string
         }
         Insert: {
+          acronym?: string | null
+          address?: string | null
+          certification_type?:
+            | Database["public"]["Enums"]["certification_type"]
+            | null
+          city?: string | null
+          country?: string | null
           created_at?: string
+          estimated_producers?: number | null
           id?: string
+          logo_url?: string | null
           name: string
+          official_email?: string | null
+          phone?: string | null
+          president_name?: string | null
+          rccm?: string | null
+          subscription_status?: Database["public"]["Enums"]["subscription_status"]
+          tax_number?: string | null
+          updated_at?: string
         }
         Update: {
+          acronym?: string | null
+          address?: string | null
+          certification_type?:
+            | Database["public"]["Enums"]["certification_type"]
+            | null
+          city?: string | null
+          country?: string | null
           created_at?: string
+          estimated_producers?: number | null
           id?: string
+          logo_url?: string | null
           name?: string
+          official_email?: string | null
+          phone?: string | null
+          president_name?: string | null
+          rccm?: string | null
+          subscription_status?: Database["public"]["Enums"]["subscription_status"]
+          tax_number?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -341,25 +389,34 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active: boolean
           created_at: string
           email: string
+          full_name: string | null
           id: string
+          phone: string | null
           updated_at: string
           user_id: string
           username: string
         }
         Insert: {
+          active?: boolean
           created_at?: string
           email: string
+          full_name?: string | null
           id?: string
+          phone?: string | null
           updated_at?: string
           user_id: string
           username: string
         }
         Update: {
+          active?: boolean
           created_at?: string
           email?: string
+          full_name?: string | null
           id?: string
+          phone?: string | null
           updated_at?: string
           user_id?: string
           username?: string
@@ -519,26 +576,84 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          amount: number | null
+          cooperative_id: string
+          created_at: string
+          created_by: string | null
+          end_date: string
+          id: string
+          payment_date: string | null
+          plan_name: string
+          start_date: string
+          status: Database["public"]["Enums"]["subscription_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          cooperative_id: string
+          created_at?: string
+          created_by?: string | null
+          end_date: string
+          id?: string
+          payment_date?: string | null
+          plan_name: string
+          start_date: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          cooperative_id?: string
+          created_at?: string
+          created_by?: string | null
+          end_date?: string
+          id?: string
+          payment_date?: string | null
+          plan_name?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_cooperatives: {
         Row: {
-          cooperative: string
+          cooperative_id: string
           created_at: string
           id: string
           user_id: string
         }
         Insert: {
-          cooperative: string
+          cooperative_id: string
           created_at?: string
           id?: string
           user_id: string
         }
         Update: {
-          cooperative?: string
+          cooperative_id?: string
           created_at?: string
           id?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_cooperatives_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -563,6 +678,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_cooperative_with_admin: {
+        Args: {
+          p_coop: Json
+          p_full_name: string
+          p_phone: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       export_all_deliveries: {
         Args: never
         Returns: {
@@ -640,11 +764,15 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_coop_admin: { Args: never; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
       my_cooperative_ids: { Args: never; Returns: string[] }
       my_cooperative_names: { Args: never; Returns: string[] }
     }
     Enums: {
-      app_role: "admin" | "agent"
+      app_role: "super_admin" | "coop_admin" | "agent"
+      certification_type: "fairtrade" | "rainforest" | "eudr" | "ordinaire"
+      subscription_status: "trial" | "active" | "suspended" | "expired"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -772,7 +900,9 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "agent"],
+      app_role: ["super_admin", "coop_admin", "agent"],
+      certification_type: ["fairtrade", "rainforest", "eudr", "ordinaire"],
+      subscription_status: ["trial", "active", "suspended", "expired"],
     },
   },
 } as const

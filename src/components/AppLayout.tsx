@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, Truck, FileSpreadsheet, Users, Settings, Calendar, LogOut, ShieldCheck } from "lucide-react";
+import { BarChart3, Truck, FileSpreadsheet, Users, Settings, Calendar, LogOut, ShieldCheck, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useActiveCampaign } from "@/hooks/useActiveCampaign";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,13 +12,14 @@ const allNavItems = [
   { to: "/chargements", label: "Chargements", icon: Truck },
   { to: "/export", label: "Export", icon: FileSpreadsheet },
   { to: "/gestion", label: "Gestion du projet", icon: Settings, adminOnly: true },
+  { to: "/gestion/cooperatives/nouvelle", label: "Nouvelle coopérative", icon: Building2, superAdminOnly: true },
   { to: "/audit", label: "Journal d'audit", icon: ShieldCheck, adminOnly: true },
 ];
 
 export default function AppLayout() {
   const { campaign } = useActiveCampaign();
-  const { user, role, cooperatives, profile, signOut } = useAuth();
-  const navItems = allNavItems.filter((i) => !i.adminOnly || role === "admin");
+  const { user, role, cooperatives, profile, signOut, isSuperAdmin } = useAuth();
+  const navItems = allNavItems.filter((i) => (!i.adminOnly || isSuperAdmin) && (!i.superAdminOnly || isSuperAdmin));
   const displayName = profile?.username?.trim() || (user?.email ? user.email.split("@")[0] : "Utilisateur");
 
   return (
@@ -61,7 +62,7 @@ export default function AppLayout() {
                 {user.email}
               </span>
               <span className="text-[10px] uppercase tracking-wide text-sidebar-foreground/50">
-                {role === "admin" ? "Administrateur" : `Agent${cooperatives.length ? ` · ${cooperatives.join(", ")}` : ""}`}
+                {role === "super_admin" ? "Super administrateur" : role === "coop_admin" ? `Admin coop · ${cooperatives.join(", ") || "—"}` : `Agent${cooperatives.length ? ` · ${cooperatives.join(", ")}` : ""}`}
               </span>
               <Button
                 variant="ghost"

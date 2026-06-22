@@ -5,6 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const VALID_ROLES = ["super_admin", "coop_admin", "agent"] as const;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -33,7 +35,7 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     const { data: roleData } = await adminClient
-      .from("user_roles").select("role").eq("user_id", caller.id).eq("role", "admin").maybeSingle();
+      .from("user_roles").select("role").eq("user_id", caller.id).eq("role", "super_admin").maybeSingle();
     if (!roleData) {
       return new Response(JSON.stringify({ error: "Accès refusé." }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -46,16 +48,16 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (!["admin", "agent"].includes(role)) {
+    if (!VALID_ROLES.includes(role)) {
       return new Response(JSON.stringify({ error: "Rôle invalide" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const coops: string[] = Array.isArray(cooperatives)
+    const coopIds: string[] = Array.isArray(cooperatives)
       ? cooperatives.map((c: unknown) => String(c).trim()).filter(Boolean)
       : [];
-    if (role === "agent" && coops.length === 0) {
-      return new Response(JSON.stringify({ error: "Au moins une coopérative est requise pour un agent." }), {
+    if ((role === "agent" || role === "coop_admin") && coopIds.length === 0) {
+      return new Response(JSON.stringify({ error: "Au moins une coopérative est requise." }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -71,13 +73,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (role === "admin") {
-      await adminClient.from("user_roles").update({ role: "admin" }).eq("user_id", newUser.user.id);
+    if (role !== "agent") {
+      // trigger crée déjà role='agent' → on remplace
+      await adminClient.from("user_roles").delete().eq("user_id", newUser.user.id);
+      await adminClient.from("user_roles").insert({ user_id: newUser.user.id, role });
     }
 
-    if (coops.length > 0) {
+    if (coopIds.length > 0) {
       await adminClient.from("user_cooperatives").insert(
-        coops.map((c) => ({ user_id: newUser.user!.id, cooperative: c }))
+        coopIds.map((id) => ({ user_id: newUser.user!.id, cooperative_id: id }))
       );
     }
 

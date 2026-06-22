@@ -5,6 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const VALID_ROLES = ["super_admin", "coop_admin", "agent"] as const;
+
 Deno.serve(async (req) => {
   const reqId = crypto.randomUUID().slice(0, 8);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -28,9 +30,9 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     const { data: roleData } = await adminClient
-      .from("user_roles").select("role").eq("user_id", caller.id).eq("role", "admin").maybeSingle();
+      .from("user_roles").select("role").eq("user_id", caller.id).eq("role", "super_admin").maybeSingle();
     if (!roleData) {
-      return new Response(JSON.stringify({ error: "Accès refusé. Réservé aux administrateurs." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Accès refusé. Réservé aux super administrateurs." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const body = await req.json();
@@ -40,7 +42,7 @@ Deno.serve(async (req) => {
     if (action === "list") {
       const [{ data: authUsers, error: listErr }, { data: ucRows }] = await Promise.all([
         adminClient.auth.admin.listUsers({ perPage: 1000 }),
-        adminClient.from("user_cooperatives").select("user_id, cooperative"),
+        adminClient.from("user_cooperatives").select("user_id, cooperative_id, cooperatives(id, name)"),
       ]);
       if (listErr) console.error(`[manage-user][${reqId}] listUsers error:`, listErr.message);
       const banMap: Record<string, boolean> = {};
@@ -51,9 +53,9 @@ Deno.serve(async (req) => {
           lastSignInMap[u.id] = u.last_sign_in_at ?? null;
         }
       }
-      const coopsByUser: Record<string, string[]> = {};
-      for (const r of (ucRows || []) as { user_id: string; cooperative: string }[]) {
-        (coopsByUser[r.user_id] ||= []).push(r.cooperative);
+      const coopsByUser: Record<string, Array<{ id: string; name: string }>> = {};
+      for (const r of (ucRows || []) as Array<{ user_id: string; cooperative_id: string; cooperatives: { id: string; name: string } | null }>) {
+        if (r.cooperatives) (coopsByUser[r.user_id] ||= []).push(r.cooperatives);
       }
       return new Response(JSON.stringify({ banMap, coopsByUser, lastSignInMap }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -69,8 +71,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === "update") {
-      if (role && ["admin", "agent"].includes(role)) {
-        await adminClient.from("user_roles").update({ role }).eq("user_id", user_id);
+      if (role && VALID_ROLES.includes(role)) {
+        await adminClient.from("user_roles").delete().eq("user_id", user_id);
+        await adminClient.from("user_roles").insert({ user_id, role });
       }
       const profileUpdate: Record<string, string> = {};
       if (username) profileUpdate.username = username;
@@ -82,15 +85,15 @@ Deno.serve(async (req) => {
         await adminClient.auth.admin.updateUserById(user_id, { email });
       }
       if (Array.isArray(cooperatives)) {
-        const coops: string[] = cooperatives.map((c: unknown) => String(c).trim()).filter(Boolean);
+        const coopIds: string[] = cooperatives.map((c: unknown) => String(c).trim()).filter(Boolean);
         const effectiveRole = role || (await adminClient.from("user_roles").select("role").eq("user_id", user_id).maybeSingle()).data?.role;
-        if (effectiveRole === "agent" && coops.length === 0) {
-          return new Response(JSON.stringify({ error: "Un agent doit avoir au moins une coopérative." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if ((effectiveRole === "agent" || effectiveRole === "coop_admin") && coopIds.length === 0) {
+          return new Response(JSON.stringify({ error: "Un agent ou admin de coopérative doit avoir au moins une coopérative." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
         await adminClient.from("user_cooperatives").delete().eq("user_id", user_id);
-        if (coops.length > 0) {
+        if (coopIds.length > 0) {
           await adminClient.from("user_cooperatives").insert(
-            coops.map((c) => ({ user_id, cooperative: c }))
+            coopIds.map((id) => ({ user_id, cooperative_id: id }))
           );
         }
       }
@@ -110,7 +113,6 @@ Deno.serve(async (req) => {
     }
 
     if (action === "reset_password") {
-      // Look up user's email then generate a recovery link (sent automatically by Supabase if SMTP is configured).
       const { data: targetUser, error: getErr } = await adminClient.auth.admin.getUserById(user_id);
       if (getErr || !targetUser?.user?.email) {
         return new Response(JSON.stringify({ error: "Utilisateur introuvable" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });

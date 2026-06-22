@@ -20,7 +20,7 @@ interface UserProfile {
   user_id: string;
   username: string;
   email: string;
-  cooperatives: string[];
+  cooperatives: Array<{ id: string; name: string }>;
   created_at: string;
   role: string;
   is_banned: boolean;
@@ -28,6 +28,12 @@ interface UserProfile {
 }
 
 interface Coop { id: string; name: string }
+
+const ROLE_LABEL: Record<string, string> = {
+  super_admin: "Super administrateur",
+  coop_admin: "Admin coopérative",
+  agent: "Agent",
+};
 
 export default function UserManagement() {
   const { user: currentUser } = useAuth();
@@ -43,13 +49,13 @@ export default function UserManagement() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<string>("agent");
-  const [selectedCoops, setSelectedCoops] = useState<string[]>([]);
+  const [selectedCoops, setSelectedCoops] = useState<string[]>([]); // IDs
 
   const [editUser, setEditUser] = useState<UserProfile | null>(null);
   const [editUsername, setEditUsername] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState("agent");
-  const [editCoops, setEditCoops] = useState<string[]>([]);
+  const [editCoops, setEditCoops] = useState<string[]>([]); // IDs
   const [editActive, setEditActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -68,7 +74,7 @@ export default function UserManagement() {
 
       setCoops((coopList || []) as Coop[]);
       const banMap: Record<string, boolean> = manageResult.data?.banMap || {};
-      const coopsByUser: Record<string, string[]> = manageResult.data?.coopsByUser || {};
+      const coopsByUser: Record<string, Array<{ id: string; name: string }>> = manageResult.data?.coopsByUser || {};
       const lastSignInMap: Record<string, string | null> = manageResult.data?.lastSignInMap || {};
 
       if (profiles && roles) {
@@ -91,6 +97,7 @@ export default function UserManagement() {
       setLoading(false);
     }
   };
+
 
   useEffect(() => { fetchUsers(); }, []);
 
@@ -134,7 +141,7 @@ export default function UserManagement() {
     setEditUsername(u.username);
     setEditEmail(u.email);
     setEditRole(u.role);
-    setEditCoops([...u.cooperatives]);
+    setEditCoops(u.cooperatives.map((c) => c.id));
     setEditActive(!u.is_banned);
   };
 
@@ -238,8 +245,8 @@ export default function UserManagement() {
         coops.map((c) => (
           <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
             <Checkbox
-              checked={selected.includes(c.name)}
-              onCheckedChange={() => onChange(toggleInList(selected, c.name))}
+              checked={selected.includes(c.id)}
+              onCheckedChange={() => onChange(toggleInList(selected, c.id))}
             />
             <span>{c.name}</span>
           </label>
@@ -296,7 +303,8 @@ export default function UserManagement() {
                 <Select value={role} onValueChange={setRole}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Administrateur</SelectItem>
+                    <SelectItem value="super_admin">Super administrateur</SelectItem>
+                    <SelectItem value="coop_admin">Admin coopérative</SelectItem>
                     <SelectItem value="agent">Agent coopérative</SelectItem>
                   </SelectContent>
                 </Select>
@@ -350,8 +358,8 @@ export default function UserManagement() {
                     <TableCell className="font-medium">{u.username}</TableCell>
                     <TableCell>{u.email}</TableCell>
                     <TableCell>
-                      <Badge variant={u.role === "admin" ? "default" : "secondary"}>
-                        {u.role === "admin" ? "Administrateur" : "Agent"}
+                      <Badge variant={u.role === "super_admin" ? "default" : u.role === "coop_admin" ? "default" : "secondary"}>
+                        {ROLE_LABEL[u.role] ?? u.role}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">
@@ -360,7 +368,7 @@ export default function UserManagement() {
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {u.cooperatives.map((c) => (
-                            <Badge key={c} variant="outline" className="text-xs">{c}</Badge>
+                            <Badge key={c.id} variant="outline" className="text-xs">{c.name}</Badge>
                           ))}
                         </div>
                       )}
@@ -439,7 +447,8 @@ export default function UserManagement() {
               <Select value={editRole} onValueChange={setEditRole}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Administrateur</SelectItem>
+                  <SelectItem value="super_admin">Super administrateur</SelectItem>
+                  <SelectItem value="coop_admin">Admin coopérative</SelectItem>
                   <SelectItem value="agent">Agent coopérative</SelectItem>
                 </SelectContent>
               </Select>
@@ -487,9 +496,9 @@ export default function UserManagement() {
 
               <div className="mt-6 space-y-5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={detailUser.role === "admin" ? "default" : "secondary"}>
+                  <Badge variant={detailUser.role === "agent" ? "secondary" : "default"}>
                     <Shield className="h-3 w-3 mr-1" />
-                    {detailUser.role === "admin" ? "Administrateur" : "Agent"}
+                    {ROLE_LABEL[detailUser.role] ?? detailUser.role}
                   </Badge>
                   {detailUser.is_banned ? (
                     <Badge variant="destructive">Désactivé</Badge>
@@ -538,7 +547,7 @@ export default function UserManagement() {
                   ) : (
                     <div className="flex flex-wrap gap-1.5">
                       {detailUser.cooperatives.map((c) => (
-                        <Badge key={c} variant="outline">{c}</Badge>
+                        <Badge key={c.id} variant="outline">{c.name}</Badge>
                       ))}
                     </div>
                   )}
