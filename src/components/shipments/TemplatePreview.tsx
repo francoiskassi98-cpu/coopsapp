@@ -1,4 +1,24 @@
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+
+function useSignedImage(value?: string | null, bucket = "shipment-assets") {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!value) { setUrl(null); return; }
+      if (/^https?:\/\//i.test(value) || value.startsWith("data:")) {
+        if (!cancelled) setUrl(value);
+        return;
+      }
+      const { data } = await supabase.storage.from(bucket).createSignedUrl(value, 300);
+      if (!cancelled) setUrl(data?.signedUrl ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [value, bucket]);
+  return url;
+}
 
 interface TemplatePreviewProps {
   title?: string | null;
@@ -49,14 +69,16 @@ const producers = [
 
 export function TemplatePreview(props: TemplatePreviewProps) {
   const pos = props.logo_position || "split";
-  const coopLogo = props.coop_logo_path ? (
-    <img src={props.coop_logo_path} alt="Logo coop" className="h-16 w-16 object-contain bg-white rounded border" />
+  const coopLogoUrl = useSignedImage(props.coop_logo_path);
+  const partnerLogoUrl = useSignedImage(props.partner_logo_path);
+  const coopLogo = coopLogoUrl ? (
+    <img src={coopLogoUrl} alt="Logo coop" className="h-16 w-16 object-contain bg-white rounded border" />
   ) : (
     <div className="h-16 w-16 rounded border border-dashed flex items-center justify-center text-[10px] text-muted-foreground bg-white">LOGO</div>
   );
   const partnerLogo = props.show_partner_logo ? (
-    props.partner_logo_path ? (
-      <img src={props.partner_logo_path} alt="Logo partenaire" className="h-16 w-16 object-contain bg-white rounded border" />
+    partnerLogoUrl ? (
+      <img src={partnerLogoUrl} alt="Logo partenaire" className="h-16 w-16 object-contain bg-white rounded border" />
     ) : (
       <div className="h-16 w-16 rounded border border-dashed flex items-center justify-center text-[10px] text-muted-foreground bg-white">PARTENAIRE</div>
     )
