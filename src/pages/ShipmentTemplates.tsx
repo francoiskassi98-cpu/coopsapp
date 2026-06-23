@@ -13,6 +13,7 @@ import { toast } from "@/hooks/use-toast";
 import { FileSpreadsheet, Plus, Pencil, Trash2, Star, Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TemplatePreview } from "@/components/shipments/TemplatePreview";
+import { ImageUploader } from "@/components/ui/ImageUploader";
 
 interface Coop { id: string; name: string }
 
@@ -245,12 +246,22 @@ export default function ShipmentTemplates() {
                   <Input value={editing.slogan || ""} onChange={e => setEditing({ ...editing, slogan: e.target.value })} />
                 </div>
                 <div>
-                  <Label>URL logo coopérative</Label>
-                  <Input value={editing.coop_logo_path || ""} onChange={e => setEditing({ ...editing, coop_logo_path: e.target.value })} />
+                  <ImageUploader
+                    bucket="shipment-assets"
+                    pathPrefix={`${editing.cooperative_id || "shared"}/templates`}
+                    value={editing.coop_logo_path || null}
+                    onChange={(p) => setEditing({ ...editing, coop_logo_path: p })}
+                    label="Logo coopérative"
+                  />
                 </div>
                 <div>
-                  <Label>URL logo partenaire</Label>
-                  <Input value={editing.partner_logo_path || ""} onChange={e => setEditing({ ...editing, partner_logo_path: e.target.value })} />
+                  <ImageUploader
+                    bucket="shipment-assets"
+                    pathPrefix={`${editing.cooperative_id || "shared"}/templates`}
+                    value={editing.partner_logo_path || null}
+                    onChange={(p) => setEditing({ ...editing, partner_logo_path: p })}
+                    label="Logo partenaire"
+                  />
                 </div>
                 <div>
                   <Label>Position des logos</Label>

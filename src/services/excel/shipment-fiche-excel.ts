@@ -60,15 +60,24 @@ async function loadTemplate(cooperativeId: string | null): Promise<TemplateConfi
   return { ...FALLBACK_TEMPLATE, ...row } as TemplateConfig;
 }
 
-async function fetchImage(url: string): Promise<ArrayBuffer | null> {
+// Accepte soit un path interne Storage (préféré), soit une URL legacy.
+// Préférence par défaut : bucket "shipment-assets" (modèles de chargement).
+async function fetchImage(pathOrUrl: string, defaultBucket = "shipment-assets"): Promise<ArrayBuffer | null> {
   try {
-    let finalUrl = url;
-    const m = url.match(/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
-    if (m) {
-      const bucket = m[1];
-      const path = decodeURIComponent(m[2]);
-      const { data: signed } = await supabase.storage.from(bucket).createSignedUrl(path, 120);
-      if (signed?.signedUrl) finalUrl = signed.signedUrl;
+    let finalUrl = pathOrUrl;
+    if (/^https?:\/\//i.test(pathOrUrl)) {
+      const m = pathOrUrl.match(/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
+      if (m) {
+        const bucket = m[1];
+        const path = decodeURIComponent(m[2]);
+        const { data: signed } = await supabase.storage.from(bucket).createSignedUrl(path, 120);
+        if (signed?.signedUrl) finalUrl = signed.signedUrl;
+      }
+    } else {
+      // Path interne — générer une signed URL depuis le bucket par défaut
+      const { data: signed } = await supabase.storage.from(defaultBucket).createSignedUrl(pathOrUrl, 120);
+      if (!signed?.signedUrl) return null;
+      finalUrl = signed.signedUrl;
     }
     const res = await fetch(finalUrl);
     if (!res.ok) return null;
