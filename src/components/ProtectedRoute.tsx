@@ -28,7 +28,8 @@ export default function ProtectedRoute({ adminOnly = false, superAdminOnly = fal
         </div>
       );
     }
-    if (role !== "super_admin") return <Navigate to="/" replace />;
+    if (superAdminOnly && role !== "super_admin") return <Navigate to="/" replace />;
+    if (adminOnly && role !== "super_admin" && role !== "coop_admin") return <Navigate to="/" replace />;
   }
 
   return <Outlet />;

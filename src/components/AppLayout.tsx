@@ -32,7 +32,7 @@ const groups: NavGroup[] = [
     items: [
       { to: "/gestion", label: "Gestion du projet", icon: Settings, adminOnly: true },
       { to: "/gestion/cooperatives/nouvelle", label: "Nouvelle coopérative", icon: Building2, superAdminOnly: true },
-      { to: "/gestion/modeles-chargement", label: "Modèles chargement", icon: FileCog, superAdminOnly: true },
+      { to: "/gestion/modeles-chargement", label: "Modèles chargement", icon: FileCog, adminOnly: true },
       { to: "/audit", label: "Journal d'audit", icon: ShieldCheck, adminOnly: true },
       { to: "/audit/connexions", label: "Journal de connexion", icon: KeyRound, adminOnly: true },
       { to: "/corbeille", label: "Corbeille", icon: Trash2, adminOnly: true },
@@ -43,11 +43,11 @@ const groups: NavGroup[] = [
 export default function AppLayout() {
   const location = useLocation();
   const { campaign } = useActiveCampaign();
-  const { user, role, cooperatives, profile, signOut, isSuperAdmin } = useAuth();
+  const { user, role, cooperatives, profile, signOut, isSuperAdmin, isCoopAdmin, isAdmin } = useAuth();
   const displayName = profile?.full_name?.trim() || profile?.username?.trim() || (user?.email ? user.email.split("@")[0] : "Utilisateur");
   const initials = displayName.split(/\s+/).map((s) => s[0]).slice(0, 2).join("").toUpperCase();
 
-  const filterItem = (i: NavItem) => (!i.adminOnly || isSuperAdmin) && (!i.superAdminOnly || isSuperAdmin);
+  const filterItem = (i: NavItem) => (!i.adminOnly || isAdmin) && (!i.superAdminOnly || isSuperAdmin);
 
   const roleLabel =
     role === "super_admin" ? "Super administrateur" :
@@ -71,7 +71,9 @@ export default function AppLayout() {
           </div>
           {cooperatives.length > 0 && !isSuperAdmin && (
             <div className="mt-3 flex items-center gap-1.5">
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-secondary/20 text-secondary tracking-wider">PILOTE</span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-secondary/20 text-secondary tracking-wider">
+                {isCoopAdmin ? "ADMIN" : "AGENT"}
+              </span>
               <span className="text-[11px] text-sidebar-foreground/70 truncate">{cooperatives[0]}</span>
             </div>
           )}

@@ -23,7 +23,7 @@ interface AuthContextType {
   profile: Profile | null;
   isSuperAdmin: boolean;
   isCoopAdmin: boolean;
-  isAdmin: boolean; // alias = isSuperAdmin (préserve le comportement adminOnly historique)
+  isAdmin: boolean; // true pour super_admin OU coop_admin
   signOut: () => Promise<void>;
 }
 
@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       isSuperAdmin,
       isCoopAdmin,
-      isAdmin: isSuperAdmin,
+      isAdmin: isSuperAdmin || isCoopAdmin,
       signOut,
     }}>
       {children}
