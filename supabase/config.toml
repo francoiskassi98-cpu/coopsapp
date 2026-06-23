@@ -1,4 +1,1 @@
 project_id = "qkzyllbdceteeoixoxke"
-
-[functions.reset-super-admin]
-verify_jwt = false
