@@ -211,69 +211,81 @@ export default function CreateShipment() {
     setPreview(results);
   };
 
+  const persistShipment = async (): Promise<string | null> => {
+    if (preview.length === 0) return null;
+
+    const { data: shipment, error: shipErr } = await supabase
+      .from("shipments")
+      .insert({
+        connaissement: connaissement || null,
+        total_weight: Number(totalWeight),
+        total_bags: Number(totalBags),
+        avg_bag_weight: Number(totalWeight) / Number(totalBags),
+        project,
+        partner_id: partnerId || null,
+        zone: zone || null,
+        cooperative_id: selectedCoopId || null,
+        destination,
+        campaign: normalizeCampaign(getCurrentCampaign()),
+        delivery_start: startDate,
+        delivery_end: endDate,
+        driver_name: driverName.trim() || null,
+        truck_number: truckNumber.trim() || null,
+        trailer_number: trailerNumber.trim() || null,
+        departure_date: departureDate || null,
+      } as any)
+      .select()
+      .single();
+
+    if (shipErr) throw shipErr;
+
+    const deliveries = preview.map((d) => ({
+      shipment_id: shipment.id,
+      producer_id: d.producer_id,
+      receipt_number: d.receipt_number,
+      delivery_date: d.delivery_date,
+      net_weight: d.allocated_weight,
+      num_bags: d.num_bags,
+    }));
+
+    const { error: delErr } = await supabase.from("deliveries").insert(deliveries);
+    if (delErr) throw delErr;
+
+    for (const d of preview) {
+      const { data: producer } = await supabase.from("producers").select("remaining_potential").eq("id", d.producer_id).single();
+      if (producer) {
+        await supabase
+          .from("producers")
+          .update({ remaining_potential: Number(producer.remaining_potential) - d.allocated_weight })
+          .eq("id", d.producer_id);
+      }
+    }
+
+    return shipment.id as string;
+  };
+
+  const resetForm = () => {
+    setPreview([]);
+    setConnaissement("");
+    setTotalWeight("");
+    setTotalBags("");
+    setDriverName("");
+    setTruckNumber("");
+    setTrailerNumber("");
+    setDepartureDate("");
+  };
+
   const handleSave = async () => {
     if (preview.length === 0) return;
     setSaving(true);
-
     try {
-      const { data: shipment, error: shipErr } = await supabase
-        .from("shipments")
-        .insert({
-          connaissement: connaissement || null,
-          total_weight: Number(totalWeight),
-          total_bags: Number(totalBags),
-          avg_bag_weight: Number(totalWeight) / Number(totalBags),
-          project,
-          partner_id: partnerId || null,
-          zone: zone || null,
-          cooperative_id: selectedCoopId || null,
-          destination,
-          campaign: normalizeCampaign(getCurrentCampaign()),
-          delivery_start: startDate,
-          delivery_end: endDate,
-          driver_name: driverName.trim() || null,
-          truck_number: truckNumber.trim() || null,
-          trailer_number: trailerNumber.trim() || null,
-          departure_date: departureDate || null,
-        } as any)
-        .select()
-        .single();
-
-      if (shipErr) throw shipErr;
-
-      const deliveries = preview.map((d) => ({
-        shipment_id: shipment.id,
-        producer_id: d.producer_id,
-        receipt_number: d.receipt_number,
-        delivery_date: d.delivery_date,
-        net_weight: d.allocated_weight,
-        num_bags: d.num_bags,
-      }));
-
-      const { error: delErr } = await supabase.from("deliveries").insert(deliveries);
-      if (delErr) throw delErr;
-
-      for (const d of preview) {
-        const { data: producer } = await supabase.from("producers").select("remaining_potential").eq("id", d.producer_id).single();
-        if (producer) {
-          await supabase
-            .from("producers")
-            .update({ remaining_potential: Number(producer.remaining_potential) - d.allocated_weight })
-            .eq("id", d.producer_id);
-        }
-      }
-
-      toast({ title: "Chargement créé", description: `${preview.length} fiches de livraison générées.` });
-      setPreview([]);
-      setConnaissement("");
-      setTotalWeight("");
-      setTotalBags("");
-      setDriverName("");
-      setTruckNumber("");
-      setTrailerNumber("");
-      setDepartureDate("");
+      const count = preview.length;
+      await persistShipment();
+      toast({ title: "Chargement créé", description: `${count} fiches de livraison générées.` });
+      resetForm();
     } catch (err: any) {
-      (console.error(err), toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }));
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
