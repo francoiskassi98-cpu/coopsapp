@@ -419,17 +419,149 @@ export async function generateShipmentFiche(shipmentId: string): Promise<void> {
     ws.getRow(r).height = 24;
   }
 
-  // ===== Téléchargement =====
+  const safeCoop = (coopName || "Coop").replace(/[^a-z0-9-]+/gi, "_");
+  const safeLot = (sh.lot_number || sh.connaissement || sh.id.slice(0, 6)).replace(/[^a-z0-9-]+/gi, "_");
+  const fileName = `Fiche-Accompagnement-${safeCoop}-${safeLot}.xlsx`;
+  return { wb, ws, fileName, tpl };
+}
+
+export async function generateShipmentFiche(shipmentId: string): Promise<void> {
+  const { wb, fileName } = await buildShipmentFicheWorkbook(shipmentId);
+  await downloadWorkbook(wb, fileName);
+}
+
+export async function downloadWorkbook(wb: ExcelJS.Workbook, fileName: string): Promise<void> {
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  const safeCoop = (coopName || "Coop").replace(/[^a-z0-9-]+/gi, "_");
-  const safeLot = (sh.lot_number || sh.connaissement || sh.id.slice(0, 6)).replace(/[^a-z0-9-]+/gi, "_");
   a.href = url;
-  a.download = `Fiche-Accompagnement-${safeCoop}-${safeLot}.xlsx`;
+  a.download = fileName;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ============================================================================
+// Aperçu HTML — convertit la feuille en table HTML stylée pour valider
+// visuellement la fidélité de la mise en page avant téléchargement.
+// ============================================================================
+function argbToCss(argb?: string): string | undefined {
+  if (!argb) return undefined;
+  const v = argb.length === 8 ? argb.slice(2) : argb;
+  return `#${v}`;
+}
+
+function buildMergeMap(ws: ExcelJS.Worksheet): {
+  masters: Map<string, { rowSpan: number; colSpan: number }>;
+  occupied: Set<string>;
+} {
+  const masters = new Map<string, { rowSpan: number; colSpan: number }>();
+  const occupied = new Set<string>();
+  const merges: string[] = Object.keys((ws as any)._merges || {});
+  for (const key of merges) {
+    const m = (ws as any)._merges[key];
+    const top = m.top, left = m.left, bottom = m.bottom, right = m.right;
+    masters.set(`${top}:${left}`, { rowSpan: bottom - top + 1, colSpan: right - left + 1 });
+    for (let r = top; r <= bottom; r++) {
+      for (let c = left; c <= right; c++) {
+        if (!(r === top && c === left)) occupied.add(`${r}:${c}`);
+      }
+    }
+  }
+  return { masters, occupied };
+}
+
+function formatCellValue(cell: ExcelJS.Cell): string {
+  const v: any = cell.value;
+  if (v === null || v === undefined || v === "") return "";
+  if (v instanceof Date) {
+    const dd = String(v.getDate()).padStart(2, "0");
+    const mm = String(v.getMonth() + 1).padStart(2, "0");
+    return `${dd}/${mm}/${v.getFullYear()}`;
+  }
+  if (typeof v === "number") {
+    const fmt = (cell.numFmt || "").toString();
+    if (fmt.includes("#,##0")) return v.toLocaleString("fr-FR");
+    return String(v);
+  }
+  if (typeof v === "object" && "richText" in v) {
+    return (v.richText as any[]).map((t) => t.text).join("");
+  }
+  if (typeof v === "object" && "text" in v) return String((v as any).text);
+  return String(v);
+}
+
+export async function renderShipmentFicheHtml(shipmentId: string): Promise<{
+  html: string;
+  wb: ExcelJS.Workbook;
+  fileName: string;
+}> {
+  const { wb, ws, fileName, tpl } = await buildShipmentFicheWorkbook(shipmentId);
+
+  const colCount = 8;
+  // Largeur ExcelJS -> px approx (1 char ≈ 7 px)
+  const colWidthsPx: number[] = [];
+  for (let c = 1; c <= colCount; c++) {
+    const w = ws.getColumn(c).width || 10;
+    colWidthsPx.push(Math.round(w * 7.5));
+  }
+  const totalWidthPx = colWidthsPx.reduce((a, b) => a + b, 0);
+
+  const { masters, occupied } = buildMergeMap(ws);
+
+  let body = "";
+  const lastRow = ws.actualRowCount || ws.rowCount;
+  for (let r = 1; r <= lastRow; r++) {
+    const rowH = ws.getRow(r).height || 18;
+    body += `<tr style="height:${Math.round(rowH * 1.2)}px;">`;
+    for (let c = 1; c <= colCount; c++) {
+      if (occupied.has(`${r}:${c}`)) continue;
+      const merge = masters.get(`${r}:${c}`);
+      const cell = ws.getCell(r, c);
+      const text = formatCellValue(cell);
+
+      const font: any = cell.font || {};
+      const fill: any = cell.fill || {};
+      const align: any = cell.alignment || {};
+      const bg = fill?.fgColor?.argb ? argbToCss(fill.fgColor.argb) : undefined;
+      const color = font?.color?.argb ? argbToCss(font.color.argb) : "#111";
+      const border = cell.border?.top ? "1px solid #999" : "1px solid #e5e5e5";
+
+      const style = [
+        `border:${border}`,
+        bg ? `background:${bg}` : "",
+        `color:${color}`,
+        font.bold ? "font-weight:700" : "",
+        font.italic ? "font-style:italic" : "",
+        `font-size:${(font.size || 11)}px`,
+        `font-family:${font.name || "Calibri"},sans-serif`,
+        `text-align:${align.horizontal || "left"}`,
+        `vertical-align:${align.vertical === "middle" ? "middle" : (align.vertical || "top")}`,
+        align.wrapText ? "white-space:normal;word-break:break-word" : "white-space:nowrap",
+        "padding:4px 6px",
+        align.indent ? `padding-left:${4 + (align.indent || 0) * 8}px` : "",
+      ]
+        .filter(Boolean)
+        .join(";");
+
+      const span = merge ? ` rowspan="${merge.rowSpan}" colspan="${merge.colSpan}"` : "";
+      body += `<td${span} style="${style}">${text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br/>")}</td>`;
+    }
+    body += "</tr>";
+  }
+
+  const colgroup = colWidthsPx.map((w) => `<col style="width:${w}px"/>`).join("");
+
+  const html = `
+<div style="background:#fff;color:#111;padding:16px;overflow:auto;">
+  <table style="border-collapse:collapse;table-layout:fixed;width:${totalWidthPx}px;background:#fff;">
+    <colgroup>${colgroup}</colgroup>
+    <tbody>${body}</tbody>
+  </table>
+  ${tpl.custom_footer ? `<div style="margin-top:8px;font-size:10px;color:#666;font-style:italic;text-align:center;">${tpl.custom_footer}</div>` : ""}
+</div>`.trim();
+
+  return { html, wb, fileName };
 }
