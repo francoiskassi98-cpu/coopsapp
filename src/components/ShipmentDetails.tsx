@@ -374,6 +374,7 @@ export default function ShipmentDetails() {
                 <Label>Date départ</Label>
                 <Input type="date" value={editDeparture} onChange={(e) => setEditDeparture(e.target.value)} />
               </div>
+            </div>
 
             <Button onClick={handleSaveEdit} disabled={saving} className="w-full">
               {saving ? "Enregistrement..." : "Enregistrer les modifications"}
