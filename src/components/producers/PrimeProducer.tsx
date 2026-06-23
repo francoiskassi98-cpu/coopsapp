@@ -12,7 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { Calculator, Download, Save, Coins } from "lucide-react";
 import { generatePrimeExcel } from "@/lib/prime-excel";
 
-interface Coop { id: string; name: string; logo_url?: string | null }
+interface Coop { id: string; name: string; logo_path?: string | null }
 interface Campaign { id: string; nom: string }
 
 interface PrimeRow {
@@ -45,7 +45,7 @@ export default function PrimeProducer() {
   useEffect(() => {
     (async () => {
       const [{ data: c }, { data: cp }] = await Promise.all([
-        supabase.from("cooperatives").select("id,name,logo_url").order("name"),
+        supabase.from("cooperatives").select("id,name,logo_path").order("name"),
         supabase.from("campaigns").select("id,nom").order("nom", { ascending: false }),
       ]);
       const list = (c || []) as Coop[];
@@ -185,7 +185,7 @@ export default function PrimeProducer() {
     try {
       await generatePrimeExcel({
         cooperativeName: coopSelected.name,
-        logoUrl: coopSelected.logo_url ?? null,
+        logoUrl: coopSelected.logo_path ?? null,
         startDate, endDate,
         bonusType, amount,
         rows,

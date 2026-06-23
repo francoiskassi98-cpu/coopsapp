@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     }
 
     // ---- Upload logo (optionnel) ----
-    let logo_url: string | null = null;
+    let logo_path: string | null = null;
     if (logoBase64 && logoFileName) {
       try {
         const m = String(logoBase64).match(/^data:(.+);base64,(.*)$/);
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
         if (upErr) {
           console.error(`[create-coop][${reqId}] logo upload`, upErr.message);
         } else {
-          logo_url = path; // stocké comme chemin ; URL signée générée côté client si besoin
+          logo_path = path; // stocké comme chemin ; URL signée générée côté client si besoin
         }
       } catch (e) {
         console.error(`[create-coop][${reqId}] logo decode`, e instanceof Error ? e.message : e);
@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
       p_user_id: newUser.user.id,
       p_full_name: admin.full_name,
       p_phone: admin.phone ?? null,
-      p_coop: { ...cooperative, logo_url },
+      p_coop: { ...cooperative, logo_path },
       p_sub_start: subscription?.start_date ?? null,
       p_sub_end: subscription?.end_date ?? null,
       p_plan: subscription?.plan_name ?? "Pilote",
@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
       console.error(`[create-coop][${reqId}] rpc`, rpcErr.message);
       // rollback : supprimer le user
       await adminClient.auth.admin.deleteUser(newUser.user.id);
-      if (logo_url) await adminClient.storage.from("cooperative-logos").remove([logo_url]);
+      if (logo_path) await adminClient.storage.from("cooperative-logos").remove([logo_path]);
       return new Response(JSON.stringify({ error: "Erreur lors de la création de la coopérative." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

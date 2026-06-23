@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface PrimeRowExport {
   producer_id: string;
@@ -11,6 +12,7 @@ export interface PrimeRowExport {
 
 export interface PrimeExcelParams {
   cooperativeName: string;
+  /** Path interne Storage (bucket cooperative-logos) ou URL legacy. */
   logoUrl?: string | null;
   startDate: string;
   endDate: string;
@@ -19,16 +21,22 @@ export interface PrimeExcelParams {
   rows: PrimeRowExport[];
 }
 
-async function fetchImageAsBase64(url: string): Promise<{ base64: string; ext: "png" | "jpeg" } | null> {
+async function fetchImageAsBase64(pathOrUrl: string): Promise<{ base64: string; ext: "png" | "jpeg" } | null> {
   try {
-    const res = await fetch(url);
+    let finalUrl = pathOrUrl;
+    if (!/^https?:\/\//i.test(pathOrUrl)) {
+      const { data } = await supabase.storage.from("cooperative-logos").createSignedUrl(pathOrUrl, 120);
+      if (!data?.signedUrl) return null;
+      finalUrl = data.signedUrl;
+    }
+    const res = await fetch(finalUrl);
     if (!res.ok) return null;
     const buf = await res.arrayBuffer();
     const bytes = new Uint8Array(buf);
     let bin = "";
     bytes.forEach(b => bin += String.fromCharCode(b));
     const base64 = btoa(bin);
-    const ext = url.toLowerCase().endsWith(".png") ? "png" : "jpeg";
+    const ext = pathOrUrl.toLowerCase().endsWith(".png") ? "png" : "jpeg";
     return { base64, ext };
   } catch (e) {
     console.error("logo fetch", e);

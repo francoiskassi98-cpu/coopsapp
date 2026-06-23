@@ -102,7 +102,7 @@ export type Database = {
           deleted_at: string | null
           estimated_producers: number | null
           id: string
-          logo_url: string | null
+          logo_path: string | null
           name: string
           official_email: string | null
           phone: string | null
@@ -124,7 +124,7 @@ export type Database = {
           deleted_at?: string | null
           estimated_producers?: number | null
           id?: string
-          logo_url?: string | null
+          logo_path?: string | null
           name: string
           official_email?: string | null
           phone?: string | null
@@ -146,7 +146,7 @@ export type Database = {
           deleted_at?: string | null
           estimated_producers?: number | null
           id?: string
-          logo_url?: string | null
+          logo_path?: string | null
           name?: string
           official_email?: string | null
           phone?: string | null
@@ -305,7 +305,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           id: string
-          logo_url: string | null
+          logo_path: string | null
           name: string
           status: string
           updated_at: string
@@ -316,7 +316,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
-          logo_url?: string | null
+          logo_path?: string | null
           name: string
           status?: string
           updated_at?: string
@@ -327,7 +327,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
-          logo_url?: string | null
+          logo_path?: string | null
           name?: string
           status?: string
           updated_at?: string
@@ -709,7 +709,7 @@ export type Database = {
       }
       shipment_excel_templates: {
         Row: {
-          coop_logo_url: string | null
+          coop_logo_path: string | null
           cooperative_id: string
           created_at: string
           created_by: string | null
@@ -718,7 +718,7 @@ export type Database = {
           id: string
           is_default: boolean
           logo_position: string
-          partner_logo_url: string | null
+          partner_logo_path: string | null
           show_bill_of_lading: boolean
           show_departure_date: boolean
           show_destination: boolean
@@ -738,7 +738,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          coop_logo_url?: string | null
+          coop_logo_path?: string | null
           cooperative_id: string
           created_at?: string
           created_by?: string | null
@@ -747,7 +747,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           logo_position?: string
-          partner_logo_url?: string | null
+          partner_logo_path?: string | null
           show_bill_of_lading?: boolean
           show_departure_date?: boolean
           show_destination?: boolean
@@ -767,7 +767,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          coop_logo_url?: string | null
+          coop_logo_path?: string | null
           cooperative_id?: string
           created_at?: string
           created_by?: string | null
@@ -776,7 +776,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           logo_position?: string
-          partner_logo_url?: string | null
+          partner_logo_path?: string | null
           show_bill_of_lading?: boolean
           show_departure_date?: boolean
           show_destination?: boolean

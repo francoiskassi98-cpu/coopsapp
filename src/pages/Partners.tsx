@@ -14,7 +14,7 @@ type Partner = {
   id: string;
   name: string;
   contact: string | null;
-  logo_url: string | null;
+  logo_path: string | null;
   status: string;
 };
 
@@ -37,7 +37,7 @@ export default function Partners() {
   const [form, setForm] = useState({
     name: "",
     contact: "",
-    logo_url: "",
+    logo_path: "",
     status: "actif",
   });
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -46,7 +46,7 @@ export default function Partners() {
     setLoading(true);
     const { data, error } = await supabase
       .from("partners")
-      .select("id,name,contact,logo_url,status")
+      .select("id,name,contact,logo_path,status")
       .is("deleted_at", null)
       .order("name");
     if (error) {
@@ -60,8 +60,8 @@ export default function Partners() {
     const map: Record<string, string> = {};
     await Promise.all(
       list.map(async (p) => {
-        if (p.logo_url) {
-          const url = p.logo_url.startsWith("http") ? p.logo_url : await signedUrl(p.logo_url);
+        if (p.logo_path) {
+          const url = p.logo_path.startsWith("http") ? p.logo_path : await signedUrl(p.logo_path);
           if (url) map[p.id] = url;
         }
       })
@@ -76,7 +76,7 @@ export default function Partners() {
 
   const resetForm = () => {
     setEditing(null);
-    setForm({ name: "", contact: "", logo_url: "", status: "actif" });
+    setForm({ name: "", contact: "", logo_path: "", status: "actif" });
     setPreviewUrl(null);
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -91,11 +91,11 @@ export default function Partners() {
     setForm({
       name: p.name,
       contact: p.contact ?? "",
-      logo_url: p.logo_url ?? "",
+      logo_path: p.logo_path ?? "",
       status: p.status ?? "actif",
     });
-    if (p.logo_url) {
-      const url = p.logo_url.startsWith("http") ? p.logo_url : await signedUrl(p.logo_url);
+    if (p.logo_path) {
+      const url = p.logo_path.startsWith("http") ? p.logo_path : await signedUrl(p.logo_path);
       setPreviewUrl(url);
     } else {
       setPreviewUrl(null);
@@ -124,20 +124,20 @@ export default function Partners() {
       return;
     }
     // Remove old logo when replacing
-    if (form.logo_url && !form.logo_url.startsWith("http")) {
-      await supabase.storage.from(BUCKET).remove([form.logo_url]);
+    if (form.logo_path && !form.logo_path.startsWith("http")) {
+      await supabase.storage.from(BUCKET).remove([form.logo_path]);
     }
     const url = await signedUrl(path);
-    setForm((f) => ({ ...f, logo_url: path }));
+    setForm((f) => ({ ...f, logo_path: path }));
     setPreviewUrl(url);
     setUploading(false);
   };
 
   const clearLogo = async () => {
-    if (form.logo_url && !form.logo_url.startsWith("http")) {
-      await supabase.storage.from(BUCKET).remove([form.logo_url]);
+    if (form.logo_path && !form.logo_path.startsWith("http")) {
+      await supabase.storage.from(BUCKET).remove([form.logo_path]);
     }
-    setForm((f) => ({ ...f, logo_url: "" }));
+    setForm((f) => ({ ...f, logo_path: "" }));
     setPreviewUrl(null);
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -151,7 +151,7 @@ export default function Partners() {
     const payload = {
       name: form.name.trim(),
       contact: form.contact.trim() || null,
-      logo_url: form.logo_url || null,
+      logo_path: form.logo_path || null,
       status: form.status,
     };
     const { error } = editing
@@ -284,9 +284,9 @@ export default function Partners() {
                 />
                 <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
                   {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-                  {form.logo_url ? "Remplacer" : "Téléverser"}
+                  {form.logo_path ? "Remplacer" : "Téléverser"}
                 </Button>
-                {form.logo_url && (
+                {form.logo_path && (
                   <Button type="button" variant="ghost" size="sm" onClick={clearLogo}>
                     <X className="h-4 w-4" />
                   </Button>

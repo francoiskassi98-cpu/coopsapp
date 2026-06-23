@@ -5,8 +5,8 @@ interface TemplateConfig {
   title: string;
   subtitle: string | null;
   slogan: string | null;
-  coop_logo_url: string | null;
-  partner_logo_url: string | null;
+  coop_logo_path: string | null;
+  partner_logo_path: string | null;
   logo_position: "left" | "center" | "right" | "split";
   custom_header: string | null;
   custom_footer: string | null;
@@ -28,8 +28,8 @@ const FALLBACK_TEMPLATE: TemplateConfig = {
   title: "FICHE D'ACCOMPAGNEMENT CAMPAGNE",
   subtitle: null,
   slogan: null,
-  coop_logo_url: null,
-  partner_logo_url: null,
+  coop_logo_path: null,
+  partner_logo_path: null,
   logo_position: "split",
   custom_header: null,
   custom_footer: null,
@@ -60,15 +60,24 @@ async function loadTemplate(cooperativeId: string | null): Promise<TemplateConfi
   return { ...FALLBACK_TEMPLATE, ...row } as TemplateConfig;
 }
 
-async function fetchImage(url: string): Promise<ArrayBuffer | null> {
+// Accepte soit un path interne Storage (préféré), soit une URL legacy.
+// Préférence par défaut : bucket "shipment-assets" (modèles de chargement).
+async function fetchImage(pathOrUrl: string, defaultBucket = "shipment-assets"): Promise<ArrayBuffer | null> {
   try {
-    let finalUrl = url;
-    const m = url.match(/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
-    if (m) {
-      const bucket = m[1];
-      const path = decodeURIComponent(m[2]);
-      const { data: signed } = await supabase.storage.from(bucket).createSignedUrl(path, 120);
-      if (signed?.signedUrl) finalUrl = signed.signedUrl;
+    let finalUrl = pathOrUrl;
+    if (/^https?:\/\//i.test(pathOrUrl)) {
+      const m = pathOrUrl.match(/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
+      if (m) {
+        const bucket = m[1];
+        const path = decodeURIComponent(m[2]);
+        const { data: signed } = await supabase.storage.from(bucket).createSignedUrl(path, 120);
+        if (signed?.signedUrl) finalUrl = signed.signedUrl;
+      }
+    } else {
+      // Path interne — générer une signed URL depuis le bucket par défaut
+      const { data: signed } = await supabase.storage.from(defaultBucket).createSignedUrl(pathOrUrl, 120);
+      if (!signed?.signedUrl) return null;
+      finalUrl = signed.signedUrl;
     }
     const res = await fetch(finalUrl);
     if (!res.ok) return null;
@@ -188,13 +197,13 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
       editAs: "oneCell",
     });
   };
-  if (tpl.coop_logo_url) {
+  if (tpl.coop_logo_path) {
     // En haut à gauche (colonne A)
-    await addLogo(tpl.coop_logo_url, 0.1);
+    await addLogo(tpl.coop_logo_path, 0.1);
   }
-  if (tpl.show_partner_logo && tpl.partner_logo_url) {
+  if (tpl.show_partner_logo && tpl.partner_logo_path) {
     // En haut à droite (colonne H, à droite de l'image)
-    await addLogo(tpl.partner_logo_url, 7.05);
+    await addLogo(tpl.partner_logo_path, 7.05);
   }
 
   // ============================================================
