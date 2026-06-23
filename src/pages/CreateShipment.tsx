@@ -11,7 +11,7 @@ import { distributeShipment, getCurrentCampaign, normalizeCampaign, type Distrib
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { Truck, Plus, Download, Pencil, Check, X } from "lucide-react";
-import { exportToExcel } from "@/lib/excel-utils";
+import { generateShipmentFiche } from "@/services/excel/shipment-fiche-excel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ImportShipments from "@/pages/ImportShipments";
 import ShipmentDetails from "@/components/ShipmentDetails";
@@ -211,69 +211,81 @@ export default function CreateShipment() {
     setPreview(results);
   };
 
+  const persistShipment = async (): Promise<string | null> => {
+    if (preview.length === 0) return null;
+
+    const { data: shipment, error: shipErr } = await supabase
+      .from("shipments")
+      .insert({
+        connaissement: connaissement || null,
+        total_weight: Number(totalWeight),
+        total_bags: Number(totalBags),
+        avg_bag_weight: Number(totalWeight) / Number(totalBags),
+        project,
+        partner_id: partnerId || null,
+        zone: zone || null,
+        cooperative_id: selectedCoopId || null,
+        destination,
+        campaign: normalizeCampaign(getCurrentCampaign()),
+        delivery_start: startDate,
+        delivery_end: endDate,
+        driver_name: driverName.trim() || null,
+        truck_number: truckNumber.trim() || null,
+        trailer_number: trailerNumber.trim() || null,
+        departure_date: departureDate || null,
+      } as any)
+      .select()
+      .single();
+
+    if (shipErr) throw shipErr;
+
+    const deliveries = preview.map((d) => ({
+      shipment_id: shipment.id,
+      producer_id: d.producer_id,
+      receipt_number: d.receipt_number,
+      delivery_date: d.delivery_date,
+      net_weight: d.allocated_weight,
+      num_bags: d.num_bags,
+    }));
+
+    const { error: delErr } = await supabase.from("deliveries").insert(deliveries);
+    if (delErr) throw delErr;
+
+    for (const d of preview) {
+      const { data: producer } = await supabase.from("producers").select("remaining_potential").eq("id", d.producer_id).single();
+      if (producer) {
+        await supabase
+          .from("producers")
+          .update({ remaining_potential: Number(producer.remaining_potential) - d.allocated_weight })
+          .eq("id", d.producer_id);
+      }
+    }
+
+    return shipment.id as string;
+  };
+
+  const resetForm = () => {
+    setPreview([]);
+    setConnaissement("");
+    setTotalWeight("");
+    setTotalBags("");
+    setDriverName("");
+    setTruckNumber("");
+    setTrailerNumber("");
+    setDepartureDate("");
+  };
+
   const handleSave = async () => {
     if (preview.length === 0) return;
     setSaving(true);
-
     try {
-      const { data: shipment, error: shipErr } = await supabase
-        .from("shipments")
-        .insert({
-          connaissement: connaissement || null,
-          total_weight: Number(totalWeight),
-          total_bags: Number(totalBags),
-          avg_bag_weight: Number(totalWeight) / Number(totalBags),
-          project,
-          partner_id: partnerId || null,
-          zone: zone || null,
-          cooperative_id: selectedCoopId || null,
-          destination,
-          campaign: normalizeCampaign(getCurrentCampaign()),
-          delivery_start: startDate,
-          delivery_end: endDate,
-          driver_name: driverName.trim() || null,
-          truck_number: truckNumber.trim() || null,
-          trailer_number: trailerNumber.trim() || null,
-          departure_date: departureDate || null,
-        } as any)
-        .select()
-        .single();
-
-      if (shipErr) throw shipErr;
-
-      const deliveries = preview.map((d) => ({
-        shipment_id: shipment.id,
-        producer_id: d.producer_id,
-        receipt_number: d.receipt_number,
-        delivery_date: d.delivery_date,
-        net_weight: d.allocated_weight,
-        num_bags: d.num_bags,
-      }));
-
-      const { error: delErr } = await supabase.from("deliveries").insert(deliveries);
-      if (delErr) throw delErr;
-
-      for (const d of preview) {
-        const { data: producer } = await supabase.from("producers").select("remaining_potential").eq("id", d.producer_id).single();
-        if (producer) {
-          await supabase
-            .from("producers")
-            .update({ remaining_potential: Number(producer.remaining_potential) - d.allocated_weight })
-            .eq("id", d.producer_id);
-        }
-      }
-
-      toast({ title: "Chargement créé", description: `${preview.length} fiches de livraison générées.` });
-      setPreview([]);
-      setConnaissement("");
-      setTotalWeight("");
-      setTotalBags("");
-      setDriverName("");
-      setTruckNumber("");
-      setTrailerNumber("");
-      setDepartureDate("");
+      const count = preview.length;
+      await persistShipment();
+      toast({ title: "Chargement créé", description: `${count} fiches de livraison générées.` });
+      resetForm();
     } catch (err: any) {
-      (console.error(err), toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }));
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -345,27 +357,22 @@ export default function CreateShipment() {
     setEditingIndex(null);
   };
 
-  const handleDownloadPreview = async () => {
-    const partnerName = partners.find((p) => p.id === partnerId)?.name || "";
-    const rows = preview.map((d, i) => ({
-      "N°": i + 1,
-      "N° Reçu": d.receipt_number,
-      "Connaissement": connaissement || "",
-      "Projet": project,
-      "Partenaire": partnerName,
-      "Zone": zone || "",
-      "Nom": d.full_name,
-      "Code plantation": d.plantation_code,
-      "Section": d.section,
-      "Poids net (kg)": Math.round(d.allocated_weight),
-      "Nombre de sacs": d.num_bags,
-      "Date de livraison": d.delivery_date,
-    }));
-    const parts = ["Chargement"];
-    if (connaissement) parts.push(connaissement);
-    if (zone) parts.push(zone);
-    const fileName = `${parts.join("-")}.xlsx`;
-    await exportToExcel(rows, fileName, "Chargement");
+  const handleSaveAndDownload = async () => {
+    if (preview.length === 0) return;
+    setSaving(true);
+    try {
+      const count = preview.length;
+      const shipmentId = await persistShipment();
+      if (!shipmentId) return;
+      await generateShipmentFiche(shipmentId);
+      toast({ title: "Chargement créé", description: `${count} fiches générées et fiche Excel téléchargée.` });
+      resetForm();
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -569,8 +576,8 @@ export default function CreateShipment() {
                   <CardTitle className="text-base">Aperçu du chargement</CardTitle>
                   {preview.length > 0 && (
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleDownloadPreview}>
-                        <Download className="h-4 w-4" /> Télécharger
+                      <Button variant="outline" onClick={handleSaveAndDownload} disabled={saving}>
+                        <Download className="h-4 w-4" /> Enregistrer et télécharger la fiche
                       </Button>
                       <Button onClick={handleSave} disabled={saving}>
                         {saving ? "Enregistrement..." : "Valider et enregistrer"}
