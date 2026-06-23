@@ -20,6 +20,31 @@ function useSignedImage(value?: string | null, bucket = "shipment-assets") {
   return url;
 }
 
+export interface TemplatePreviewData {
+  fournisseur?: string;
+  driver?: string;
+  truck?: string;
+  trailer?: string;
+  bill_of_lading?: string;
+  destination?: string;
+  project?: string;
+  partner?: string;
+  departure_date?: string;
+  num_bags?: string | number;
+  total_weight?: string | number;
+  num_producers?: string | number;
+  lot?: string;
+  producers?: Array<{
+    name: string;
+    receipt: string;
+    section: string;
+    plant: string;
+    date: string;
+    weight: string | number;
+    bags: number;
+  }>;
+}
+
 interface TemplatePreviewProps {
   title?: string | null;
   subtitle?: string | null;
@@ -42,26 +67,26 @@ interface TemplatePreviewProps {
   show_num_producers?: boolean;
   show_partner_logo?: boolean;
   coopName?: string;
+  data?: TemplatePreviewData;
 }
 
-// Données fictives représentatives d'un chargement réel
-const sample = {
+const defaultSample = {
   fournisseur: "COOPÉRATIVE EXEMPLE",
-  show_driver: "K. Diabaté",
-  show_truck: "AB-1234-CI",
-  show_trailer: "RM-5678",
-  show_bill_of_lading: "BL-2026-0042",
-  show_destination: "Port d'Abidjan",
-  show_project: "RAINFOREST 2026",
-  show_partner: "ETG",
-  show_departure_date: "22/06/2026",
-  show_num_bags: "320",
-  show_total_weight: "20 800",
-  show_num_producers: "47",
+  driver: "K. Diabaté",
+  truck: "AB-1234-CI",
+  trailer: "RM-5678",
+  bill_of_lading: "BL-2026-0042",
+  destination: "Port d'Abidjan",
+  project: "RAINFOREST 2026",
+  partner: "ETG",
+  departure_date: "22/06/2026",
+  num_bags: "320",
+  total_weight: "20 800",
+  num_producers: "47",
   lot: "LOT-0007",
 };
 
-const producers = [
+const defaultProducers = [
   { name: "KOFFI Jean", receipt: "000123", section: "A", plant: "PL-001", date: "20/06/2026", weight: "1 250", bags: 20 },
   { name: "YAO Marie", receipt: "000124", section: "B", plant: "PL-002", date: "20/06/2026", weight: "980", bags: 15 },
   { name: "TRAORE Paul", receipt: "000125", section: "A", plant: "PL-003", date: "21/06/2026", weight: "1 470", bags: 23 },
