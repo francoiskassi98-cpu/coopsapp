@@ -24,111 +24,168 @@ interface TemplatePreviewProps {
   coopName?: string;
 }
 
-const sampleRow = {
+// Données fictives représentatives d'un chargement réel
+const sample = {
+  fournisseur: "COOPÉRATIVE EXEMPLE",
   show_driver: "K. Diabaté",
   show_truck: "AB-1234-CI",
   show_trailer: "RM-5678",
   show_bill_of_lading: "BL-2026-0042",
   show_destination: "Port d'Abidjan",
-  show_project: "Rainforest 2026",
+  show_project: "RAINFOREST 2026",
   show_partner: "ETG",
   show_departure_date: "22/06/2026",
   show_num_bags: "320",
-  show_total_weight: "20 800 kg",
+  show_total_weight: "20 800",
   show_num_producers: "47",
+  lot: "LOT-0007",
 };
 
-const columnLabels: Record<string, string> = {
-  show_driver: "Chauffeur",
-  show_truck: "Camion",
-  show_trailer: "Remorque",
-  show_bill_of_lading: "Connaissement",
-  show_destination: "Destination",
-  show_project: "Projet",
-  show_partner: "Partenaire",
-  show_departure_date: "Date départ",
-  show_num_bags: "Sacs",
-  show_total_weight: "Poids total",
-  show_num_producers: "Producteurs",
-};
+const producers = [
+  { name: "KOFFI Jean", receipt: "000123", section: "A", plant: "PL-001", date: "20/06/2026", weight: "1 250", bags: 20 },
+  { name: "YAO Marie", receipt: "000124", section: "B", plant: "PL-002", date: "20/06/2026", weight: "980", bags: 15 },
+  { name: "TRAORE Paul", receipt: "000125", section: "A", plant: "PL-003", date: "21/06/2026", weight: "1 470", bags: 23 },
+];
 
 export function TemplatePreview(props: TemplatePreviewProps) {
-  const pos = props.logo_position || "left";
+  const pos = props.logo_position || "split";
   const coopLogo = props.coop_logo_url ? (
-    <img src={props.coop_logo_url} alt="Logo coop" className="h-14 w-14 object-contain bg-white rounded border" />
+    <img src={props.coop_logo_url} alt="Logo coop" className="h-16 w-16 object-contain bg-white rounded border" />
   ) : (
-    <div className="h-14 w-14 rounded border border-dashed flex items-center justify-center text-[10px] text-muted-foreground">LOGO</div>
+    <div className="h-16 w-16 rounded border border-dashed flex items-center justify-center text-[10px] text-muted-foreground bg-white">LOGO</div>
   );
   const partnerLogo = props.show_partner_logo ? (
     props.partner_logo_url ? (
-      <img src={props.partner_logo_url} alt="Logo partenaire" className="h-14 w-14 object-contain bg-white rounded border" />
+      <img src={props.partner_logo_url} alt="Logo partenaire" className="h-16 w-16 object-contain bg-white rounded border" />
     ) : (
-      <div className="h-14 w-14 rounded border border-dashed flex items-center justify-center text-[10px] text-muted-foreground">PARTENAIRE</div>
+      <div className="h-16 w-16 rounded border border-dashed flex items-center justify-center text-[10px] text-muted-foreground bg-white">PARTENAIRE</div>
     )
   ) : null;
+
+  // Construit les lignes d'info en 2 colonnes (gauche / droite) — fidèle au modèle Excel
+  type Row = { left?: [string, string]; right?: [string, string] };
+  const rows: Row[] = [];
+  rows.push({
+    left: ["Fournisseur :", props.coopName || sample.fournisseur],
+    right: props.show_project ? ["Statut projet :", sample.show_project] : undefined,
+  });
+  rows.push({
+    left: props.show_driver ? ["Nom du Chauffeur :", sample.show_driver] : undefined,
+    right: props.show_destination ? ["Destination :", sample.show_destination] : undefined,
+  });
+  rows.push({
+    left: props.show_truck ? ["N° du Camion :", sample.show_truck] : undefined,
+    right: props.show_partner ? ["Partenaire :", sample.show_partner] : undefined,
+  });
+  rows.push({
+    left: props.show_trailer ? ["N° de Remorque :", sample.show_trailer] : undefined,
+    right: props.show_bill_of_lading ? ["N° de connaissement :", sample.show_bill_of_lading] : undefined,
+  });
+  rows.push({
+    left: ["N° de lot :", sample.lot],
+    right: props.show_departure_date ? ["Date de départ :", sample.show_departure_date] : undefined,
+  });
+  rows.push({
+    left: props.show_total_weight ? ["Poids total (Kg) :", sample.show_total_weight] : undefined,
+    right: props.show_num_bags ? ["Nombre de sacs :", sample.show_num_bags] : undefined,
+  });
+  if (props.show_num_producers) {
+    rows.push({ left: ["Nombre de producteurs :", sample.show_num_producers] });
+  }
+
+  const visibleRows = rows.filter((r) => r.left || r.right);
 
   const headerLogos = (() => {
     if (pos === "split") {
       return (
-        <div className="flex items-center justify-between w-full">
-          {coopLogo}
-          {partnerLogo ?? <div />}
+        <div className="flex items-center justify-between w-full gap-3">
+          <div>{coopLogo}</div>
+          <div className="flex-1 text-center">
+            <h2 className="text-lg font-bold tracking-wide uppercase">{props.title || "FICHE D'ACCOMPAGNEMENT CAMPAGNE"}</h2>
+            {props.subtitle && <p className="text-sm font-medium">{props.subtitle}</p>}
+            {props.slogan && <p className="text-xs italic text-gray-600">« {props.slogan} »</p>}
+          </div>
+          <div>{partnerLogo ?? <div className="w-16" />}</div>
         </div>
       );
     }
     const align = pos === "center" ? "justify-center" : pos === "right" ? "justify-end" : "justify-start";
     return (
-      <div className={`flex items-center gap-3 w-full ${align}`}>
-        {coopLogo}
-        {partnerLogo}
+      <div className="w-full space-y-2">
+        <div className={`flex items-center gap-3 ${align}`}>
+          {coopLogo}
+          {partnerLogo}
+        </div>
+        <div className="text-center">
+          <h2 className="text-lg font-bold tracking-wide uppercase">{props.title || "FICHE D'ACCOMPAGNEMENT CAMPAGNE"}</h2>
+          {props.subtitle && <p className="text-sm font-medium">{props.subtitle}</p>}
+          {props.slogan && <p className="text-xs italic text-gray-600">« {props.slogan} »</p>}
+        </div>
       </div>
     );
   })();
 
-  const activeCols = Object.keys(columnLabels).filter((k) => (props as any)[k]);
-
   return (
     <div className="rounded-lg border bg-white text-black overflow-hidden shadow-sm">
-      <div className="p-4 border-b space-y-3">
-        {headerLogos}
-        <div className="text-center space-y-0.5">
-          <h2 className="text-lg font-bold tracking-wide uppercase">{props.title || "FICHE DE CHARGEMENT"}</h2>
-          {props.subtitle && <p className="text-sm font-medium">{props.subtitle}</p>}
-          {props.slogan && <p className="text-xs italic text-gray-600">« {props.slogan} »</p>}
-          {props.coopName && <p className="text-xs text-gray-500">{props.coopName}</p>}
-        </div>
-        {props.custom_header && (
-          <div className="text-xs whitespace-pre-wrap bg-gray-50 border rounded p-2">{props.custom_header}</div>
-        )}
+      <div className="p-4 border-b">{headerLogos}</div>
+
+      {props.custom_header && (
+        <div className="px-4 py-2 text-xs whitespace-pre-wrap bg-gray-50 border-b">{props.custom_header}</div>
+      )}
+
+      {/* Bloc informations transport — fidèle au modèle Excel (2 colonnes) */}
+      <div className="p-4 border-b">
+        <table className="w-full text-[11px] border-collapse">
+          <tbody>
+            {visibleRows.map((row, i) => (
+              <tr key={i}>
+                <td className="border px-2 py-1.5 w-[18%] bg-gray-100 font-semibold">{row.left?.[0] ?? ""}</td>
+                <td className="border px-2 py-1.5 w-[32%]">{row.left?.[1] ?? ""}</td>
+                <td className="border-0 w-[3%]"></td>
+                <td className="border px-2 py-1.5 w-[20%] bg-gray-100 font-semibold">{row.right?.[0] ?? ""}</td>
+                <td className="border px-2 py-1.5 w-[27%]">{row.right?.[1] ?? ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
+      {/* Tableau producteurs — toujours présent, structure identique au fichier exporté */}
       <div className="p-4">
-        {activeCols.length === 0 ? (
-          <p className="text-xs text-gray-500 text-center py-6">Aucune colonne activée.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-[11px] border-collapse">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="border px-2 py-1 text-left">#</th>
-                  {activeCols.map((c) => (
-                    <th key={c} className="border px-2 py-1 text-left whitespace-nowrap">{columnLabels[c]}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[1, 2].map((i) => (
-                  <tr key={i}>
-                    <td className="border px-2 py-1">{i}</td>
-                    {activeCols.map((c) => (
-                      <td key={c} className="border px-2 py-1 whitespace-nowrap">{(sampleRow as any)[c] ?? "—"}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Détail des livraisons producteurs</p>
+        <table className="w-full text-[11px] border-collapse">
+          <thead>
+            <tr className="bg-green-700 text-white">
+              <th className="border px-2 py-1">N°</th>
+              <th className="border px-2 py-1 text-left">Nom et Prénoms Planteur</th>
+              <th className="border px-2 py-1">N° de reçu</th>
+              <th className="border px-2 py-1">Section</th>
+              <th className="border px-2 py-1">Code Plantation</th>
+              <th className="border px-2 py-1">Date livraison</th>
+              <th className="border px-2 py-1">Poids net (Kg)</th>
+              <th className="border px-2 py-1">Sacs</th>
+            </tr>
+          </thead>
+          <tbody>
+            {producers.map((p, i) => (
+              <tr key={i}>
+                <td className="border px-2 py-1 text-center">{i + 1}</td>
+                <td className="border px-2 py-1">{p.name}</td>
+                <td className="border px-2 py-1 text-center">{p.receipt}</td>
+                <td className="border px-2 py-1 text-center">{p.section}</td>
+                <td className="border px-2 py-1">{p.plant}</td>
+                <td className="border px-2 py-1 text-center">{p.date}</td>
+                <td className="border px-2 py-1 text-right">{p.weight}</td>
+                <td className="border px-2 py-1 text-center">{p.bags}</td>
+              </tr>
+            ))}
+            <tr className="bg-green-50 font-bold">
+              <td className="border px-2 py-1 text-right" colSpan={6}>TOTAL</td>
+              <td className="border px-2 py-1 text-right">3 700</td>
+              <td className="border px-2 py-1 text-center">58</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       {props.custom_footer && (
@@ -138,7 +195,7 @@ export function TemplatePreview(props: TemplatePreviewProps) {
       )}
 
       <div className="px-4 py-2 border-t flex flex-wrap gap-1 bg-gray-50">
-        <Badge variant="secondary" className="text-[10px]">{activeCols.length} colonne(s)</Badge>
+        <Badge variant="secondary" className="text-[10px]">Aperçu fidèle au modèle Excel exporté</Badge>
         <Badge variant="secondary" className="text-[10px]">Logos : {pos}</Badge>
       </div>
     </div>
