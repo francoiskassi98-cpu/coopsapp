@@ -11,7 +11,7 @@ import { distributeShipment, getCurrentCampaign, normalizeCampaign, type Distrib
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { Truck, Plus, Download, Pencil, Check, X } from "lucide-react";
-import { exportToExcel } from "@/lib/excel-utils";
+import { generateShipmentFiche } from "@/services/excel/shipment-fiche-excel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ImportShipments from "@/pages/ImportShipments";
 import ShipmentDetails from "@/components/ShipmentDetails";
