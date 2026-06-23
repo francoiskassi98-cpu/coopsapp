@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import ImportShipments from "@/pages/ImportShipments";
 import ShipmentDetails from "@/components/ShipmentDetails";
 import ShipmentHistory from "@/components/ShipmentHistory";
+import { TemplatePreview, type TemplatePreviewData } from "@/components/shipments/TemplatePreview";
 
 export default function CreateShipment() {
   const [totalWeight, setTotalWeight] = useState("");
