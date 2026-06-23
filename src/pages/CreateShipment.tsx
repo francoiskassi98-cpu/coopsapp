@@ -576,8 +576,8 @@ export default function CreateShipment() {
                   <CardTitle className="text-base">Aperçu du chargement</CardTitle>
                   {preview.length > 0 && (
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleDownloadPreview}>
-                        <Download className="h-4 w-4" /> Télécharger
+                      <Button variant="outline" onClick={handleSaveAndDownload} disabled={saving}>
+                        <Download className="h-4 w-4" /> Enregistrer et télécharger la fiche
                       </Button>
                       <Button onClick={handleSave} disabled={saving}>
                         {saving ? "Enregistrement..." : "Valider et enregistrer"}
