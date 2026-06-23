@@ -49,11 +49,25 @@ export default function CreateShipment() {
   const [suggestedReceipt, setSuggestedReceipt] = useState<string>("");
   const [receiptNumber, setReceiptNumber] = useState<string>("");
   const [selectedCoopId, setSelectedCoopId] = useState<string>("");
+  const [template, setTemplate] = useState<any | null>(null);
 
   useEffect(() => {
     supabase.from("partners").select("*").order("name").then(({ data }) => setPartners(data || []));
     loadCooperatives();
+    loadTemplate();
   }, []);
+
+  async function loadTemplate() {
+    const { data } = await supabase
+      .from("shipment_excel_templates")
+      .select("*")
+      .order("is_default", { ascending: false })
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setTemplate(data);
+  }
+
 
   async function loadCooperatives() {
     // Load cooperatives from cooperatives table
