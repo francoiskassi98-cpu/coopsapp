@@ -354,6 +354,27 @@ export default function ShipmentDetails() {
               </Select>
             </div>
 
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase">Informations transport</p>
+              <div className="space-y-2">
+                <Label>Nom du chauffeur</Label>
+                <Input value={editDriver} onChange={(e) => setEditDriver(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>N° Camion</Label>
+                  <Input value={editTruck} onChange={(e) => setEditTruck(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>N° Remorque</Label>
+                  <Input value={editTrailer} onChange={(e) => setEditTrailer(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Date départ</Label>
+                <Input type="date" value={editDeparture} onChange={(e) => setEditDeparture(e.target.value)} />
+              </div>
+
             <Button onClick={handleSaveEdit} disabled={saving} className="w-full">
               {saving ? "Enregistrement..." : "Enregistrer les modifications"}
             </Button>
