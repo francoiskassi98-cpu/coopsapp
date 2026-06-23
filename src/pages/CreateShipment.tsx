@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import ImportShipments from "@/pages/ImportShipments";
 import ShipmentDetails from "@/components/ShipmentDetails";
 import ShipmentHistory from "@/components/ShipmentHistory";
+import { TemplatePreview, type TemplatePreviewData } from "@/components/shipments/TemplatePreview";
 
 export default function CreateShipment() {
   const [totalWeight, setTotalWeight] = useState("");
@@ -48,11 +49,25 @@ export default function CreateShipment() {
   const [suggestedReceipt, setSuggestedReceipt] = useState<string>("");
   const [receiptNumber, setReceiptNumber] = useState<string>("");
   const [selectedCoopId, setSelectedCoopId] = useState<string>("");
+  const [template, setTemplate] = useState<any | null>(null);
 
   useEffect(() => {
     supabase.from("partners").select("*").order("name").then(({ data }) => setPartners(data || []));
     loadCooperatives();
+    loadTemplate();
   }, []);
+
+  async function loadTemplate() {
+    const { data } = await supabase
+      .from("shipment_excel_templates")
+      .select("*")
+      .order("is_default", { ascending: false })
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setTemplate(data);
+  }
+
 
   async function loadCooperatives() {
     // Load cooperatives from cooperatives table
@@ -597,80 +612,147 @@ export default function CreateShipment() {
                       {preview.length} producteurs • {preview.reduce((s, d) => s + d.num_bags, 0)} sacs •{" "}
                       {preview.reduce((s, d) => s + d.allocated_weight, 0).toLocaleString("fr-FR")} kg
                     </p>
-                    <div className="max-h-[60vh] overflow-auto">
-                     <Table>
-                         <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-12">N°</TableHead>
-                            <SortableHeader column="receipt" label="N° Reçu" sortConfig={sortConfig} onToggle={toggleSort} />
-                            <SortableHeader column="name" label="Nom" sortConfig={sortConfig} onToggle={toggleSort} />
-                            <SortableHeader column="code" label="Code plantation" sortConfig={sortConfig} onToggle={toggleSort} />
-                            <SortableHeader column="section" label="Section" sortConfig={sortConfig} onToggle={toggleSort} />
-                            <SortableHeader column="weight" label="Poids (kg)" sortConfig={sortConfig} onToggle={toggleSort} />
-                            <SortableHeader column="bags" label="Sacs" sortConfig={sortConfig} onToggle={toggleSort} />
-                            <SortableHeader column="date" label="Date" sortConfig={sortConfig} onToggle={toggleSort} />
-                            <TableHead className="w-16">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {sortData(preview, (d, col) => {
-                            switch (col) {
-                              case "receipt": return d.receipt_number;
-                              case "name": return d.full_name;
-                              case "code": return d.plantation_code;
-                              case "section": return d.section;
-                              case "weight": return d.allocated_weight;
-                              case "bags": return d.num_bags;
-                              case "date": return d.delivery_date;
-                              default: return null;
-                            }
-                          }).map((d, index) => {
-                            const originalIndex = preview.indexOf(d);
-                            return (
-                            <TableRow key={d.receipt_number}>
-                              <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                              <TableCell className="font-mono text-xs">{d.receipt_number}</TableCell>
-                              <TableCell>{d.full_name}</TableCell>
-                              <TableCell className="font-mono text-xs">{d.plantation_code}</TableCell>
-                              <TableCell>{d.section}</TableCell>
-                              {editingIndex === originalIndex ? (
-                                <>
+
+                    <Tabs defaultValue="template">
+                      <TabsList>
+                        <TabsTrigger value="template">Aperçu modèle</TabsTrigger>
+                        <TabsTrigger value="edit">Édition détaillée</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="template">
+                        {!template ? (
+                          <p className="text-sm text-muted-foreground py-6 text-center">
+                            Aucun modèle configuré. Définissez-en un dans « Modèles chargement ».
+                          </p>
+                        ) : (
+                          <div className="max-h-[60vh] overflow-auto">
+                            <TemplatePreview
+                              title={template.title}
+                              subtitle={template.subtitle}
+                              slogan={template.slogan}
+                              coop_logo_path={template.coop_logo_path}
+                              partner_logo_path={template.partner_logo_path}
+                              logo_position={template.logo_position}
+                              custom_header={template.custom_header}
+                              custom_footer={template.custom_footer}
+                              show_driver={template.show_driver}
+                              show_truck={template.show_truck}
+                              show_trailer={template.show_trailer}
+                              show_bill_of_lading={template.show_bill_of_lading}
+                              show_destination={template.show_destination}
+                              show_project={template.show_project}
+                              show_partner={template.show_partner}
+                              show_departure_date={template.show_departure_date}
+                              show_num_bags={template.show_num_bags}
+                              show_total_weight={template.show_total_weight}
+                              show_num_producers={template.show_num_producers}
+                              show_partner_logo={template.show_partner_logo}
+                              coopName={cooperatives.find((c) => c.id === selectedCoopId)?.name}
+                              data={{
+                                driver: driverName || "—",
+                                truck: truckNumber || "—",
+                                trailer: trailerNumber || "—",
+                                bill_of_lading: connaissement || "—",
+                                destination: destination || "—",
+                                project: project || "—",
+                                partner: partners.find((p) => p.id === partnerId)?.name || "—",
+                                departure_date: departureDate || "—",
+                                num_bags: preview.reduce((s, d) => s + d.num_bags, 0),
+                                total_weight: preview.reduce((s, d) => s + d.allocated_weight, 0).toLocaleString("fr-FR"),
+                                num_producers: preview.length,
+                                lot: "(auto)",
+                                producers: preview.map((d) => ({
+                                  name: d.full_name,
+                                  receipt: d.receipt_number,
+                                  section: d.section,
+                                  plant: d.plantation_code,
+                                  date: d.delivery_date,
+                                  weight: Math.round(d.allocated_weight).toLocaleString("fr-FR"),
+                                  bags: d.num_bags,
+                                })),
+                              } as TemplatePreviewData}
+                            />
+                          </div>
+                        )}
+                      </TabsContent>
+
+                      <TabsContent value="edit">
+                        <div className="max-h-[60vh] overflow-auto">
+                         <Table>
+                             <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-12">N°</TableHead>
+                                <SortableHeader column="receipt" label="N° Reçu" sortConfig={sortConfig} onToggle={toggleSort} />
+                                <SortableHeader column="name" label="Nom" sortConfig={sortConfig} onToggle={toggleSort} />
+                                <SortableHeader column="code" label="Code plantation" sortConfig={sortConfig} onToggle={toggleSort} />
+                                <SortableHeader column="section" label="Section" sortConfig={sortConfig} onToggle={toggleSort} />
+                                <SortableHeader column="weight" label="Poids (kg)" sortConfig={sortConfig} onToggle={toggleSort} />
+                                <SortableHeader column="bags" label="Sacs" sortConfig={sortConfig} onToggle={toggleSort} />
+                                <SortableHeader column="date" label="Date" sortConfig={sortConfig} onToggle={toggleSort} />
+                                <TableHead className="w-16">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {sortData(preview, (d, col) => {
+                                switch (col) {
+                                  case "receipt": return d.receipt_number;
+                                  case "name": return d.full_name;
+                                  case "code": return d.plantation_code;
+                                  case "section": return d.section;
+                                  case "weight": return d.allocated_weight;
+                                  case "bags": return d.num_bags;
+                                  case "date": return d.delivery_date;
+                                  default: return null;
+                                }
+                              }).map((d, index) => {
+                                const originalIndex = preview.indexOf(d);
+                                return (
+                                <TableRow key={d.receipt_number}>
+                                  <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                                  <TableCell className="font-mono text-xs">{d.receipt_number}</TableCell>
+                                  <TableCell>{d.full_name}</TableCell>
+                                  <TableCell className="font-mono text-xs">{d.plantation_code}</TableCell>
+                                  <TableCell>{d.section}</TableCell>
+                                  {editingIndex === originalIndex ? (
+                                    <>
+                                      <TableCell>
+                                        <Input type="number" value={editWeight} onChange={(e) => setEditWeight(e.target.value)} className="h-7 w-20" />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Input type="number" value={editBags} onChange={(e) => setEditBags(e.target.value)} className="h-7 w-16" />
+                                      </TableCell>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <TableCell>{Math.round(d.allocated_weight).toLocaleString("fr-FR")}</TableCell>
+                                      <TableCell>{d.num_bags}</TableCell>
+                                    </>
+                                  )}
+                                  <TableCell>{d.delivery_date}</TableCell>
                                   <TableCell>
-                                    <Input type="number" value={editWeight} onChange={(e) => setEditWeight(e.target.value)} className="h-7 w-20" />
+                                    {editingIndex === originalIndex ? (
+                                      <div className="flex gap-1">
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleSaveEdit(originalIndex)}>
+                                          <Check className="h-3 w-3" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit}>
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleStartEdit(originalIndex)}>
+                                        <Pencil className="h-3 w-3" />
+                                      </Button>
+                                    )}
                                   </TableCell>
-                                  <TableCell>
-                                    <Input type="number" value={editBags} onChange={(e) => setEditBags(e.target.value)} className="h-7 w-16" />
-                                  </TableCell>
-                                </>
-                              ) : (
-                                <>
-                                  <TableCell>{Math.round(d.allocated_weight).toLocaleString("fr-FR")}</TableCell>
-                                  <TableCell>{d.num_bags}</TableCell>
-                                </>
-                              )}
-                              <TableCell>{d.delivery_date}</TableCell>
-                              <TableCell>
-                                {editingIndex === originalIndex ? (
-                                  <div className="flex gap-1">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleSaveEdit(originalIndex)}>
-                                      <Check className="h-3 w-3" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit}>
-                                      <X className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleStartEdit(originalIndex)}>
-                                    <Pencil className="h-3 w-3" />
-                                  </Button>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
+                                </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
                   </>
                 )}
               </CardContent>

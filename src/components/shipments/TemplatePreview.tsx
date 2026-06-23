@@ -20,6 +20,31 @@ function useSignedImage(value?: string | null, bucket = "shipment-assets") {
   return url;
 }
 
+export interface TemplatePreviewData {
+  fournisseur?: string;
+  driver?: string;
+  truck?: string;
+  trailer?: string;
+  bill_of_lading?: string;
+  destination?: string;
+  project?: string;
+  partner?: string;
+  departure_date?: string;
+  num_bags?: string | number;
+  total_weight?: string | number;
+  num_producers?: string | number;
+  lot?: string;
+  producers?: Array<{
+    name: string;
+    receipt: string;
+    section: string;
+    plant: string;
+    date: string;
+    weight: string | number;
+    bags: number;
+  }>;
+}
+
 interface TemplatePreviewProps {
   title?: string | null;
   subtitle?: string | null;
@@ -42,26 +67,26 @@ interface TemplatePreviewProps {
   show_num_producers?: boolean;
   show_partner_logo?: boolean;
   coopName?: string;
+  data?: TemplatePreviewData;
 }
 
-// Données fictives représentatives d'un chargement réel
-const sample = {
+const defaultSample = {
   fournisseur: "COOPÉRATIVE EXEMPLE",
-  show_driver: "K. Diabaté",
-  show_truck: "AB-1234-CI",
-  show_trailer: "RM-5678",
-  show_bill_of_lading: "BL-2026-0042",
-  show_destination: "Port d'Abidjan",
-  show_project: "RAINFOREST 2026",
-  show_partner: "ETG",
-  show_departure_date: "22/06/2026",
-  show_num_bags: "320",
-  show_total_weight: "20 800",
-  show_num_producers: "47",
+  driver: "K. Diabaté",
+  truck: "AB-1234-CI",
+  trailer: "RM-5678",
+  bill_of_lading: "BL-2026-0042",
+  destination: "Port d'Abidjan",
+  project: "RAINFOREST 2026",
+  partner: "ETG",
+  departure_date: "22/06/2026",
+  num_bags: "320",
+  total_weight: "20 800",
+  num_producers: "47",
   lot: "LOT-0007",
 };
 
-const producers = [
+const defaultProducers = [
   { name: "KOFFI Jean", receipt: "000123", section: "A", plant: "PL-001", date: "20/06/2026", weight: "1 250", bags: 20 },
   { name: "YAO Marie", receipt: "000124", section: "B", plant: "PL-002", date: "20/06/2026", weight: "980", bags: 15 },
   { name: "TRAORE Paul", receipt: "000125", section: "A", plant: "PL-003", date: "21/06/2026", weight: "1 470", bags: 23 },
@@ -84,35 +109,38 @@ export function TemplatePreview(props: TemplatePreviewProps) {
     )
   ) : null;
 
+  const s = { ...defaultSample, ...(props.data || {}) };
+  const producers = props.data?.producers ?? defaultProducers;
+
   // Construit les lignes d'info en 2 colonnes (gauche / droite) — fidèle au modèle Excel
   type Row = { left?: [string, string]; right?: [string, string] };
   const rows: Row[] = [];
   rows.push({
-    left: ["Fournisseur :", props.coopName || sample.fournisseur],
-    right: props.show_project ? ["Statut projet :", sample.show_project] : undefined,
+    left: ["Fournisseur :", props.coopName || s.fournisseur],
+    right: props.show_project ? ["Statut projet :", String(s.project)] : undefined,
   });
   rows.push({
-    left: props.show_driver ? ["Nom du Chauffeur :", sample.show_driver] : undefined,
-    right: props.show_destination ? ["Destination :", sample.show_destination] : undefined,
+    left: props.show_driver ? ["Nom du Chauffeur :", String(s.driver)] : undefined,
+    right: props.show_destination ? ["Destination :", String(s.destination)] : undefined,
   });
   rows.push({
-    left: props.show_truck ? ["N° du Camion :", sample.show_truck] : undefined,
-    right: props.show_partner ? ["Partenaire :", sample.show_partner] : undefined,
+    left: props.show_truck ? ["N° du Camion :", String(s.truck)] : undefined,
+    right: props.show_partner ? ["Partenaire :", String(s.partner)] : undefined,
   });
   rows.push({
-    left: props.show_trailer ? ["N° de Remorque :", sample.show_trailer] : undefined,
-    right: props.show_bill_of_lading ? ["N° de connaissement :", sample.show_bill_of_lading] : undefined,
+    left: props.show_trailer ? ["N° de Remorque :", String(s.trailer)] : undefined,
+    right: props.show_bill_of_lading ? ["N° de connaissement :", String(s.bill_of_lading)] : undefined,
   });
   rows.push({
-    left: ["N° de lot :", sample.lot],
-    right: props.show_departure_date ? ["Date de départ :", sample.show_departure_date] : undefined,
+    left: ["N° de lot :", String(s.lot)],
+    right: props.show_departure_date ? ["Date de départ :", String(s.departure_date)] : undefined,
   });
   rows.push({
-    left: props.show_total_weight ? ["Poids total (Kg) :", sample.show_total_weight] : undefined,
-    right: props.show_num_bags ? ["Nombre de sacs :", sample.show_num_bags] : undefined,
+    left: props.show_total_weight ? ["Poids total (Kg) :", String(s.total_weight)] : undefined,
+    right: props.show_num_bags ? ["Nombre de sacs :", String(s.num_bags)] : undefined,
   });
   if (props.show_num_producers) {
-    rows.push({ left: ["Nombre de producteurs :", sample.show_num_producers] });
+    rows.push({ left: ["Nombre de producteurs :", String(s.num_producers)] });
   }
 
   const visibleRows = rows.filter((r) => r.left || r.right);
@@ -201,11 +229,17 @@ export function TemplatePreview(props: TemplatePreviewProps) {
                 <td className="border px-2 py-1 text-center">{p.bags}</td>
               </tr>
             ))}
-            <tr className="bg-green-50 font-bold">
-              <td className="border px-2 py-1 text-right" colSpan={6}>TOTAL</td>
-              <td className="border px-2 py-1 text-right">3 700</td>
-              <td className="border px-2 py-1 text-center">58</td>
-            </tr>
+            {(() => {
+              const totW = producers.reduce((s, p) => s + (Number(String(p.weight).replace(/\s/g, "")) || 0), 0);
+              const totB = producers.reduce((s, p) => s + (Number(p.bags) || 0), 0);
+              return (
+                <tr className="bg-green-50 font-bold">
+                  <td className="border px-2 py-1 text-right" colSpan={6}>TOTAL</td>
+                  <td className="border px-2 py-1 text-right">{totW.toLocaleString("fr-FR")}</td>
+                  <td className="border px-2 py-1 text-center">{totB}</td>
+                </tr>
+              );
+            })()}
           </tbody>
         </table>
       </div>
