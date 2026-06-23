@@ -39,10 +39,6 @@ export default function ShipmentDetails() {
   const [cooperativesList, setCooperativesList] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
-  const [previewingId, setPreviewingId] = useState<string | null>(null);
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
-  const [previewWb, setPreviewWb] = useState<ExcelJS.Workbook | null>(null);
-  const [previewFileName, setPreviewFileName] = useState<string>("");
 
   const handleGenerateFiche = async (id: string) => {
     setGeneratingId(id);
@@ -54,31 +50,6 @@ export default function ShipmentDetails() {
       toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     }
     setGeneratingId(null);
-  };
-
-  const handlePreviewFiche = async (id: string) => {
-    setPreviewingId(id);
-    try {
-      const { html, wb, fileName } = await renderShipmentFicheHtml(id);
-      setPreviewHtml(html);
-      setPreviewWb(wb);
-      setPreviewFileName(fileName);
-    } catch (e) {
-      console.error(e);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
-    }
-    setPreviewingId(null);
-  };
-
-  const handleDownloadFromPreview = async () => {
-    if (!previewWb) return;
-    try {
-      await downloadWorkbook(previewWb, previewFileName);
-      toast({ title: "Fiche téléchargée" });
-    } catch (e) {
-      console.error(e);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
-    }
   };
 
   // Edit form state
