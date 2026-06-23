@@ -181,7 +181,11 @@ export default function ShipmentDetails() {
           project: editProject,
           destination: editDestination,
           partner_id: editPartnerId || null,
-        })
+          driver_name: editDriver.trim() || null,
+          truck_number: editTruck.trim() || null,
+          trailer_number: editTrailer.trim() || null,
+          departure_date: editDeparture || null,
+        } as any)
         .eq("id", editingShipment.id);
 
       if (error) throw error;
