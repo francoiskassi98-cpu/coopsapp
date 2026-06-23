@@ -18,7 +18,7 @@ const STATS = [
 ];
 
 export default function Auth() {
-  const { session } = useAuth();
+  const { session, loading: authLoading, isSuperAdmin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,7 +28,18 @@ export default function Auth() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
 
-  if (session) return <Navigate to="/" replace />;
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (session) {
+    if (isSuperAdmin) return <Navigate to="/gestion/cooperatives/nouvelle" replace />;
+    return <Navigate to="/" replace />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
