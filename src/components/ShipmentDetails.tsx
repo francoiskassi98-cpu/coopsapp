@@ -156,6 +156,10 @@ export default function ShipmentDetails() {
     setEditConnaissement(s.connaissement || "");
     setEditTotalWeight(String(s.total_weight));
     setEditTotalBags(String(s.total_bags));
+    setEditDriver((s as any).driver_name || "");
+    setEditTruck((s as any).truck_number || "");
+    setEditTrailer((s as any).trailer_number || "");
+    setEditDeparture((s as any).departure_date || "");
   };
 
   const handleSaveEdit = async () => {
