@@ -109,35 +109,38 @@ export function TemplatePreview(props: TemplatePreviewProps) {
     )
   ) : null;
 
+  const s = { ...defaultSample, ...(props.data || {}) };
+  const producers = props.data?.producers ?? defaultProducers;
+
   // Construit les lignes d'info en 2 colonnes (gauche / droite) — fidèle au modèle Excel
   type Row = { left?: [string, string]; right?: [string, string] };
   const rows: Row[] = [];
   rows.push({
-    left: ["Fournisseur :", props.coopName || sample.fournisseur],
-    right: props.show_project ? ["Statut projet :", sample.show_project] : undefined,
+    left: ["Fournisseur :", props.coopName || s.fournisseur],
+    right: props.show_project ? ["Statut projet :", String(s.project)] : undefined,
   });
   rows.push({
-    left: props.show_driver ? ["Nom du Chauffeur :", sample.show_driver] : undefined,
-    right: props.show_destination ? ["Destination :", sample.show_destination] : undefined,
+    left: props.show_driver ? ["Nom du Chauffeur :", String(s.driver)] : undefined,
+    right: props.show_destination ? ["Destination :", String(s.destination)] : undefined,
   });
   rows.push({
-    left: props.show_truck ? ["N° du Camion :", sample.show_truck] : undefined,
-    right: props.show_partner ? ["Partenaire :", sample.show_partner] : undefined,
+    left: props.show_truck ? ["N° du Camion :", String(s.truck)] : undefined,
+    right: props.show_partner ? ["Partenaire :", String(s.partner)] : undefined,
   });
   rows.push({
-    left: props.show_trailer ? ["N° de Remorque :", sample.show_trailer] : undefined,
-    right: props.show_bill_of_lading ? ["N° de connaissement :", sample.show_bill_of_lading] : undefined,
+    left: props.show_trailer ? ["N° de Remorque :", String(s.trailer)] : undefined,
+    right: props.show_bill_of_lading ? ["N° de connaissement :", String(s.bill_of_lading)] : undefined,
   });
   rows.push({
-    left: ["N° de lot :", sample.lot],
-    right: props.show_departure_date ? ["Date de départ :", sample.show_departure_date] : undefined,
+    left: ["N° de lot :", String(s.lot)],
+    right: props.show_departure_date ? ["Date de départ :", String(s.departure_date)] : undefined,
   });
   rows.push({
-    left: props.show_total_weight ? ["Poids total (Kg) :", sample.show_total_weight] : undefined,
-    right: props.show_num_bags ? ["Nombre de sacs :", sample.show_num_bags] : undefined,
+    left: props.show_total_weight ? ["Poids total (Kg) :", String(s.total_weight)] : undefined,
+    right: props.show_num_bags ? ["Nombre de sacs :", String(s.num_bags)] : undefined,
   });
   if (props.show_num_producers) {
-    rows.push({ left: ["Nombre de producteurs :", sample.show_num_producers] });
+    rows.push({ left: ["Nombre de producteurs :", String(s.num_producers)] });
   }
 
   const visibleRows = rows.filter((r) => r.left || r.right);
