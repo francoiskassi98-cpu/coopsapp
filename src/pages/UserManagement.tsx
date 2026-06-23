@@ -147,8 +147,8 @@ export default function UserManagement() {
 
   const handleUpdate = async () => {
     if (!editUser) return;
-    if (editRole === "agent" && editCoops.length === 0) {
-      toast({ title: "Coopératives requises", description: "Un agent doit avoir au moins une coopérative.", variant: "destructive" });
+    if ((editRole === "agent" || editRole === "coop_admin") && editCoops.length === 0) {
+      toast({ title: "Coopératives requises", description: "Un agent ou admin de coopérative doit avoir au moins une coopérative assignée.", variant: "destructive" });
       return;
     }
     setSaving(true);
