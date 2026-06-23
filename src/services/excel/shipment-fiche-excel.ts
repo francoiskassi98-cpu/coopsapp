@@ -92,7 +92,7 @@ function extOf(url: string): "png" | "jpeg" {
 // - Bloc infos en horizontal lignes 2-11 (fusions A:B, C:D, F:G)
 // - Tableau producteurs commence STRICTEMENT à la ligne 13
 // ============================================================================
-export async function generateShipmentFiche(shipmentId: string): Promise<void> {
+export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ wb: ExcelJS.Workbook; ws: ExcelJS.Worksheet; fileName: string; tpl: TemplateConfig }> {
   const { data: shipment, error: sErr } = await supabase
     .from("shipments")
     .select(
