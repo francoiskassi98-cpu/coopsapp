@@ -357,27 +357,22 @@ export default function CreateShipment() {
     setEditingIndex(null);
   };
 
-  const handleDownloadPreview = async () => {
-    const partnerName = partners.find((p) => p.id === partnerId)?.name || "";
-    const rows = preview.map((d, i) => ({
-      "N°": i + 1,
-      "N° Reçu": d.receipt_number,
-      "Connaissement": connaissement || "",
-      "Projet": project,
-      "Partenaire": partnerName,
-      "Zone": zone || "",
-      "Nom": d.full_name,
-      "Code plantation": d.plantation_code,
-      "Section": d.section,
-      "Poids net (kg)": Math.round(d.allocated_weight),
-      "Nombre de sacs": d.num_bags,
-      "Date de livraison": d.delivery_date,
-    }));
-    const parts = ["Chargement"];
-    if (connaissement) parts.push(connaissement);
-    if (zone) parts.push(zone);
-    const fileName = `${parts.join("-")}.xlsx`;
-    await exportToExcel(rows, fileName, "Chargement");
+  const handleSaveAndDownload = async () => {
+    if (preview.length === 0) return;
+    setSaving(true);
+    try {
+      const count = preview.length;
+      const shipmentId = await persistShipment();
+      if (!shipmentId) return;
+      await generateShipmentFiche(shipmentId);
+      toast({ title: "Chargement créé", description: `${count} fiches générées et fiche Excel téléchargée.` });
+      resetForm();
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
