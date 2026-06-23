@@ -24,8 +24,8 @@ interface Template {
   title: string | null;
   subtitle: string | null;
   slogan: string | null;
-  coop_logo_url: string | null;
-  partner_logo_url: string | null;
+  coop_logo_path: string | null;
+  partner_logo_path: string | null;
   logo_position: "left" | "center" | "right" | "split";
   custom_header: string | null;
   custom_footer: string | null;
@@ -49,8 +49,8 @@ const defaults: Partial<Template> = {
   title: "FICHE DE CHARGEMENT",
   subtitle: "",
   slogan: "",
-  coop_logo_url: "",
-  partner_logo_url: "",
+  coop_logo_path: "",
+  partner_logo_path: "",
   logo_position: "left",
   custom_header: "",
   custom_footer: "",
@@ -246,11 +246,11 @@ export default function ShipmentTemplates() {
                 </div>
                 <div>
                   <Label>URL logo coopérative</Label>
-                  <Input value={editing.coop_logo_url || ""} onChange={e => setEditing({ ...editing, coop_logo_url: e.target.value })} />
+                  <Input value={editing.coop_logo_path || ""} onChange={e => setEditing({ ...editing, coop_logo_path: e.target.value })} />
                 </div>
                 <div>
                   <Label>URL logo partenaire</Label>
-                  <Input value={editing.partner_logo_url || ""} onChange={e => setEditing({ ...editing, partner_logo_url: e.target.value })} />
+                  <Input value={editing.partner_logo_path || ""} onChange={e => setEditing({ ...editing, partner_logo_path: e.target.value })} />
                 </div>
                 <div>
                   <Label>Position des logos</Label>

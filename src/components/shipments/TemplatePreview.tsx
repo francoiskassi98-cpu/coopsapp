@@ -4,8 +4,8 @@ interface TemplatePreviewProps {
   title?: string | null;
   subtitle?: string | null;
   slogan?: string | null;
-  coop_logo_url?: string | null;
-  partner_logo_url?: string | null;
+  coop_logo_path?: string | null;
+  partner_logo_path?: string | null;
   logo_position?: "left" | "center" | "right" | "split";
   custom_header?: string | null;
   custom_footer?: string | null;
@@ -49,14 +49,14 @@ const producers = [
 
 export function TemplatePreview(props: TemplatePreviewProps) {
   const pos = props.logo_position || "split";
-  const coopLogo = props.coop_logo_url ? (
-    <img src={props.coop_logo_url} alt="Logo coop" className="h-16 w-16 object-contain bg-white rounded border" />
+  const coopLogo = props.coop_logo_path ? (
+    <img src={props.coop_logo_path} alt="Logo coop" className="h-16 w-16 object-contain bg-white rounded border" />
   ) : (
     <div className="h-16 w-16 rounded border border-dashed flex items-center justify-center text-[10px] text-muted-foreground bg-white">LOGO</div>
   );
   const partnerLogo = props.show_partner_logo ? (
-    props.partner_logo_url ? (
-      <img src={props.partner_logo_url} alt="Logo partenaire" className="h-16 w-16 object-contain bg-white rounded border" />
+    props.partner_logo_path ? (
+      <img src={props.partner_logo_path} alt="Logo partenaire" className="h-16 w-16 object-contain bg-white rounded border" />
     ) : (
       <div className="h-16 w-16 rounded border border-dashed flex items-center justify-center text-[10px] text-muted-foreground bg-white">PARTENAIRE</div>
     )

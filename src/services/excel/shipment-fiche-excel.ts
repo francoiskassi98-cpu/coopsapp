@@ -5,8 +5,8 @@ interface TemplateConfig {
   title: string;
   subtitle: string | null;
   slogan: string | null;
-  coop_logo_url: string | null;
-  partner_logo_url: string | null;
+  coop_logo_path: string | null;
+  partner_logo_path: string | null;
   logo_position: "left" | "center" | "right" | "split";
   custom_header: string | null;
   custom_footer: string | null;
@@ -28,8 +28,8 @@ const FALLBACK_TEMPLATE: TemplateConfig = {
   title: "FICHE D'ACCOMPAGNEMENT CAMPAGNE",
   subtitle: null,
   slogan: null,
-  coop_logo_url: null,
-  partner_logo_url: null,
+  coop_logo_path: null,
+  partner_logo_path: null,
   logo_position: "split",
   custom_header: null,
   custom_footer: null,
@@ -188,13 +188,13 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
       editAs: "oneCell",
     });
   };
-  if (tpl.coop_logo_url) {
+  if (tpl.coop_logo_path) {
     // En haut à gauche (colonne A)
-    await addLogo(tpl.coop_logo_url, 0.1);
+    await addLogo(tpl.coop_logo_path, 0.1);
   }
-  if (tpl.show_partner_logo && tpl.partner_logo_url) {
+  if (tpl.show_partner_logo && tpl.partner_logo_path) {
     // En haut à droite (colonne H, à droite de l'image)
-    await addLogo(tpl.partner_logo_url, 7.05);
+    await addLogo(tpl.partner_logo_path, 7.05);
   }
 
   // ============================================================
