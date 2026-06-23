@@ -60,6 +60,10 @@ export default function ShipmentDetails() {
   const [editConnaissement, setEditConnaissement] = useState("");
   const [editTotalWeight, setEditTotalWeight] = useState("");
   const [editTotalBags, setEditTotalBags] = useState("");
+  const [editDriver, setEditDriver] = useState("");
+  const [editTruck, setEditTruck] = useState("");
+  const [editTrailer, setEditTrailer] = useState("");
+  const [editDeparture, setEditDeparture] = useState("");
 
   const fetchAll = async () => {
     setLoading(true);
