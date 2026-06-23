@@ -18,7 +18,7 @@ const STATS = [
 ];
 
 export default function Auth() {
-  const { session } = useAuth();
+  const { session, loading, isSuperAdmin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
