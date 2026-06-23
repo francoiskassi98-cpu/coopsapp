@@ -21,6 +21,10 @@ export default function CreateShipment() {
   const [totalWeight, setTotalWeight] = useState("");
   const [totalBags, setTotalBags] = useState("");
   const [connaissement, setConnaissement] = useState("");
+  const [driverName, setDriverName] = useState("");
+  const [truckNumber, setTruckNumber] = useState("");
+  const [trailerNumber, setTrailerNumber] = useState("");
+  const [departureDate, setDepartureDate] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [project, setProject] = useState("");
@@ -131,9 +135,27 @@ export default function CreateShipment() {
     return { potentiel: pot.potentiel, delivered: del, remaining: pot.remaining };
   }, [zone, coopPotential, coopDelivered]);
 
+  const missingFields = useMemo(() => {
+    const m: string[] = [];
+    if (!totalWeight) m.push("Poids total");
+    if (!totalBags) m.push("Nombre de sacs");
+    if (!connaissement.trim()) m.push("N° Connaissement");
+    if (!startDate) m.push("Date début");
+    if (!endDate) m.push("Date fin");
+    if (!project) m.push("Projet");
+    if (!partnerId) m.push("Partenaire");
+    if (!selectedCoopId) m.push("Coopérative");
+    if (!destination) m.push("Destination");
+    if (!driverName.trim()) m.push("Chauffeur");
+    if (!truckNumber.trim()) m.push("N° Camion");
+    if (!trailerNumber.trim()) m.push("N° Remorque");
+    if (!departureDate) m.push("Date départ");
+    return m;
+  }, [totalWeight, totalBags, connaissement, startDate, endDate, project, partnerId, selectedCoopId, destination, driverName, truckNumber, trailerNumber, departureDate]);
+
   const handleCalculate = async () => {
-    if (!totalWeight || !totalBags || !startDate || !endDate || !project || !destination || !zone) {
-      toast({ title: "Champs requis manquants", description: "Veuillez remplir tous les champs obligatoires, y compris la coopérative.", variant: "destructive" });
+    if (missingFields.length > 0) {
+      toast({ title: "Champs requis manquants", description: `Renseignez : ${missingFields.join(", ")}.`, variant: "destructive" });
       return;
     }
 
@@ -209,7 +231,11 @@ export default function CreateShipment() {
           campaign: normalizeCampaign(getCurrentCampaign()),
           delivery_start: startDate,
           delivery_end: endDate,
-        })
+          driver_name: driverName.trim() || null,
+          truck_number: truckNumber.trim() || null,
+          trailer_number: trailerNumber.trim() || null,
+          departure_date: departureDate || null,
+        } as any)
         .select()
         .single();
 
@@ -242,6 +268,10 @@ export default function CreateShipment() {
       setConnaissement("");
       setTotalWeight("");
       setTotalBags("");
+      setDriverName("");
+      setTruckNumber("");
+      setTrailerNumber("");
+      setDepartureDate("");
     } catch (err: any) {
       (console.error(err), toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }));
     } finally {
@@ -371,8 +401,30 @@ export default function CreateShipment() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>N° Connaissement (optionnel)</Label>
-                  <Input value={connaissement} onChange={(e) => setConnaissement(e.target.value)} />
+                  <Label>N° Connaissement *</Label>
+                  <Input value={connaissement} onChange={(e) => setConnaissement(e.target.value)} placeholder="SC101410-..." />
+                </div>
+
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase">Informations transport (obligatoires)</p>
+                  <div className="space-y-2">
+                    <Label>Nom du chauffeur *</Label>
+                    <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="KONATÉ SEYDOU" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>N° Camion *</Label>
+                      <Input value={truckNumber} onChange={(e) => setTruckNumber(e.target.value)} placeholder="AA886EA04" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>N° Remorque *</Label>
+                      <Input value={trailerNumber} onChange={(e) => setTrailerNumber(e.target.value)} placeholder="8142KT03" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Date départ *</Label>
+                    <Input type="date" value={departureDate} onChange={(e) => setDepartureDate(e.target.value)} />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -500,7 +552,14 @@ export default function CreateShipment() {
                   <p className="text-xs text-muted-foreground">Campagne actuelle : {getCurrentCampaign()}</p>
                 </div>
 
-                <Button onClick={handleCalculate} className="w-full">Calculer la distribution</Button>
+                {missingFields.length > 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Champs requis manquants : {missingFields.join(", ")}.
+                  </p>
+                )}
+                <Button onClick={handleCalculate} className="w-full" disabled={missingFields.length > 0}>
+                  Calculer la distribution
+                </Button>
               </CardContent>
             </Card>
 

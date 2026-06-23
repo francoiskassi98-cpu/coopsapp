@@ -60,6 +60,10 @@ export default function ShipmentDetails() {
   const [editConnaissement, setEditConnaissement] = useState("");
   const [editTotalWeight, setEditTotalWeight] = useState("");
   const [editTotalBags, setEditTotalBags] = useState("");
+  const [editDriver, setEditDriver] = useState("");
+  const [editTruck, setEditTruck] = useState("");
+  const [editTrailer, setEditTrailer] = useState("");
+  const [editDeparture, setEditDeparture] = useState("");
 
   const fetchAll = async () => {
     setLoading(true);
@@ -152,6 +156,10 @@ export default function ShipmentDetails() {
     setEditConnaissement(s.connaissement || "");
     setEditTotalWeight(String(s.total_weight));
     setEditTotalBags(String(s.total_bags));
+    setEditDriver((s as any).driver_name || "");
+    setEditTruck((s as any).truck_number || "");
+    setEditTrailer((s as any).trailer_number || "");
+    setEditDeparture((s as any).departure_date || "");
   };
 
   const handleSaveEdit = async () => {
@@ -173,7 +181,11 @@ export default function ShipmentDetails() {
           project: editProject,
           destination: editDestination,
           partner_id: editPartnerId || null,
-        })
+          driver_name: editDriver.trim() || null,
+          truck_number: editTruck.trim() || null,
+          trailer_number: editTrailer.trim() || null,
+          departure_date: editDeparture || null,
+        } as any)
         .eq("id", editingShipment.id);
 
       if (error) throw error;
@@ -340,6 +352,28 @@ export default function ShipmentDetails() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase">Informations transport</p>
+              <div className="space-y-2">
+                <Label>Nom du chauffeur</Label>
+                <Input value={editDriver} onChange={(e) => setEditDriver(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>N° Camion</Label>
+                  <Input value={editTruck} onChange={(e) => setEditTruck(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>N° Remorque</Label>
+                  <Input value={editTrailer} onChange={(e) => setEditTrailer(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Date départ</Label>
+                <Input type="date" value={editDeparture} onChange={(e) => setEditDeparture(e.target.value)} />
+              </div>
             </div>
 
             <Button onClick={handleSaveEdit} disabled={saving} className="w-full">

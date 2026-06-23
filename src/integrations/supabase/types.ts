@@ -816,7 +816,9 @@ export type Database = {
           deleted_at: string | null
           delivery_end: string
           delivery_start: string
+          departure_date: string | null
           destination: string
+          driver_name: string | null
           id: string
           is_cancelled: boolean
           lot_number: string | null
@@ -825,6 +827,8 @@ export type Database = {
           status: string
           total_bags: number
           total_weight: number
+          trailer_number: string | null
+          truck_number: string | null
           zone: string | null
         }
         Insert: {
@@ -837,7 +841,9 @@ export type Database = {
           deleted_at?: string | null
           delivery_end: string
           delivery_start: string
+          departure_date?: string | null
           destination: string
+          driver_name?: string | null
           id?: string
           is_cancelled?: boolean
           lot_number?: string | null
@@ -846,6 +852,8 @@ export type Database = {
           status?: string
           total_bags: number
           total_weight: number
+          trailer_number?: string | null
+          truck_number?: string | null
           zone?: string | null
         }
         Update: {
@@ -858,7 +866,9 @@ export type Database = {
           deleted_at?: string | null
           delivery_end?: string
           delivery_start?: string
+          departure_date?: string | null
           destination?: string
+          driver_name?: string | null
           id?: string
           is_cancelled?: boolean
           lot_number?: string | null
@@ -867,6 +877,8 @@ export type Database = {
           status?: string
           total_bags?: number
           total_weight?: number
+          trailer_number?: string | null
+          truck_number?: string | null
           zone?: string | null
         }
         Relationships: [
