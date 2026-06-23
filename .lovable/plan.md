@@ -1,63 +1,96 @@
-## Problème
-
-1. La fiche Excel générée ignore le modèle configuré dans `/gestion/modeles-chargement` (la fonction utilise une mise en page codée en dur).
-2. Les champs métier (Chauffeur, Camion, Remorque, N° connaissement, Date départ, etc.) attendus par la fiche ne sont pas saisis lors de la création du chargement, donc ils s'impriment vides.
+# Refonte — Gestion des logos par upload uniquement
 
 ## Objectif
+Remplacer partout les champs URL manuels par un système d'upload via Supabase Storage (buckets privés), avec un composant réutilisable `<ImageUploader />` et injection physique des logos dans les exports Excel / PPTX.
 
-- Garder le modèle utilisateur de `shipment_excel_templates` et l'utiliser comme moteur de mise en page de la fiche.
-- Obliger la saisie des informations manquantes du chargement avant la distribution.
+## 1. Storage — buckets privés
 
-## 1. Données chargement — saisie obligatoire avant distribution
+- ✅ `cooperative-logos` (déjà existant, privé)
+- ✅ `partner-logos` (déjà existant, privé)
+- 🆕 `shipment-assets` (à créer, privé) — pour les logos des modèles de chargement et rapports PPTX
+- 🆕 `user-avatars` (à créer, privé) — pour les profils utilisateurs
 
-### Migration `shipments`
-Ajouter les colonnes manquantes :
-- `driver_name text`
-- `truck_number text`
-- `trailer_number text`
-- `departure_date date`
+Policies RLS sur `storage.objects` :
+- Lecture : `authenticated` (signed URLs côté client)
+- Écriture/MAJ/Suppression : `authenticated`, scopée à `cooperative_id` via path préfixe `<coop_id>/...`
 
-Pas de NOT NULL strict (pour ne pas casser les chargements existants) — la contrainte se fait côté UI.
+## 2. Schéma base de données (migration)
 
-### `src/pages/CreateShipment.tsx`
-- Ajouter en haut du formulaire un bloc « Informations chargement » avec : Chauffeur, N° Camion, N° Remorque, Date départ (`type=date`).
-- Le bouton « Distribuer » est désactivé tant que : coopérative, projet, partenaire, destination, poids, sacs, connaissement, chauffeur, camion, remorque, date départ ne sont pas remplis.
-- Ces champs sont persistés sur la ligne `shipments` à la création.
+Renommage des colonnes — `logo_url` → `logo_path` (stocke un path interne au bucket, pas une URL) :
 
-### `src/components/ShipmentDetails.tsx`
-- Ajouter les 4 champs dans la fenêtre « Modifier le chargement » pour permettre la correction a posteriori.
+| Table | Avant | Après |
+|---|---|---|
+| `cooperatives` | `logo_url` | `logo_path` |
+| `partners` | `logo_url` | `logo_path` |
+| `shipment_excel_templates` | `coop_logo_url`, `partner_logo_url` | `coop_logo_path`, `partner_logo_path` |
+| `profiles` | `avatar_url` | `avatar_path` |
 
-## 2. Génération fiche pilotée par le modèle
+Note : on conserve la valeur existante (les anciennes URLs publiques restent lisibles via fallback dans le composant uploader, qui détecte URL vs path).
 
-### `src/services/excel/shipment-fiche-excel.ts`
-- Charger le modèle applicable :
-  1. modèle `is_default = true` de la coopérative du chargement,
-  2. sinon premier modèle de la coopérative,
-  3. sinon valeurs par défaut (fidèles à FICHIER EXEMPLE.xlsx).
-- Appliquer les paramètres du modèle :
-  - **Titre ligne 1** : `template.title` (par défaut « FICHE D'ACCOMPAGNEMENT CAMPAGNE »).
-  - **Sous-titre / slogan** : ligne fusionnée sous le titre si renseignés.
-  - **Logos** (`coop_logo_url`, `partner_logo_url`) téléchargés via `fetch` → `wb.addImage`, positionnés selon `logo_position` (`left` / `center` / `right` / `split`). Partenaire affiché seulement si `show_partner_logo`.
-  - **Bloc infos chargement** : chaque ligne (Chauffeur, Camion, Remorque, Connaissement, Destination, Projet, Partenaire, Date départ, Poids, Sacs, Nb producteurs) n'est rendue que si le `show_*` correspondant est `true`. Le bloc se compacte (pas de ligne vide).
-  - **En-tête / pied** : `custom_header` et `custom_footer` rendus en ligne fusionnée + `headerFooter.oddHeader`/`oddFooter` Excel.
-  - **Tableau producteurs** : structure fixe N°, Nom, Reçu, Section, Code plantation, Date, Poids, Sacs ; ligne TOTAL conservée. Format A4 paysage, bordures, fusions, répétition d'en-tête à l'impression.
+## 3. Composant frontend réutilisable
 
-### `src/components/shipments/TemplatePreview.tsx`
-- Aligner l'aperçu inline sur la nouvelle logique : appliquer les mêmes toggles (`show_*`), afficher sous-titre / slogan / en-tête / pied, position des logos.
+`src/components/ui/ImageUploader.tsx`
 
-### `src/pages/ShipmentTemplates.tsx`
-- Ajouter à côté du bouton « Modifier » un bouton « Aperçu Excel » qui appelle la génération avec des données fictives, pour valider la sortie réelle avant de définir le modèle par défaut.
+Props :
+```ts
+{
+  bucket: "cooperative-logos" | "partner-logos" | "shipment-assets" | "user-avatars";
+  pathPrefix: string;          // ex: `${coopId}/templates`
+  value: string | null;        // path actuel
+  onChange: (path: string | null) => void;
+  label?: string;
+  maxSizeMb?: number;          // défaut 2
+  aspect?: "square" | "free";  // défaut square
+}
+```
 
-## Hors périmètre de cette itération
+Fonctionnalités :
+- Drag & drop + sélection fichier
+- Validation : PNG / JPG / JPEG / SVG / WEBP, taille max 2 Mo
+- Compression auto (canvas resize > 800px) pour PNG/JPG/WEBP
+- Aperçu via `createSignedUrl` (60s)
+- Remplacement → upsert nouveau path, suppression de l'ancien
+- Bouton supprimer → unlink storage + `onChange(null)`
+- État loading / erreur clair, message générique côté UI ("Une erreur est survenue."), détails dans `console.error`
 
-- Bucket `shipment-assets` et uploader de logos (déjà couvert par `cooperative-logos` / `partner-logos`).
-- Widgets Producteurs sur le Dashboard `/`.
-- Historique exports, auto-numérotation reçus, contrôles métier automatiques.
+## 4. Pages à mettre à jour
 
-Ces points sont prévus mais traités après validation de ce correctif.
+- `src/pages/CreateCooperative.tsx` — utilise déjà un upload ; standardiser sur `<ImageUploader />` et `logo_path`
+- `src/pages/Partners.tsx` — remplacer le champ URL par `<ImageUploader />`
+- `src/pages/ShipmentTemplates.tsx` — remplacer les deux `Input` URL par deux `<ImageUploader />` (coop + partenaire), bucket `shipment-assets`, préfixe `<coop_id>/templates`
+- `src/pages/UserManagement.tsx` / profil — `<ImageUploader />` pour avatar
+- Dashboard / Rapports PPTX — lire `logo_path` via signed URL
 
-## Notes techniques
+## 5. Exports Excel & PPTX — injection physique
 
-- Les logos privés stockés dans `cooperative-logos` / `partner-logos` sont récupérés via `supabase.storage.from(...).createSignedUrl(60)` puis `fetch` → `ArrayBuffer` avant `wb.addImage`. Les URLs déjà signées sont utilisées telles quelles.
-- La validation des champs obligatoires dans `CreateShipment` se fait avec un état dérivé `isReady` qui contrôle le `disabled` du bouton et affiche un message d'aide listant les champs manquants.
-- Aucun changement RLS — toutes les colonnes ajoutées héritent des policies existantes de `shipments`.
+- `src/services/excel/shipment-fiche-excel.ts` — adapter `fetchImage()` :
+  - Accepter un `path` interne → générer signed URL (120s) → fetch → ArrayBuffer → `wb.addImage()`
+  - Supporter fallback URL legacy pour anciennes données
+- `src/lib/pptx-report-generator.ts` — même logique, `addImage({ data: base64 })`
+- Aucune référence externe : tout passe par signed URL temporaire le temps du fetch puis bytes embarqués
+
+## 6. Edge functions
+
+- `supabase/functions/create-cooperative/index.ts` — accepter `logo_path` au lieu de `logo_url`
+- RPC `create_cooperative_with_admin` — renommer le champ JSON correspondant
+
+## Détails techniques
+
+**Stratégie de path** : `<entity_id>/<filename-timestamp>.<ext>` — un path par entité, déterministe, simplifie le cleanup.
+
+**Compatibilité données existantes** : le composant `<ImageUploader />` détecte si la valeur est une URL complète (legacy) vs un path interne. À l'affichage : URL → utiliser directe ; path → signed URL. À l'upload du nouveau fichier : on stocke toujours un path.
+
+**Migration** : `ALTER TABLE ... RENAME COLUMN logo_url TO logo_path` — préserve les données. Régénération automatique de `src/integrations/supabase/types.ts` après migration.
+
+**Sécurité** : buckets privés + RLS sur `storage.objects` (path doit commencer par un `cooperative_id` accessible à l'utilisateur via `my_cooperative_ids()` ou être super_admin).
+
+## Ordre d'exécution
+
+1. Migration DB (renommage colonnes + création buckets `shipment-assets`, `user-avatars` + policies RLS)
+2. Création composant `<ImageUploader />`
+3. Mise à jour des pages (Cooperatives, Partners, ShipmentTemplates, Profile)
+4. Mise à jour des services Excel/PPTX (lecture path → signed URL → bytes)
+5. Mise à jour de l'edge function `create-cooperative`
+6. Vérification build + test visuel preview
+
+Voulez-vous que je procède dans cet ordre ? Confirmez et je commence par la migration.
