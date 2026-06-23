@@ -229,11 +229,17 @@ export function TemplatePreview(props: TemplatePreviewProps) {
                 <td className="border px-2 py-1 text-center">{p.bags}</td>
               </tr>
             ))}
-            <tr className="bg-green-50 font-bold">
-              <td className="border px-2 py-1 text-right" colSpan={6}>TOTAL</td>
-              <td className="border px-2 py-1 text-right">3 700</td>
-              <td className="border px-2 py-1 text-center">58</td>
-            </tr>
+            {(() => {
+              const totW = producers.reduce((s, p) => s + (Number(String(p.weight).replace(/\s/g, "")) || 0), 0);
+              const totB = producers.reduce((s, p) => s + (Number(p.bags) || 0), 0);
+              return (
+                <tr className="bg-green-50 font-bold">
+                  <td className="border px-2 py-1 text-right" colSpan={6}>TOTAL</td>
+                  <td className="border px-2 py-1 text-right">{totW.toLocaleString("fr-FR")}</td>
+                  <td className="border px-2 py-1 text-center">{totB}</td>
+                </tr>
+              );
+            })()}
           </tbody>
         </table>
       </div>
