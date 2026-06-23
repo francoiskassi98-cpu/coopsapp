@@ -288,6 +288,19 @@ export default function ShipmentDetails() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            title="Aperçu de la fiche avant téléchargement"
+                            disabled={previewingId === s.id}
+                            onClick={() => handlePreviewFiche(s.id)}
+                          >
+                            {previewingId === s.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             title="Télécharger la fiche d'accompagnement"
                             disabled={generatingId === s.id}
                             onClick={() => handleGenerateFiche(s.id)}
