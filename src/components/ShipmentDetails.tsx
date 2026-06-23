@@ -258,19 +258,6 @@ export default function ShipmentDetails() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            title="Aperçu de la fiche avant téléchargement"
-                            disabled={previewingId === s.id}
-                            onClick={() => handlePreviewFiche(s.id)}
-                          >
-                            {previewingId === s.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
                             title="Télécharger la fiche d'accompagnement"
                             disabled={generatingId === s.id}
                             onClick={() => handleGenerateFiche(s.id)}
@@ -295,35 +282,6 @@ export default function ShipmentDetails() {
         </CardContent>
       </Card>
 
-      {/* Preview Dialog */}
-      <Dialog
-        open={!!previewHtml}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPreviewHtml(null);
-            setPreviewWb(null);
-            setPreviewFileName("");
-          }
-        }}
-      >
-        <DialogContent className="max-w-[95vw] w-[1200px] max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between gap-3">
-              <span className="flex items-center gap-2">
-                <Eye className="h-5 w-5" /> Aperçu de la fiche
-              </span>
-              <Button size="sm" onClick={handleDownloadFromPreview} disabled={!previewWb}>
-                <Download className="h-4 w-4 mr-2" /> Télécharger Excel
-              </Button>
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-auto border rounded">
-            {previewHtml && (
-              <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={!!editingShipment} onOpenChange={(open) => !open && setEditingShipment(null)}>
