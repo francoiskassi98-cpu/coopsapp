@@ -67,11 +67,13 @@ const App = () => (
                     <Route element={<ProtectedRoute adminOnly />}>
                       <Route path="/campagnes" element={<Campaigns />} />
                       <Route path="/gestion" element={<UserManagement />} />
-                      <Route path="/gestion/cooperatives/nouvelle" element={<CreateCooperative />} />
                       <Route path="/gestion/modeles-chargement" element={<ShipmentTemplates />} />
                       <Route path="/audit" element={<AuditLog />} />
                       <Route path="/audit/connexions" element={<LoginEvents />} />
                       <Route path="/corbeille" element={<Trash />} />
+                    </Route>
+                    <Route element={<ProtectedRoute superAdminOnly />}>
+                      <Route path="/gestion/cooperatives/nouvelle" element={<CreateCooperative />} />
                     </Route>
                   </Route>
                 </Route>
