@@ -9,9 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Package, Users, Weight, Truck, FileSpreadsheet, Loader2, Eye, Download } from "lucide-react";
-import { generateShipmentFiche, renderShipmentFicheHtml, downloadWorkbook } from "@/services/excel/shipment-fiche-excel";
-import type ExcelJS from "exceljs";
+import { Pencil, Package, Users, Weight, Truck, FileSpreadsheet, Loader2 } from "lucide-react";
+import { generateShipmentFiche } from "@/services/excel/shipment-fiche-excel";
 
 interface ShipmentWithDetails {
   id: string;
