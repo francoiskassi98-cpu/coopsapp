@@ -15,6 +15,8 @@ export interface ProducerRow {
   plantation_area: number;
   latitude: number;
   longitude: number;
+  num_men: number;
+  num_women: number;
 }
 
 export interface ImportError {
@@ -42,6 +44,8 @@ export const TEMPLATE_COLUMNS: { header: string; field: keyof ProducerRow }[] = 
   { header: "Superficie", field: "plantation_area" },
   { header: "Latitude polygone", field: "latitude" },
   { header: "Longitude polygone", field: "longitude" },
+  { header: "Nombre d'hommes", field: "num_men" },
+  { header: "Nombre de femmes", field: "num_women" },
 ];
 
 const COLUMN_MAP: Record<string, keyof ProducerRow> = {};
@@ -150,6 +154,8 @@ export async function parseExcelFile(data: ArrayBuffer) {
       plantation_area: Number(row.plantation_area) || 0,
       latitude: Number(row.latitude) || 0,
       longitude: Number(row.longitude) || 0,
+      num_men: Number(row.num_men) || 0,
+      num_women: Number(row.num_women) || 0,
     });
   }
 

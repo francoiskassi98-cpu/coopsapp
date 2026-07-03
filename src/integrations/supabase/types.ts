@@ -476,6 +476,8 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           nom_complet: string
+          num_men: number | null
+          num_women: number | null
           numero_producteur: string | null
           potentiel_livraison: number
           potentiel_restant: number
@@ -495,6 +497,8 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           nom_complet: string
+          num_men?: number | null
+          num_women?: number | null
           numero_producteur?: string | null
           potentiel_livraison?: number
           potentiel_restant?: number
@@ -514,6 +518,8 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           nom_complet?: string
+          num_men?: number | null
+          num_women?: number | null
           numero_producteur?: string | null
           potentiel_livraison?: number
           potentiel_restant?: number
@@ -543,7 +549,9 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           national_id: string | null
+          num_men: number | null
           num_plots: number | null
+          num_women: number | null
           plantation_area: number | null
           plantation_code: string
           producer_code: string | null
@@ -565,7 +573,9 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           national_id?: string | null
+          num_men?: number | null
           num_plots?: number | null
+          num_women?: number | null
           plantation_area?: number | null
           plantation_code: string
           producer_code?: string | null
@@ -587,7 +597,9 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           national_id?: string | null
+          num_men?: number | null
           num_plots?: number | null
+          num_women?: number | null
           plantation_area?: number | null
           plantation_code?: string
           producer_code?: string | null

@@ -56,7 +56,7 @@ export default function PrimeProducer() {
   }, [isSuperAdmin, cooperativeRefs]);
 
   useEffect(() => {
-    if (!coopId) { setSections([]); return; }
+    if (!coopId || coopId === "all") { setSections([]); return; }
     const coopName = coops.find(c => c.id === coopId)?.name;
     if (!coopName) return;
     supabase.from("producers").select("section").eq("cooperative", coopName).then(({ data }) => {
@@ -65,6 +65,7 @@ export default function PrimeProducer() {
   }, [coopId, coops]);
 
   const coopSelected = useMemo(() => coops.find(c => c.id === coopId), [coops, coopId]);
+  const isAllCoops = coopId === "all";
 
   async function calculate() {
     if (!coopId || !startDate || !endDate || amount <= 0) {
@@ -73,44 +74,35 @@ export default function PrimeProducer() {
     }
     setLoading(true);
     try {
-      // 1) producers from this coop (+ section filter)
-      const coopName = coopSelected?.name;
-      let pq = supabase.from("producers").select("id,full_name,section,cooperative").eq("cooperative", coopName!);
-      if (section !== "all") pq = pq.eq("section", section);
+      // 1) Producers scope
+      const coopNames = isAllCoops ? coops.map(c => c.name) : [coopSelected?.name].filter(Boolean) as string[];
+      let pq = supabase.from("producers").select("id,full_name,section,cooperative").in("cooperative", coopNames);
+      if (!isAllCoops && section !== "all") pq = pq.eq("section", section);
       const { data: producers } = await pq;
-      const prodList = (producers || []) as Array<{ id: string; full_name: string; section: string }>;
+      const prodList = (producers || []) as Array<{ id: string; full_name: string; section: string; cooperative: string }>;
       if (prodList.length === 0) { setRows([]); return; }
+      const prodIds = prodList.map(p => p.id);
 
-      // 2) shipments of this coop in campaign
-      let sq = supabase.from("shipments").select("id,campaign_id,is_cancelled").eq("cooperative_id", coopId).eq("is_cancelled", false);
-      if (campaignId !== "all") sq = sq.eq("campaign_id", campaignId);
-      const { data: shipments } = await sq;
-      const shipIds = (shipments || []).map((s: any) => s.id);
-      if (shipIds.length === 0) {
-        setRows(prodList.map(p => ({ producer_id: p.id, full_name: p.full_name, section: p.section, volume: 0, rate: 0, bonus: 0 })));
-        return;
-      }
-
-      // 3) deliveries in window — paginate
+      // 2) Deliveries in period, restricted to these producers, filtered by campaign/coop via shipments
       const volumeByProducer = new Map<string, number>();
-      const CHUNK = 100;
-      for (let i = 0; i < shipIds.length; i += CHUNK) {
-        const slice = shipIds.slice(i, i + CHUNK);
-        let from = 0;
-        while (true) {
-          const { data } = await supabase.from("deliveries")
-            .select("producer_id,net_weight,delivery_date")
-            .in("shipment_id", slice)
-            .gte("delivery_date", startDate)
-            .lte("delivery_date", endDate)
-            .range(from, from + 999);
-          if (!data || data.length === 0) break;
-          data.forEach((d: any) => {
-            volumeByProducer.set(d.producer_id, (volumeByProducer.get(d.producer_id) || 0) + Number(d.net_weight || 0));
-          });
-          if (data.length < 1000) break;
-          from += 1000;
-        }
+      let from = 0;
+      while (true) {
+        let dq = supabase.from("deliveries")
+          .select("producer_id,net_weight,delivery_date,shipment_id,shipments!inner(cooperative_id,campaign_id,is_cancelled)")
+          .in("producer_id", prodIds)
+          .gte("delivery_date", startDate)
+          .lte("delivery_date", endDate)
+          .eq("shipments.is_cancelled", false);
+        if (!isAllCoops) dq = dq.eq("shipments.cooperative_id", coopId);
+        if (campaignId !== "all") dq = dq.eq("shipments.campaign_id", campaignId);
+        const { data, error } = await dq.range(from, from + 999);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        data.forEach((d: any) => {
+          volumeByProducer.set(d.producer_id, (volumeByProducer.get(d.producer_id) || 0) + Number(d.net_weight || 0));
+        });
+        if (data.length < 1000) break;
+        from += 1000;
       }
 
       const totalVolume = Array.from(volumeByProducer.values()).reduce((s, v) => s + v, 0);
@@ -143,6 +135,10 @@ export default function PrimeProducer() {
 
   async function saveCalc() {
     if (!coopId || rows.length === 0) return;
+    if (isAllCoops) {
+      toast({ title: "Non disponible", description: "L'enregistrement n'est pas disponible en mode « Toutes coopératives ». Sélectionnez une coopérative.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       const { data: setting, error } = await (supabase.from("producer_bonus_settings") as any).insert({
@@ -181,11 +177,11 @@ export default function PrimeProducer() {
   }
 
   async function exportXlsx() {
-    if (!coopSelected || rows.length === 0) return;
+    if (rows.length === 0) return;
     try {
       await generatePrimeExcel({
-        cooperativeName: coopSelected.name,
-        logoUrl: coopSelected.logo_path ?? null,
+        cooperativeName: isAllCoops ? "Toutes les coopératives" : (coopSelected?.name ?? ""),
+        logoUrl: isAllCoops ? null : (coopSelected?.logo_path ?? null),
         startDate, endDate,
         bonusType, amount,
         rows,
@@ -215,6 +211,7 @@ export default function PrimeProducer() {
               <Select value={coopId} onValueChange={setCoopId} disabled={!isSuperAdmin && cooperativeRefs.length <= 1}>
                 <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                 <SelectContent>
+                  {isSuperAdmin && <SelectItem value="all">Toutes les coopératives</SelectItem>}
                   {coops.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>

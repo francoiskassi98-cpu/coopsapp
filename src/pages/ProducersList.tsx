@@ -194,6 +194,8 @@ export default function Producers() {
       "Superficie": p.plantation_area || 0,
       "Latitude": p.latitude || 0,
       "Longitude": p.longitude || 0,
+      "Nombre d'hommes": p.num_men || 0,
+      "Nombre de femmes": p.num_women || 0,
     }));
     const suffix = cooperative && cooperative !== "all" ? `-${cooperative}` : "";
     await exportToExcel(rows, `Registre-Producteurs${suffix}.xlsx`, "Producteurs");
@@ -273,6 +275,8 @@ export default function Producers() {
             ...r,
             remaining_potential: r.delivery_potential,
             sexe: r.sexe || null,
+            num_men: r.num_men || 0,
+            num_women: r.num_women || 0,
           }));
           for (let i = 0; i < toInsert.length; i += 500) {
             const batch = toInsert.slice(i, i + 500);
@@ -313,6 +317,8 @@ export default function Producers() {
               plantation_area: r.plantation_area,
               latitude: r.latitude,
               longitude: r.longitude,
+              num_men: r.num_men || 0,
+              num_women: r.num_women || 0,
             };
             toInsert.push({ id: existingId, ...updateData, plantation_code: r.plantation_code });
             updatedCount++;
@@ -333,6 +339,8 @@ export default function Producers() {
               plantation_area: r.plantation_area,
               latitude: r.latitude,
               longitude: r.longitude,
+              num_men: r.num_men || 0,
+              num_women: r.num_women || 0,
             });
             insertedCount++;
           }
@@ -681,6 +689,8 @@ export default function Producers() {
               <div><span className="text-muted-foreground">Surface plantation :</span> <strong>{detailProducer.plantation_area || "—"}</strong></div>
               <div><span className="text-muted-foreground">Latitude :</span> <strong>{detailProducer.latitude || "—"}</strong></div>
               <div><span className="text-muted-foreground">Longitude :</span> <strong>{detailProducer.longitude || "—"}</strong></div>
+              <div><span className="text-muted-foreground">Nombre d'hommes :</span> <strong>{detailProducer.num_men ?? "—"}</strong></div>
+              <div><span className="text-muted-foreground">Nombre de femmes :</span> <strong>{detailProducer.num_women ?? "—"}</strong></div>
             </div>
           )}
         </DialogContent>
