@@ -135,6 +135,10 @@ export default function PrimeProducer() {
 
   async function saveCalc() {
     if (!coopId || rows.length === 0) return;
+    if (isAllCoops) {
+      toast({ title: "Non disponible", description: "L'enregistrement n'est pas disponible en mode « Toutes coopératives ». Sélectionnez une coopérative.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       const { data: setting, error } = await (supabase.from("producer_bonus_settings") as any).insert({
@@ -173,11 +177,11 @@ export default function PrimeProducer() {
   }
 
   async function exportXlsx() {
-    if (!coopSelected || rows.length === 0) return;
+    if (rows.length === 0) return;
     try {
       await generatePrimeExcel({
-        cooperativeName: coopSelected.name,
-        logoUrl: coopSelected.logo_path ?? null,
+        cooperativeName: isAllCoops ? "Toutes les coopératives" : (coopSelected?.name ?? ""),
+        logoUrl: isAllCoops ? null : (coopSelected?.logo_path ?? null),
         startDate, endDate,
         bonusType, amount,
         rows,
