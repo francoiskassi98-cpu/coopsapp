@@ -207,6 +207,7 @@ export default function PrimeProducer() {
               <Select value={coopId} onValueChange={setCoopId} disabled={!isSuperAdmin && cooperativeRefs.length <= 1}>
                 <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                 <SelectContent>
+                  {isSuperAdmin && <SelectItem value="all">Toutes les coopératives</SelectItem>}
                   {coops.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
