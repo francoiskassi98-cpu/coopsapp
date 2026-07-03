@@ -88,6 +88,8 @@ export default function ImportProducers() {
         potentiel_restant: r.delivery_potential || 0,
         latitude: r.latitude || null,
         longitude: r.longitude || null,
+        num_men: r.num_men || 0,
+        num_women: r.num_women || 0,
         actif: true,
       }));
 
