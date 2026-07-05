@@ -150,10 +150,16 @@ export default function ProducersAnalytics() {
     });
   }, [deliveries, shipments, campaignFilter, startDate, endDate]);
 
-  // KPIs
+  // KPIs — normalisation (accepte Homme/Femme, H/F, M, Masculin/Feminin)
+  const sexeKey = (v: string | null) => {
+    const s = (v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+    if (["h", "m", "homme", "masculin", "male"].includes(s)) return "H";
+    if (["f", "femme", "feminin", "female"].includes(s)) return "F";
+    return "";
+  };
   const total = filtered.length;
-  const males = filtered.filter(p => (p.sexe || "").toUpperCase() === "M").length;
-  const females = filtered.filter(p => (p.sexe || "").toUpperCase() === "F").length;
+  const males = filtered.filter(p => sexeKey(p.sexe) === "H").length;
+  const females = filtered.filter(p => sexeKey(p.sexe) === "F").length;
   const pctF = total ? Math.round((females / total) * 100) : 0;
   const actives = filtered.filter(p => p.is_active !== false).length;
   const potentielTotal = filtered.reduce((s, p) => s + Number(p.delivery_potential || 0), 0);
