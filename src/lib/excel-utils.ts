@@ -41,8 +41,8 @@ export function normalizeSexe(raw: unknown): "Homme" | "Femme" | null | "" {
   if (raw === null || raw === undefined) return null;
   const s = stripAccents(String(raw).trim().toLowerCase());
   if (!s) return null;
-  if (["h", "m", "homme", "masculin", "male"].includes(s)) return "Homme";
-  if (["f", "femme", "feminin", "female"].includes(s)) return "Femme";
+  if (["h", "m", "homme", "hommes", "masculin", "male"].includes(s)) return "Homme";
+  if (["f", "femme", "femmes", "feminin", "female"].includes(s)) return "Femme";
   return "";
 }
 
