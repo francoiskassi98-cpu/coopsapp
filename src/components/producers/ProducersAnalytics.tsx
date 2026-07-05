@@ -153,8 +153,8 @@ export default function ProducersAnalytics() {
   // KPIs — normalisation (accepte Homme/Femme, H/F, M, Masculin/Feminin)
   const sexeKey = (v: string | null) => {
     const s = (v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
-    if (["h", "m", "homme", "masculin", "male"].includes(s)) return "H";
-    if (["f", "femme", "feminin", "female"].includes(s)) return "F";
+    if (["h", "m", "homme", "hommes", "masculin", "male"].includes(s)) return "H";
+    if (["f", "femme", "femmes", "feminin", "female"].includes(s)) return "F";
     return "";
   };
   const total = filtered.length;
