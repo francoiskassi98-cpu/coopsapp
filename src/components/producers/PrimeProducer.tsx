@@ -14,6 +14,7 @@ import { generatePrimeExcel } from "@/lib/prime-excel";
 
 interface Coop { id: string; name: string; logo_path?: string | null }
 interface Campaign { id: string; nom: string }
+interface ProducerOpt { id: string; full_name: string; section: string; cooperative: string }
 
 interface PrimeRow {
   producer_id: string;
@@ -29,10 +30,12 @@ export default function PrimeProducer() {
   const [coops, setCoops] = useState<Coop[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [sections, setSections] = useState<string[]>([]);
+  const [producersList, setProducersList] = useState<ProducerOpt[]>([]);
 
   const [coopId, setCoopId] = useState<string>("");
   const [campaignId, setCampaignId] = useState<string>("all");
   const [section, setSection] = useState<string>("all");
+  const [producerId, setProducerId] = useState<string>("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [bonusType, setBonusType] = useState<"total" | "per_kg">("per_kg");
@@ -55,13 +58,30 @@ export default function PrimeProducer() {
     })();
   }, [isSuperAdmin, cooperativeRefs]);
 
+  // Charge producteurs + sections en fonction du filtre coopérative
   useEffect(() => {
-    if (!coopId || coopId === "all") { setSections([]); return; }
-    const coopName = coops.find(c => c.id === coopId)?.name;
-    if (!coopName) return;
-    supabase.from("producers").select("section").eq("cooperative", coopName).then(({ data }) => {
-      setSections([...new Set((data || []).map((d: any) => d.section).filter(Boolean))].sort());
-    });
+    if (!coopId) { setSections([]); setProducersList([]); return; }
+    const scopeNames = coopId === "all" ? coops.map(c => c.name) : [coops.find(c => c.id === coopId)?.name].filter(Boolean) as string[];
+    if (scopeNames.length === 0) { setSections([]); setProducersList([]); return; }
+    (async () => {
+      let all: ProducerOpt[] = [];
+      let from = 0;
+      while (true) {
+        const { data } = await supabase.from("producers")
+          .select("id,full_name,section,cooperative")
+          .in("cooperative", scopeNames)
+          .order("full_name")
+          .range(from, from + 999);
+        if (!data || data.length === 0) break;
+        all = all.concat(data as ProducerOpt[]);
+        if (data.length < 1000) break;
+        from += 1000;
+      }
+      setProducersList(all);
+      setSections([...new Set(all.map(p => p.section).filter(Boolean))].sort());
+    })();
+    setSection("all");
+    setProducerId("all");
   }, [coopId, coops]);
 
   const coopSelected = useMemo(() => coops.find(c => c.id === coopId), [coops, coopId]);
@@ -74,10 +94,11 @@ export default function PrimeProducer() {
     }
     setLoading(true);
     try {
-      // 1) Producers scope
+      // 1) Producers scope — filtres coopérative / section / producteur
       const coopNames = isAllCoops ? coops.map(c => c.name) : [coopSelected?.name].filter(Boolean) as string[];
       let pq = supabase.from("producers").select("id,full_name,section,cooperative").in("cooperative", coopNames);
-      if (!isAllCoops && section !== "all") pq = pq.eq("section", section);
+      if (section !== "all") pq = pq.eq("section", section);
+      if (producerId !== "all") pq = pq.eq("id", producerId);
       const { data: producers } = await pq;
       const prodList = (producers || []) as Array<{ id: string; full_name: string; section: string; cooperative: string }>;
       if (prodList.length === 0) { setRows([]); return; }
@@ -233,6 +254,19 @@ export default function PrimeProducer() {
                 <SelectContent>
                   <SelectItem value="all">Toutes</SelectItem>
                   {sections.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Producteur</Label>
+              <Select value={producerId} onValueChange={setProducerId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous</SelectItem>
+                  {producersList
+                    .filter(p => section === "all" || p.section === section)
+                    .slice(0, 500)
+                    .map(p => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
