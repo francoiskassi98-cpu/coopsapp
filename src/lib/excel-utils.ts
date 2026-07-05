@@ -28,6 +28,24 @@ function normalizeHeader(header: string): string {
   return header.toLowerCase().trim().replace(/[_\-]/g, " ").replace(/\s+/g, " ");
 }
 
+function stripAccents(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/**
+ * Normalise le sexe importé vers "Homme" ou "Femme".
+ * Accepte : Homme, Femme, H, F, M, Masculin, Feminin, Féminin (insensible à la casse/accents).
+ * Retourne null si vide ; "" (chaîne vide) si valeur non reconnue.
+ */
+export function normalizeSexe(raw: unknown): "Homme" | "Femme" | null | "" {
+  if (raw === null || raw === undefined) return null;
+  const s = stripAccents(String(raw).trim().toLowerCase());
+  if (!s) return null;
+  if (["h", "m", "homme", "masculin", "male"].includes(s)) return "Homme";
+  if (["f", "femme", "feminin", "female"].includes(s)) return "Femme";
+  return "";
+}
+
 // Exact template column headers
 export const TEMPLATE_COLUMNS: { header: string; field: keyof ProducerRow }[] = [
   { header: "Coopérative", field: "cooperative" },
@@ -139,13 +157,20 @@ export async function parseExcelFile(data: ArrayBuffer) {
     }
     plantationCodes.add(code);
 
+    // Normalisation & validation du sexe
+    const sexeNorm = normalizeSexe(row.sexe);
+    if (sexeNorm === "") {
+      errors.push({ row: rowNum, message: `Valeur Sexe invalide : "${row.sexe}". Utilisez Homme, Femme, H, F, Masculin ou Feminin.` });
+      continue;
+    }
+
     rows.push({
       cooperative: String(row.cooperative || "").trim(),
       full_name: String(row.full_name).trim(),
       producer_number: String(row.producer_number || "").trim(),
       national_id: String(row.national_id || "").trim(),
       producer_code: String(row.producer_code || "").trim(),
-      sexe: String(row.sexe || "").trim(),
+      sexe: sexeNorm ?? "",
       section: String(row.section).trim(),
       total_cocoa_area: Number(row.total_cocoa_area) || 0,
       num_plots: Number(row.num_plots) || 0,
