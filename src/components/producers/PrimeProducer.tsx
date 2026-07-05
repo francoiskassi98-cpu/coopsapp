@@ -258,6 +258,19 @@ export default function PrimeProducer() {
               </Select>
             </div>
             <div>
+              <Label className="text-xs">Producteur</Label>
+              <Select value={producerId} onValueChange={setProducerId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous</SelectItem>
+                  {producersList
+                    .filter(p => section === "all" || p.section === section)
+                    .slice(0, 500)
+                    .map(p => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label className="text-xs">Type de prime</Label>
               <Select value={bonusType} onValueChange={(v: any) => setBonusType(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
