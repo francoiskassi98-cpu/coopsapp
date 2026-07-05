@@ -14,6 +14,7 @@ import { generatePrimeExcel } from "@/lib/prime-excel";
 
 interface Coop { id: string; name: string; logo_path?: string | null }
 interface Campaign { id: string; nom: string }
+interface ProducerOpt { id: string; full_name: string; section: string; cooperative: string }
 
 interface PrimeRow {
   producer_id: string;
@@ -29,10 +30,12 @@ export default function PrimeProducer() {
   const [coops, setCoops] = useState<Coop[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [sections, setSections] = useState<string[]>([]);
+  const [producersList, setProducersList] = useState<ProducerOpt[]>([]);
 
   const [coopId, setCoopId] = useState<string>("");
   const [campaignId, setCampaignId] = useState<string>("all");
   const [section, setSection] = useState<string>("all");
+  const [producerId, setProducerId] = useState<string>("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [bonusType, setBonusType] = useState<"total" | "per_kg">("per_kg");
