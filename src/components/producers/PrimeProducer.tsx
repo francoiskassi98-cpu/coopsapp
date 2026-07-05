@@ -94,10 +94,11 @@ export default function PrimeProducer() {
     }
     setLoading(true);
     try {
-      // 1) Producers scope
+      // 1) Producers scope — filtres coopérative / section / producteur
       const coopNames = isAllCoops ? coops.map(c => c.name) : [coopSelected?.name].filter(Boolean) as string[];
       let pq = supabase.from("producers").select("id,full_name,section,cooperative").in("cooperative", coopNames);
-      if (!isAllCoops && section !== "all") pq = pq.eq("section", section);
+      if (section !== "all") pq = pq.eq("section", section);
+      if (producerId !== "all") pq = pq.eq("id", producerId);
       const { data: producers } = await pq;
       const prodList = (producers || []) as Array<{ id: string; full_name: string; section: string; cooperative: string }>;
       if (prodList.length === 0) { setRows([]); return; }
