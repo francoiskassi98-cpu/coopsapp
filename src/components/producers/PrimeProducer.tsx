@@ -58,13 +58,30 @@ export default function PrimeProducer() {
     })();
   }, [isSuperAdmin, cooperativeRefs]);
 
+  // Charge producteurs + sections en fonction du filtre coopérative
   useEffect(() => {
-    if (!coopId || coopId === "all") { setSections([]); return; }
-    const coopName = coops.find(c => c.id === coopId)?.name;
-    if (!coopName) return;
-    supabase.from("producers").select("section").eq("cooperative", coopName).then(({ data }) => {
-      setSections([...new Set((data || []).map((d: any) => d.section).filter(Boolean))].sort());
-    });
+    if (!coopId) { setSections([]); setProducersList([]); return; }
+    const scopeNames = coopId === "all" ? coops.map(c => c.name) : [coops.find(c => c.id === coopId)?.name].filter(Boolean) as string[];
+    if (scopeNames.length === 0) { setSections([]); setProducersList([]); return; }
+    (async () => {
+      let all: ProducerOpt[] = [];
+      let from = 0;
+      while (true) {
+        const { data } = await supabase.from("producers")
+          .select("id,full_name,section,cooperative")
+          .in("cooperative", scopeNames)
+          .order("full_name")
+          .range(from, from + 999);
+        if (!data || data.length === 0) break;
+        all = all.concat(data as ProducerOpt[]);
+        if (data.length < 1000) break;
+        from += 1000;
+      }
+      setProducersList(all);
+      setSections([...new Set(all.map(p => p.section).filter(Boolean))].sort());
+    })();
+    setSection("all");
+    setProducerId("all");
   }, [coopId, coops]);
 
   const coopSelected = useMemo(() => coops.find(c => c.id === coopId), [coops, coopId]);
