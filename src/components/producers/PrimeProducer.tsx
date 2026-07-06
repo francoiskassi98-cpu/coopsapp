@@ -98,55 +98,72 @@ export default function PrimeProducer() {
     }
     setLoading(true);
     try {
-      // 1) Producteurs concernés (filtres coop / section / producteur)
-      const coopNames = isAllCoops ? coops.map(c => c.name) : [coopSelected?.name].filter(Boolean) as string[];
-      if (coopNames.length === 0) { setRows([]); return; }
-      const prodMap = new Map<string, { id: string; full_name: string; section: string; cooperative: string }>();
-      {
-        let from = 0;
-        while (true) {
-          let pq = supabase.from("producers")
-            .select("id,full_name,section,cooperative")
-            .in("cooperative", coopNames);
-          if (section !== "all") pq = pq.eq("section", section);
-          if (producerId !== "all") pq = pq.eq("id", producerId);
-          const { data, error } = await pq.range(from, from + 999);
-          if (error) throw error;
-          if (!data || data.length === 0) break;
-          data.forEach((p: any) => prodMap.set(p.id, p));
-          if (data.length < 1000) break;
-          from += 1000;
-        }
-      }
-      if (prodMap.size === 0) { setRows([]); toast({ title: "Aucun producteur", description: "Aucun producteur ne correspond aux filtres." }); return; }
-
-      // 2) Livraisons sur la période, filtrées par coop/campagne via shipments
-      const volumeByProducer = new Map<string, number>();
+      // 1) Charger toutes les livraisons de la période selon filtres coop/campagne/producteur
+      const deliveries: Array<{ producer_id: string | null; net_weight: number | null }> = [];
       let from = 0;
       while (true) {
         let dq = supabase.from("deliveries")
-          .select("producer_id,net_weight,delivery_date,shipments!inner(cooperative_id,campaign_id,is_cancelled)")
+          .select("id,producer_id,net_weight,delivery_date,shipments!inner(cooperative_id,campaign_id,is_cancelled)")
           .gte("delivery_date", startDate)
           .lte("delivery_date", endDate)
-          .eq("shipments.is_cancelled", false);
+          .eq("shipments.is_cancelled", false)
+          .order("id", { ascending: true });
         if (!isAllCoops) dq = dq.eq("shipments.cooperative_id", coopId);
         if (campaignId !== "all") dq = dq.eq("shipments.campaign_id", campaignId);
         if (producerId !== "all") dq = dq.eq("producer_id", producerId);
         const { data, error } = await dq.range(from, from + 999);
         if (error) throw error;
         if (!data || data.length === 0) break;
-        data.forEach((d: any) => {
-          if (!d.producer_id || !prodMap.has(d.producer_id)) return;
-          volumeByProducer.set(d.producer_id, (volumeByProducer.get(d.producer_id) || 0) + Number(d.net_weight || 0));
-        });
+        deliveries.push(...(data as any));
         if (data.length < 1000) break;
         from += 1000;
       }
 
-      const totalVolume = Array.from(volumeByProducer.values()).reduce((s, v) => s + v, 0);
+      if (deliveries.length === 0) {
+        setRows([]);
+        toast({
+          title: "Aucune livraison",
+          description: "Aucune livraison ne correspond aux filtres sélectionnés (coopérative, campagne, période, producteur).",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // 2) Regrouper par producteur
+      const volumeByProducer = new Map<string, number>();
+      deliveries.forEach((d) => {
+        if (!d.producer_id) return;
+        volumeByProducer.set(d.producer_id, (volumeByProducer.get(d.producer_id) || 0) + Number(d.net_weight || 0));
+      });
+
+      const producerIds = Array.from(volumeByProducer.keys());
+      if (producerIds.length === 0) {
+        setRows([]);
+        toast({ title: "Aucun producteur", description: "Livraisons trouvées mais sans producteur associé.", variant: "destructive" });
+        return;
+      }
+
+      // 3) Charger les infos des producteurs concernés (en respectant section si filtrée)
+      const prodMap = new Map<string, { id: string; full_name: string; section: string; cooperative: string }>();
+      for (let i = 0; i < producerIds.length; i += 500) {
+        const chunk = producerIds.slice(i, i + 500);
+        let pq = supabase.from("producers")
+          .select("id,full_name,section,cooperative")
+          .in("id", chunk);
+        if (section !== "all") pq = pq.eq("section", section);
+        const { data, error } = await pq;
+        if (error) throw error;
+        (data || []).forEach((p: any) => prodMap.set(p.id, p));
+      }
+
+      // 4) Construire les lignes filtrées
+      const totalVolume = Array.from(volumeByProducer.entries())
+        .filter(([pid]) => prodMap.has(pid))
+        .reduce((s, [, v]) => s + v, 0);
       const rate = bonusType === "per_kg" ? amount : (totalVolume > 0 ? amount / totalVolume : 0);
 
       const out: PrimeRow[] = Array.from(volumeByProducer.entries())
+        .filter(([pid, vol]) => prodMap.has(pid) && vol > 0)
         .map(([pid, volume]) => {
           const p = prodMap.get(pid)!;
           return {
@@ -158,11 +175,18 @@ export default function PrimeProducer() {
             bonus: volume * rate,
           };
         })
-        .filter(r => r.volume > 0)
         .sort((a, b) => b.volume - a.volume);
 
       setRows(out);
-      toast({ title: "Calcul terminé", description: `${out.length} producteur(s) éligible(s).` });
+      if (out.length === 0) {
+        toast({
+          title: "Aucun producteur éligible",
+          description: "Des livraisons existent mais aucun producteur ne correspond aux filtres (section/coopérative).",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Calcul terminé", description: `${out.length} producteur(s) éligible(s).` });
+      }
     } catch (e) {
       console.error("[PrimeProducer.calculate]", e);
       toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
