@@ -92,34 +92,51 @@ export default function PrimeProducer() {
       toast({ title: "Champs requis", description: "Coopérative, période et montant sont requis.", variant: "destructive" });
       return;
     }
+    if (startDate > endDate) {
+      toast({ title: "Période invalide", description: "La date de début doit précéder la date de fin.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
-      // 1) Producers scope — filtres coopérative / section / producteur
+      // 1) Producteurs concernés (filtres coop / section / producteur)
       const coopNames = isAllCoops ? coops.map(c => c.name) : [coopSelected?.name].filter(Boolean) as string[];
-      let pq = supabase.from("producers").select("id,full_name,section,cooperative").in("cooperative", coopNames);
-      if (section !== "all") pq = pq.eq("section", section);
-      if (producerId !== "all") pq = pq.eq("id", producerId);
-      const { data: producers } = await pq;
-      const prodList = (producers || []) as Array<{ id: string; full_name: string; section: string; cooperative: string }>;
-      if (prodList.length === 0) { setRows([]); return; }
-      const prodIds = prodList.map(p => p.id);
+      if (coopNames.length === 0) { setRows([]); return; }
+      const prodMap = new Map<string, { id: string; full_name: string; section: string; cooperative: string }>();
+      {
+        let from = 0;
+        while (true) {
+          let pq = supabase.from("producers")
+            .select("id,full_name,section,cooperative")
+            .in("cooperative", coopNames);
+          if (section !== "all") pq = pq.eq("section", section);
+          if (producerId !== "all") pq = pq.eq("id", producerId);
+          const { data, error } = await pq.range(from, from + 999);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          data.forEach((p: any) => prodMap.set(p.id, p));
+          if (data.length < 1000) break;
+          from += 1000;
+        }
+      }
+      if (prodMap.size === 0) { setRows([]); toast({ title: "Aucun producteur", description: "Aucun producteur ne correspond aux filtres." }); return; }
 
-      // 2) Deliveries in period, restricted to these producers, filtered by campaign/coop via shipments
+      // 2) Livraisons sur la période, filtrées par coop/campagne via shipments
       const volumeByProducer = new Map<string, number>();
       let from = 0;
       while (true) {
         let dq = supabase.from("deliveries")
-          .select("producer_id,net_weight,delivery_date,shipment_id,shipments!inner(cooperative_id,campaign_id,is_cancelled)")
-          .in("producer_id", prodIds)
+          .select("producer_id,net_weight,delivery_date,shipments!inner(cooperative_id,campaign_id,is_cancelled)")
           .gte("delivery_date", startDate)
           .lte("delivery_date", endDate)
           .eq("shipments.is_cancelled", false);
         if (!isAllCoops) dq = dq.eq("shipments.cooperative_id", coopId);
         if (campaignId !== "all") dq = dq.eq("shipments.campaign_id", campaignId);
+        if (producerId !== "all") dq = dq.eq("producer_id", producerId);
         const { data, error } = await dq.range(from, from + 999);
         if (error) throw error;
         if (!data || data.length === 0) break;
         data.forEach((d: any) => {
+          if (!d.producer_id || !prodMap.has(d.producer_id)) return;
           volumeByProducer.set(d.producer_id, (volumeByProducer.get(d.producer_id) || 0) + Number(d.net_weight || 0));
         });
         if (data.length < 1000) break;
@@ -129,11 +146,11 @@ export default function PrimeProducer() {
       const totalVolume = Array.from(volumeByProducer.values()).reduce((s, v) => s + v, 0);
       const rate = bonusType === "per_kg" ? amount : (totalVolume > 0 ? amount / totalVolume : 0);
 
-      const out: PrimeRow[] = prodList
-        .map(p => {
-          const volume = volumeByProducer.get(p.id) || 0;
+      const out: PrimeRow[] = Array.from(volumeByProducer.entries())
+        .map(([pid, volume]) => {
+          const p = prodMap.get(pid)!;
           return {
-            producer_id: p.id,
+            producer_id: pid,
             full_name: p.full_name,
             section: p.section,
             volume,
@@ -147,7 +164,7 @@ export default function PrimeProducer() {
       setRows(out);
       toast({ title: "Calcul terminé", description: `${out.length} producteur(s) éligible(s).` });
     } catch (e) {
-      console.error(e);
+      console.error("[PrimeProducer.calculate]", e);
       toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setLoading(false);
