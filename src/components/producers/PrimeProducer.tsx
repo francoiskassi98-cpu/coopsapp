@@ -17,6 +17,7 @@ interface Campaign { id: string; nom: string }
 interface ProducerOpt { id: string; full_name: string; section: string; cooperative: string }
 
 interface PrimeRow {
+  producer_id: string; // représentant (première plantation) pour l'enregistrement
   producer_code: string;
   full_name: string;
   section: string;
@@ -26,6 +27,7 @@ interface PrimeRow {
   rate: number;
   bonus: number;
 }
+
 
 
 export default function PrimeProducer() {
