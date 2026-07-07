@@ -208,13 +208,7 @@ export default function PrimeProducer() {
     }
   }
 
-    } catch (e) {
-      console.error("[PrimeProducer.calculate]", e);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  }
+
 
   async function saveCalc() {
     if (!coopId || rows.length === 0) return;
