@@ -3,12 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface PrimeRowExport {
   producer_id: string;
+  producer_code: string;
   full_name: string;
   section: string;
+  cooperative?: string;
+  num_plantations: number;
   volume: number;
   rate: number;
   bonus: number;
 }
+
 
 export interface PrimeExcelParams {
   cooperativeName: string;
