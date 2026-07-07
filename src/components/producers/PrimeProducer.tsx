@@ -187,6 +187,7 @@ export default function PrimeProducer() {
       const out: PrimeRow[] = Array.from(byProducer.values())
         .filter(r => r.volume > 0)
         .map(r => ({
+          producer_id: Array.from(r.plantations)[0],
           producer_code: r.producer_code,
           full_name: r.full_name,
           section: r.section,
@@ -197,6 +198,7 @@ export default function PrimeProducer() {
           bonus: r.volume * rate,
         }))
         .sort((a, b) => b.volume - a.volume);
+
 
       setRows(out);
       toast({ title: "Calcul terminé", description: `${out.length} producteur(s) éligible(s).` });
