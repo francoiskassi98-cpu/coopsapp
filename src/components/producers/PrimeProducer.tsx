@@ -382,8 +382,10 @@ export default function PrimeProducer() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>N°</TableHead>
+                    <TableHead>Code producteur</TableHead>
                     <TableHead>Producteur</TableHead>
                     <TableHead>Section</TableHead>
+                    <TableHead className="text-right">Plantations</TableHead>
                     <TableHead className="text-right">Volume (kg)</TableHead>
                     <TableHead className="text-right">Taux prime</TableHead>
                     <TableHead className="text-right">Montant prime</TableHead>
@@ -391,16 +393,19 @@ export default function PrimeProducer() {
                 </TableHeader>
                 <TableBody>
                   {rows.map((r, i) => (
-                    <TableRow key={r.producer_id}>
+                    <TableRow key={`${r.producer_code}-${r.producer_id}`}>
                       <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.producer_code}</TableCell>
                       <TableCell className="font-medium">{r.full_name}</TableCell>
                       <TableCell>{r.section}</TableCell>
+                      <TableCell className="text-right">{r.num_plantations}</TableCell>
                       <TableCell className="text-right">{r.volume.toLocaleString("fr-FR")}</TableCell>
                       <TableCell className="text-right">{r.rate.toFixed(2)}</TableCell>
                       <TableCell className="text-right font-semibold">{Math.round(r.bonus).toLocaleString("fr-FR")}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
+
               </Table>
             </div>
           </CardContent>
