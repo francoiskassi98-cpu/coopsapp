@@ -17,13 +17,18 @@ interface Campaign { id: string; nom: string }
 interface ProducerOpt { id: string; full_name: string; section: string; cooperative: string }
 
 interface PrimeRow {
-  producer_id: string;
+  producer_id: string; // représentant (première plantation) pour l'enregistrement
+  producer_code: string;
   full_name: string;
   section: string;
+  cooperative: string;
+  num_plantations: number;
   volume: number;
   rate: number;
   bonus: number;
 }
+
+
 
 export default function PrimeProducer() {
   const { isSuperAdmin, cooperativeRefs } = useAuth();
@@ -98,7 +103,7 @@ export default function PrimeProducer() {
     }
     setLoading(true);
     try {
-      // 1) Charger toutes les livraisons de la période selon filtres coop/campagne/producteur
+      // 1) Charger toutes les livraisons de la période selon filtres
       const deliveries: Array<{ producer_id: string | null; net_weight: number | null }> = [];
       let from = 0;
       while (true) {
@@ -121,72 +126,82 @@ export default function PrimeProducer() {
 
       if (deliveries.length === 0) {
         setRows([]);
-        toast({
-          title: "Aucune livraison",
-          description: "Aucune livraison ne correspond aux filtres sélectionnés (coopérative, campagne, période, producteur).",
-          variant: "destructive",
-        });
+        toast({ title: "Aucune livraison", description: "Aucune livraison ne correspond aux filtres sélectionnés.", variant: "destructive" });
         return;
       }
 
-      // 2) Regrouper par producteur
-      const volumeByProducer = new Map<string, number>();
+      // 2) Regrouper les volumes par plantation (producer_id)
+      const volumeByPlantation = new Map<string, number>();
       deliveries.forEach((d) => {
         if (!d.producer_id) return;
-        volumeByProducer.set(d.producer_id, (volumeByProducer.get(d.producer_id) || 0) + Number(d.net_weight || 0));
+        volumeByPlantation.set(d.producer_id, (volumeByPlantation.get(d.producer_id) || 0) + Number(d.net_weight || 0));
       });
 
-      const producerIds = Array.from(volumeByProducer.keys());
-      if (producerIds.length === 0) {
-        setRows([]);
-        toast({ title: "Aucun producteur", description: "Livraisons trouvées mais sans producteur associé.", variant: "destructive" });
-        return;
-      }
+      const plantationIds = Array.from(volumeByPlantation.keys());
 
-      // 3) Charger les infos des producteurs concernés (en respectant section si filtrée)
-      const prodMap = new Map<string, { id: string; full_name: string; section: string; cooperative: string }>();
-      for (let i = 0; i < producerIds.length; i += 500) {
-        const chunk = producerIds.slice(i, i + 500);
+      // 3) Charger les infos plantations (avec producer_code) — filtrer par section si demandé
+      const plantMap = new Map<string, { id: string; producer_code: string; full_name: string; section: string; cooperative: string }>();
+      for (let i = 0; i < plantationIds.length; i += 500) {
+        const chunk = plantationIds.slice(i, i + 500);
         let pq = supabase.from("producers")
-          .select("id,full_name,section,cooperative")
+          .select("id,producer_code,full_name,section,cooperative")
           .in("id", chunk);
         if (section !== "all") pq = pq.eq("section", section);
         const { data, error } = await pq;
         if (error) throw error;
-        (data || []).forEach((p: any) => prodMap.set(p.id, p));
+        (data || []).forEach((p: any) => plantMap.set(p.id, p));
       }
 
-      // 4) Construire les lignes filtrées
-      const totalVolume = Array.from(volumeByProducer.entries())
-        .filter(([pid]) => prodMap.has(pid))
-        .reduce((s, [, v]) => s + v, 0);
-      const rate = bonusType === "per_kg" ? amount : (totalVolume > 0 ? amount / totalVolume : 0);
-
-      const out: PrimeRow[] = Array.from(volumeByProducer.entries())
-        .filter(([pid, vol]) => prodMap.has(pid) && vol > 0)
-        .map(([pid, volume]) => {
-          const p = prodMap.get(pid)!;
-          return {
-            producer_id: pid,
+      // 4) Regrouper par producer_code
+      const byProducer = new Map<string, { producer_code: string; full_name: string; section: string; cooperative: string; volume: number; plantations: Set<string> }>();
+      volumeByPlantation.forEach((vol, plantationId) => {
+        const p = plantMap.get(plantationId);
+        if (!p) return; // filtré (section) ou introuvable
+        const key = (p.producer_code || "").trim() || `__NOCODE__${p.id}`;
+        const cur = byProducer.get(key);
+        if (cur) {
+          cur.volume += vol;
+          cur.plantations.add(plantationId);
+        } else {
+          byProducer.set(key, {
+            producer_code: p.producer_code || "",
             full_name: p.full_name,
             section: p.section,
-            volume,
-            rate,
-            bonus: volume * rate,
-          };
-        })
+            cooperative: p.cooperative,
+            volume: vol,
+            plantations: new Set([plantationId]),
+          });
+        }
+      });
+
+      if (byProducer.size === 0) {
+        setRows([]);
+        toast({ title: "Aucun producteur éligible", description: "Des livraisons existent mais aucun producteur ne correspond aux filtres.", variant: "destructive" });
+        return;
+      }
+
+      // 5) Calcul du taux
+      const totalVolume = Array.from(byProducer.values()).reduce((s, r) => s + r.volume, 0);
+      const rate = bonusType === "per_kg" ? amount : (totalVolume > 0 ? amount / totalVolume : 0);
+
+      const out: PrimeRow[] = Array.from(byProducer.values())
+        .filter(r => r.volume > 0)
+        .map(r => ({
+          producer_id: Array.from(r.plantations)[0],
+          producer_code: r.producer_code,
+          full_name: r.full_name,
+          section: r.section,
+          cooperative: r.cooperative,
+          num_plantations: r.plantations.size,
+          volume: r.volume,
+          rate,
+          bonus: r.volume * rate,
+        }))
         .sort((a, b) => b.volume - a.volume);
 
+
       setRows(out);
-      if (out.length === 0) {
-        toast({
-          title: "Aucun producteur éligible",
-          description: "Des livraisons existent mais aucun producteur ne correspond aux filtres (section/coopérative).",
-          variant: "destructive",
-        });
-      } else {
-        toast({ title: "Calcul terminé", description: `${out.length} producteur(s) éligible(s).` });
-      }
+      toast({ title: "Calcul terminé", description: `${out.length} producteur(s) éligible(s).` });
     } catch (e) {
       console.error("[PrimeProducer.calculate]", e);
       toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
@@ -194,6 +209,8 @@ export default function PrimeProducer() {
       setLoading(false);
     }
   }
+
+
 
   async function saveCalc() {
     if (!coopId || rows.length === 0) return;
@@ -365,8 +382,10 @@ export default function PrimeProducer() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>N°</TableHead>
+                    <TableHead>Code producteur</TableHead>
                     <TableHead>Producteur</TableHead>
                     <TableHead>Section</TableHead>
+                    <TableHead className="text-right">Plantations</TableHead>
                     <TableHead className="text-right">Volume (kg)</TableHead>
                     <TableHead className="text-right">Taux prime</TableHead>
                     <TableHead className="text-right">Montant prime</TableHead>
@@ -374,16 +393,19 @@ export default function PrimeProducer() {
                 </TableHeader>
                 <TableBody>
                   {rows.map((r, i) => (
-                    <TableRow key={r.producer_id}>
+                    <TableRow key={`${r.producer_code}-${r.producer_id}`}>
                       <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.producer_code}</TableCell>
                       <TableCell className="font-medium">{r.full_name}</TableCell>
                       <TableCell>{r.section}</TableCell>
+                      <TableCell className="text-right">{r.num_plantations}</TableCell>
                       <TableCell className="text-right">{r.volume.toLocaleString("fr-FR")}</TableCell>
                       <TableCell className="text-right">{r.rate.toFixed(2)}</TableCell>
                       <TableCell className="text-right font-semibold">{Math.round(r.bonus).toLocaleString("fr-FR")}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
+
               </Table>
             </div>
           </CardContent>

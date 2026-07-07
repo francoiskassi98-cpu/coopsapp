@@ -3,12 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface PrimeRowExport {
   producer_id: string;
+  producer_code: string;
   full_name: string;
   section: string;
+  cooperative?: string;
+  num_plantations: number;
   volume: number;
   rate: number;
   bonus: number;
 }
+
 
 export interface PrimeExcelParams {
   cooperativeName: string;
@@ -63,11 +67,13 @@ export async function generatePrimeExcel(p: PrimeExcelParams) {
 
   ws.columns = [
     { width: 6 },
-    { width: 38 },
-    { width: 22 },
+    { width: 18 },
+    { width: 34 },
+    { width: 20 },
+    { width: 12 },
     { width: 16 },
     { width: 14 },
-    { width: 18 },
+    { width: 20 },
   ];
 
   // Logo
@@ -80,14 +86,14 @@ export async function generatePrimeExcel(p: PrimeExcelParams) {
   }
 
   // Title
-  ws.mergeCells("A1:F1");
+  ws.mergeCells("A1:H1");
   const titleCell = ws.getCell("A1");
   titleCell.value = `PRIME PRODUCTEUR — ${p.cooperativeName.toUpperCase()}`;
   titleCell.font = { name: "Calibri", bold: true, size: 18, color: { argb: "FF0F172A" } };
   titleCell.alignment = { horizontal: "center", vertical: "middle" };
   ws.getRow(1).height = 32;
 
-  ws.mergeCells("A2:F2");
+  ws.mergeCells("A2:H2");
   const subCell = ws.getCell("A2");
   subCell.value = `Période : ${p.startDate} → ${p.endDate}    •    ${p.bonusType === "per_kg" ? `Taux : ${p.amount} FCFA/kg` : `Enveloppe : ${p.amount.toLocaleString("fr-FR")} FCFA`}`;
   subCell.font = { name: "Calibri", italic: true, size: 11, color: { argb: "FF475569" } };
@@ -98,7 +104,7 @@ export async function generatePrimeExcel(p: PrimeExcelParams) {
 
   // Table header
   const headerRow = ws.getRow(4);
-  const headers = ["N°", "Producteur", "Section", "Volume livré (Kg)", "Taux prime", "Montant prime (FCFA)"];
+  const headers = ["N°", "Code producteur", "Producteur", "Section", "Plantations", "Volume livré (Kg)", "Taux prime", "Montant prime (FCFA)"];
   headers.forEach((h, i) => {
     const cell = headerRow.getCell(i + 1);
     cell.value = h;
@@ -114,43 +120,48 @@ export async function generatePrimeExcel(p: PrimeExcelParams) {
   p.rows.forEach((r, idx) => {
     const row = ws.getRow(5 + idx);
     row.getCell(1).value = idx + 1;
-    row.getCell(2).value = r.full_name;
-    row.getCell(3).value = r.section;
-    row.getCell(4).value = r.volume;
-    row.getCell(5).value = r.rate;
-    row.getCell(6).value = Math.round(r.bonus);
+    row.getCell(2).value = r.producer_code;
+    row.getCell(3).value = r.full_name;
+    row.getCell(4).value = r.section;
+    row.getCell(5).value = r.num_plantations;
+    row.getCell(6).value = r.volume;
+    row.getCell(7).value = r.rate;
+    row.getCell(8).value = Math.round(r.bonus);
     totalVol += r.volume;
     totalBonus += r.bonus;
 
-    row.getCell(4).numFmt = '#,##0';
-    row.getCell(5).numFmt = '#,##0.00';
     row.getCell(6).numFmt = '#,##0';
+    row.getCell(7).numFmt = '#,##0.00';
+    row.getCell(8).numFmt = '#,##0';
 
     const fill = idx % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF";
-    for (let c = 1; c <= 6; c++) {
+    for (let c = 1; c <= 8; c++) {
       const cell = row.getCell(c);
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fill } };
       cell.border = { top: { style: "hair", color: { argb: "FFE2E8F0" } }, bottom: { style: "hair", color: { argb: "FFE2E8F0" } }, left: { style: "thin", color: { argb: "FFCBD5E1" } }, right: { style: "thin", color: { argb: "FFCBD5E1" } } };
-      cell.alignment = { vertical: "middle", horizontal: c === 1 || c >= 4 ? (c === 1 ? "center" : "right") : "left" };
+      const rightAligned = c === 1 || c === 5 || c >= 6;
+      cell.alignment = { vertical: "middle", horizontal: rightAligned ? (c === 1 ? "center" : "right") : "left" };
       cell.font = { name: "Calibri", size: 11 };
     }
   });
 
   // Total row
   const totalRow = ws.getRow(5 + p.rows.length);
-  totalRow.getCell(2).value = "TOTAL";
-  totalRow.getCell(4).value = totalVol;
-  totalRow.getCell(6).value = Math.round(totalBonus);
-  totalRow.getCell(4).numFmt = '#,##0';
+  totalRow.getCell(3).value = "TOTAL";
+  totalRow.getCell(6).value = totalVol;
+  totalRow.getCell(8).value = Math.round(totalBonus);
   totalRow.getCell(6).numFmt = '#,##0';
-  for (let c = 1; c <= 6; c++) {
+  totalRow.getCell(8).numFmt = '#,##0';
+  for (let c = 1; c <= 8; c++) {
     const cell = totalRow.getCell(c);
     cell.font = { name: "Calibri", bold: true, size: 12, color: { argb: "FFFFFFFF" } };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F172A" } };
     cell.border = { top: { style: "medium" }, bottom: { style: "medium" }, left: { style: "thin" }, right: { style: "thin" } };
-    cell.alignment = { vertical: "middle", horizontal: c === 1 || c >= 4 ? (c === 1 ? "center" : "right") : "left" };
+    const rightAligned = c === 1 || c === 5 || c >= 6;
+    cell.alignment = { vertical: "middle", horizontal: rightAligned ? (c === 1 ? "center" : "right") : "left" };
   }
   totalRow.height = 24;
+
 
   // Repeat header on print
   ws.pageSetup.printTitlesRow = "1:4";
