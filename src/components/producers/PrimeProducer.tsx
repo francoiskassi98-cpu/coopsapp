@@ -17,13 +17,16 @@ interface Campaign { id: string; nom: string }
 interface ProducerOpt { id: string; full_name: string; section: string; cooperative: string }
 
 interface PrimeRow {
-  producer_id: string;
+  producer_code: string;
   full_name: string;
   section: string;
+  cooperative: string;
+  num_plantations: number;
   volume: number;
   rate: number;
   bonus: number;
 }
+
 
 export default function PrimeProducer() {
   const { isSuperAdmin, cooperativeRefs } = useAuth();
