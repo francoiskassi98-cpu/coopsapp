@@ -437,8 +437,9 @@ export default function Producers() {
               </div>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
