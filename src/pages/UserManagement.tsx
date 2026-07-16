@@ -257,17 +257,16 @@ export default function UserManagement() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="h-6 w-6" /> Gestion du projet
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">Gérer les utilisateurs, rôles et coopératives</p>
-        </div>
-        <Button onClick={() => setShowForm(!showForm)}>
-          <UserPlus className="h-4 w-4 mr-2" /> Nouvel utilisateur
-        </Button>
-      </div>
+      <PageHeader
+        icon={Users}
+        title="Gestion du projet"
+        description="Gérer les utilisateurs, rôles et coopératives."
+        actions={
+          <Button onClick={() => setShowForm(!showForm)} size="sm">
+            <UserPlus className="h-4 w-4 mr-2" /> Nouvel utilisateur
+          </Button>
+        }
+      />
 
       {showForm && (
         <Card>

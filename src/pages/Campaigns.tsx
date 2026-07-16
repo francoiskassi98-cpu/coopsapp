@@ -9,6 +9,7 @@ import { useCampaigns } from "@/hooks/useActiveCampaign";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Calendar, CheckCircle2, Archive, Plus, Truck } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
 
 export default function Campaigns() {
   const { campaigns, refetch } = useCampaigns();
