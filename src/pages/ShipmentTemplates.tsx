@@ -14,6 +14,7 @@ import { FileSpreadsheet, Plus, Pencil, Trash2, Star, Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TemplatePreview } from "@/components/shipments/TemplatePreview";
 import { ImageUploader } from "@/components/ui/ImageUploader";
+import PageHeader from "@/components/PageHeader";
 
 interface Coop { id: string; name: string }
 
