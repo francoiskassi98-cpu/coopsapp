@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Handshake, Plus, Pencil, Trash2, Loader2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
+import PageHeader from "@/components/PageHeader";
 
 type Partner = {
   id: string;
@@ -185,20 +186,18 @@ export default function Partners() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Handshake className="h-6 w-6 text-primary" /> Partenaires
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Acheteurs, exportateurs et partenaires commerciaux.
-          </p>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" /> Nouveau partenaire
-        </Button>
-      </div>
+    <div className="p-6 space-y-6">
+      <PageHeader
+        icon={Handshake}
+        title="Partenaires"
+        description="Acheteurs, exportateurs et partenaires commerciaux."
+        actions={
+          <Button onClick={openCreate} size="sm">
+            <Plus className="h-4 w-4 mr-2" /> Nouveau partenaire
+          </Button>
+        }
+      />
+
 
       {loading ? (
         <div className="flex justify-center py-12">

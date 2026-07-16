@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle, ShieldOff } from "lucide-react";
+import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle, ShieldOff, Users } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { parseExcelFile, downloadImportTemplate, exportToExcel, type ProducerRow, type ImportError } from "@/lib/excel-utils";
@@ -384,25 +385,24 @@ export default function Producers() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold">Registre des producteurs</h1>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={downloadImportTemplate}>
-            <Download className="h-4 w-4 mr-2" />
-            Modèle Excel
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => openImportDialog("insert")}>
-            <Upload className="h-4 w-4 mr-2" />
-            Importer
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => openImportDialog("update")}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Mettre à jour
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExportProducers(coopFilter)}>
-            <FileSpreadsheet className="h-4 w-4 mr-2" />
-            Exporter
-          </Button>
+      <PageHeader
+        icon={Users}
+        title="Registre des producteurs"
+        description="Consultez, importez et exportez le registre officiel des producteurs et leurs sections."
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={downloadImportTemplate}>
+              <Download className="h-4 w-4 mr-2" /> Modèle Excel
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => openImportDialog("insert")}>
+              <Upload className="h-4 w-4 mr-2" /> Importer
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => openImportDialog("update")}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Mettre à jour
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleExportProducers(coopFilter)}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" /> Exporter
+            </Button>
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
@@ -438,8 +438,9 @@ export default function Producers() {
               </div>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">

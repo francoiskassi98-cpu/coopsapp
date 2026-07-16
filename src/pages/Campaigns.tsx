@@ -9,6 +9,7 @@ import { useCampaigns } from "@/hooks/useActiveCampaign";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Calendar, CheckCircle2, Archive, Plus, Truck } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
 
 export default function Campaigns() {
   const { campaigns, refetch } = useCampaigns();
@@ -69,45 +70,42 @@ export default function Campaigns() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Calendar className="h-6 w-6" /> Gestion des campagnes
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Période officielle : 01 septembre AAAA → 31 août AAAA+1. Une seule campagne peut être utilisée pour les chargements.
-          </p>
-        </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" />Nouvelle campagne</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Créer une nouvelle campagne</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium">Année de début</label>
-                <Input
-                  type="number"
-                  value={year}
-                  onChange={(e) => setYear(parseInt(e.target.value) || new Date().getFullYear())}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  La campagne sera nommée <strong>{year}-{year + 1}</strong> (du 01/09/{year} au 31/08/{year + 1}).
-                </p>
+      <PageHeader
+        icon={Calendar}
+        title="Gestion des campagnes"
+        description="Période officielle : 01 septembre AAAA → 31 août AAAA+1. Une seule campagne peut être utilisée pour les chargements."
+        actions={
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm"><Plus className="h-4 w-4 mr-2" />Nouvelle campagne</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Créer une nouvelle campagne</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium">Année de début</label>
+                  <Input
+                    type="number"
+                    value={year}
+                    onChange={(e) => setYear(parseInt(e.target.value) || new Date().getFullYear())}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    La campagne sera nommée <strong>{year}-{year + 1}</strong> (du 01/09/{year} au 31/08/{year + 1}).
+                  </p>
+                </div>
               </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
-              <Button onClick={createCampaign} disabled={creating}>
-                {creating ? "Création..." : "Créer"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
+                <Button onClick={createCampaign} disabled={creating}>
+                  {creating ? "Création..." : "Créer"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       <Card>
         <CardHeader>

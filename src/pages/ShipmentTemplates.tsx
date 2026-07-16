@@ -14,6 +14,7 @@ import { FileSpreadsheet, Plus, Pencil, Trash2, Star, Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TemplatePreview } from "@/components/shipments/TemplatePreview";
 import { ImageUploader } from "@/components/ui/ImageUploader";
+import PageHeader from "@/components/PageHeader";
 
 interface Coop { id: string; name: string }
 
@@ -145,22 +146,23 @@ export default function ShipmentTemplates() {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><FileSpreadsheet className="h-6 w-6 text-primary" />Modèles Excel — Chargements</h1>
-          <p className="text-sm text-muted-foreground mt-1">Personnalisez l'apparence et le contenu des fiches de chargement exportées.</p>
-        </div>
-        <div className="flex gap-2">
-          <Select value={coopFilter} onValueChange={setCoopFilter}>
-            <SelectTrigger className="w-56"><SelectValue placeholder="Toutes les coopératives" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Toutes les coopératives</SelectItem>
-              {coops.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Nouveau modèle</Button>
-        </div>
-      </div>
+      <PageHeader
+        icon={FileSpreadsheet}
+        title="Modèles Excel — Chargements"
+        description="Personnalisez l'apparence et le contenu des fiches de chargement exportées."
+        actions={
+          <>
+            <Select value={coopFilter} onValueChange={setCoopFilter}>
+              <SelectTrigger className="w-56"><SelectValue placeholder="Toutes les coopératives" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les coopératives</SelectItem>
+                {coops.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-2" />Nouveau modèle</Button>
+          </>
+        }
+      />
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Chargement...</p>
