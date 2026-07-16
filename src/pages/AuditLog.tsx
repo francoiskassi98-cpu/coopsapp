@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, FileDown, Search, RefreshCw } from "lucide-react";
+import { Loader2, FileDown, Search, RefreshCw, ShieldCheck } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
 import { toast } from "sonner";
 import { fetchAllRows } from "@/lib/database-utils";
 import { supabase } from "@/integrations/supabase/client";
