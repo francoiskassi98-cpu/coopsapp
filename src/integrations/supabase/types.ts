@@ -17,75 +17,42 @@ export type Database = {
       audit_logs: {
         Row: {
           action: string
-          campaign_id: string | null
+          campaign_label: string | null
           changed_at: string
           changed_by: string | null
           changed_by_email: string | null
-          cooperative: string | null
           id: string
           new_data: Json | null
           old_data: Json | null
           record_id: string | null
+          registre: string | null
           table_name: string
         }
         Insert: {
           action: string
-          campaign_id?: string | null
+          campaign_label?: string | null
           changed_at?: string
           changed_by?: string | null
           changed_by_email?: string | null
-          cooperative?: string | null
           id?: string
           new_data?: Json | null
           old_data?: Json | null
           record_id?: string | null
+          registre?: string | null
           table_name: string
         }
         Update: {
           action?: string
-          campaign_id?: string | null
+          campaign_label?: string | null
           changed_at?: string
           changed_by?: string | null
           changed_by_email?: string | null
-          cooperative?: string | null
           id?: string
           new_data?: Json | null
           old_data?: Json | null
           record_id?: string | null
+          registre?: string | null
           table_name?: string
-        }
-        Relationships: []
-      }
-      campaigns: {
-        Row: {
-          active: boolean
-          archived: boolean
-          created_at: string
-          date_debut: string
-          date_fin: string
-          id: string
-          nom: string
-          utilise_pour_chargement: boolean
-        }
-        Insert: {
-          active?: boolean
-          archived?: boolean
-          created_at?: string
-          date_debut: string
-          date_fin: string
-          id?: string
-          nom: string
-          utilise_pour_chargement?: boolean
-        }
-        Update: {
-          active?: boolean
-          archived?: boolean
-          created_at?: string
-          date_debut?: string
-          date_fin?: string
-          id?: string
-          nom?: string
-          utilise_pour_chargement?: boolean
         }
         Relationships: []
       }
@@ -160,6 +127,7 @@ export type Database = {
       }
       deliveries: {
         Row: {
+          campaign_label: string
           created_at: string
           delivery_date: string
           id: string
@@ -167,9 +135,11 @@ export type Database = {
           num_bags: number
           producer_id: string
           receipt_number: string
+          registre_id: string
           shipment_id: string
         }
         Insert: {
+          campaign_label: string
           created_at?: string
           delivery_date: string
           id?: string
@@ -177,9 +147,11 @@ export type Database = {
           num_bags: number
           producer_id: string
           receipt_number: string
+          registre_id: string
           shipment_id: string
         }
         Update: {
+          campaign_label?: string
           created_at?: string
           delivery_date?: string
           id?: string
@@ -187,6 +159,7 @@ export type Database = {
           num_bags?: number
           producer_id?: string
           receipt_number?: string
+          registre_id?: string
           shipment_id?: string
         }
         Relationships: [
@@ -195,6 +168,13 @@ export type Database = {
             columns: ["producer_id"]
             isOneToOne: false
             referencedRelation: "producers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_registre_id_fkey"
+            columns: ["registre_id"]
+            isOneToOne: false
+            referencedRelation: "registres"
             referencedColumns: ["id"]
           },
           {
@@ -208,32 +188,32 @@ export type Database = {
       }
       disabled_sections: {
         Row: {
-          campaign_id: string | null
-          cooperative: string
+          campaign_label: string
           disabled_at: string
           id: string
+          registre_id: string
           section_name: string
         }
         Insert: {
-          campaign_id?: string | null
-          cooperative: string
+          campaign_label: string
           disabled_at?: string
           id?: string
+          registre_id: string
           section_name: string
         }
         Update: {
-          campaign_id?: string | null
-          cooperative?: string
+          campaign_label?: string
           disabled_at?: string
           id?: string
+          registre_id?: string
           section_name?: string
         }
         Relationships: [
           {
-            foreignKeyName: "disabled_sections_campaign_id_fkey"
-            columns: ["campaign_id"]
+            foreignKeyName: "disabled_sections_registre_id_fkey"
+            columns: ["registre_id"]
             isOneToOne: false
-            referencedRelation: "campaigns"
+            referencedRelation: "registres"
             referencedColumns: ["id"]
           },
         ]
@@ -301,43 +281,43 @@ export type Database = {
       partners: {
         Row: {
           contact: string | null
-          cooperative_id: string | null
           created_at: string
           deleted_at: string | null
           id: string
           logo_path: string | null
           name: string
+          registre_id: string
           status: string
           updated_at: string
         }
         Insert: {
           contact?: string | null
-          cooperative_id?: string | null
           created_at?: string
           deleted_at?: string | null
           id?: string
           logo_path?: string | null
           name: string
+          registre_id: string
           status?: string
           updated_at?: string
         }
         Update: {
           contact?: string | null
-          cooperative_id?: string | null
           created_at?: string
           deleted_at?: string | null
           id?: string
           logo_path?: string | null
           name?: string
+          registre_id?: string
           status?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "partners_cooperative_id_fkey"
-            columns: ["cooperative_id"]
+            foreignKeyName: "partners_registre_id_fkey"
+            columns: ["registre_id"]
             isOneToOne: false
-            referencedRelation: "cooperatives"
+            referencedRelation: "registres"
             referencedColumns: ["id"]
           },
         ]
@@ -345,53 +325,56 @@ export type Database = {
       producer_bonus_results: {
         Row: {
           calculated_bonus: number
-          cooperative_id: string
+          campaign_label: string
           created_at: string
           id: string
           period_end: string
           period_start: string
           producer_id: string
           rate: number
+          registre_id: string
           setting_id: string | null
           volume_delivered: number
         }
         Insert: {
           calculated_bonus?: number
-          cooperative_id: string
+          campaign_label: string
           created_at?: string
           id?: string
           period_end: string
           period_start: string
           producer_id: string
           rate?: number
+          registre_id: string
           setting_id?: string | null
           volume_delivered?: number
         }
         Update: {
           calculated_bonus?: number
-          cooperative_id?: string
+          campaign_label?: string
           created_at?: string
           id?: string
           period_end?: string
           period_start?: string
           producer_id?: string
           rate?: number
+          registre_id?: string
           setting_id?: string | null
           volume_delivered?: number
         }
         Relationships: [
           {
-            foreignKeyName: "producer_bonus_results_cooperative_id_fkey"
-            columns: ["cooperative_id"]
-            isOneToOne: false
-            referencedRelation: "cooperatives"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "producer_bonus_results_producer_id_fkey"
             columns: ["producer_id"]
             isOneToOne: false
             referencedRelation: "producers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_bonus_results_registre_id_fkey"
+            columns: ["registre_id"]
+            isOneToOne: false
+            referencedRelation: "registres"
             referencedColumns: ["id"]
           },
           {
@@ -407,13 +390,13 @@ export type Database = {
         Row: {
           amount: number
           bonus_type: string
-          campaign_id: string | null
-          cooperative_id: string
+          campaign_label: string
           created_at: string
           created_by: string | null
           end_date: string
           id: string
           label: string | null
+          registre_id: string
           section: string | null
           start_date: string
           updated_at: string
@@ -421,13 +404,13 @@ export type Database = {
         Insert: {
           amount: number
           bonus_type: string
-          campaign_id?: string | null
-          cooperative_id: string
+          campaign_label: string
           created_at?: string
           created_by?: string | null
           end_date: string
           id?: string
           label?: string | null
+          registre_id: string
           section?: string | null
           start_date: string
           updated_at?: string
@@ -435,30 +418,23 @@ export type Database = {
         Update: {
           amount?: number
           bonus_type?: string
-          campaign_id?: string | null
-          cooperative_id?: string
+          campaign_label?: string
           created_at?: string
           created_by?: string | null
           end_date?: string
           id?: string
           label?: string | null
+          registre_id?: string
           section?: string | null
           start_date?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "producer_bonus_settings_campaign_id_fkey"
-            columns: ["campaign_id"]
+            foreignKeyName: "producer_bonus_settings_registre_id_fkey"
+            columns: ["registre_id"]
             isOneToOne: false
-            referencedRelation: "campaigns"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "producer_bonus_settings_cooperative_id_fkey"
-            columns: ["cooperative_id"]
-            isOneToOne: false
-            referencedRelation: "cooperatives"
+            referencedRelation: "registres"
             referencedColumns: ["id"]
           },
         ]
@@ -466,11 +442,10 @@ export type Database = {
       producer_registry: {
         Row: {
           actif: boolean
-          campaign_id: string
+          campaign_label: string
           cni: string | null
           code_plantation: string
           code_producteur: string | null
-          cooperative: string
           created_at: string
           id: string
           latitude: number | null
@@ -481,17 +456,17 @@ export type Database = {
           numero_producteur: string | null
           potentiel_livraison: number
           potentiel_restant: number
+          registre_id: string
           section: string
           sexe: string | null
           surface_cacao_totale: number | null
         }
         Insert: {
           actif?: boolean
-          campaign_id: string
+          campaign_label: string
           cni?: string | null
           code_plantation: string
           code_producteur?: string | null
-          cooperative: string
           created_at?: string
           id?: string
           latitude?: number | null
@@ -502,17 +477,17 @@ export type Database = {
           numero_producteur?: string | null
           potentiel_livraison?: number
           potentiel_restant?: number
+          registre_id: string
           section: string
           sexe?: string | null
           surface_cacao_totale?: number | null
         }
         Update: {
           actif?: boolean
-          campaign_id?: string
+          campaign_label?: string
           cni?: string | null
           code_plantation?: string
           code_producteur?: string | null
-          cooperative?: string
           created_at?: string
           id?: string
           latitude?: number | null
@@ -523,23 +498,24 @@ export type Database = {
           numero_producteur?: string | null
           potentiel_livraison?: number
           potentiel_restant?: number
+          registre_id?: string
           section?: string
           sexe?: string | null
           surface_cacao_totale?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "producer_registry_campaign_id_fkey"
-            columns: ["campaign_id"]
+            foreignKeyName: "producer_registry_registre_id_fkey"
+            columns: ["registre_id"]
             isOneToOne: false
-            referencedRelation: "campaigns"
+            referencedRelation: "registres"
             referencedColumns: ["id"]
           },
         ]
       }
       producers: {
         Row: {
-          cooperative: string
+          campaign_label: string
           created_at: string
           deleted_at: string | null
           delivery_potential: number
@@ -556,6 +532,7 @@ export type Database = {
           plantation_code: string
           producer_code: string | null
           producer_number: string | null
+          registre_id: string
           remaining_potential: number
           section: string
           sexe: string | null
@@ -563,7 +540,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          cooperative: string
+          campaign_label: string
           created_at?: string
           deleted_at?: string | null
           delivery_potential?: number
@@ -580,6 +557,7 @@ export type Database = {
           plantation_code: string
           producer_code?: string | null
           producer_number?: string | null
+          registre_id: string
           remaining_potential?: number
           section: string
           sexe?: string | null
@@ -587,7 +565,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          cooperative?: string
+          campaign_label?: string
           created_at?: string
           deleted_at?: string | null
           delivery_potential?: number
@@ -604,13 +582,22 @@ export type Database = {
           plantation_code?: string
           producer_code?: string | null
           producer_number?: string | null
+          registre_id?: string
           remaining_potential?: number
           section?: string
           sexe?: string | null
           total_cocoa_area?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "producers_registre_id_fkey"
+            columns: ["registre_id"]
+            isOneToOne: false
+            referencedRelation: "registres"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -675,54 +662,92 @@ export type Database = {
         }
         Relationships: []
       }
-      reports_ppt_history: {
+      registres: {
         Row: {
-          campaign_id: string | null
-          campaign_name: string | null
-          cooperatives: string[]
+          address: string | null
+          code: string | null
+          cooperative_id: string
           created_at: string
-          file_name: string
           id: string
-          params: Json
-          type_rapport: string
-          user_id: string
+          name: string
+          phone: string | null
+          responsable: string | null
+          status: string
+          updated_at: string
         }
         Insert: {
-          campaign_id?: string | null
-          campaign_name?: string | null
-          cooperatives?: string[]
+          address?: string | null
+          code?: string | null
+          cooperative_id: string
           created_at?: string
-          file_name: string
           id?: string
-          params?: Json
-          type_rapport: string
-          user_id?: string
+          name: string
+          phone?: string | null
+          responsable?: string | null
+          status?: string
+          updated_at?: string
         }
         Update: {
-          campaign_id?: string | null
-          campaign_name?: string | null
-          cooperatives?: string[]
+          address?: string | null
+          code?: string | null
+          cooperative_id?: string
           created_at?: string
-          file_name?: string
           id?: string
-          params?: Json
-          type_rapport?: string
-          user_id?: string
+          name?: string
+          phone?: string | null
+          responsable?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "reports_ppt_history_campaign_id_fkey"
-            columns: ["campaign_id"]
+            foreignKeyName: "registres_cooperative_id_fkey"
+            columns: ["cooperative_id"]
             isOneToOne: false
-            referencedRelation: "campaigns"
+            referencedRelation: "cooperatives"
             referencedColumns: ["id"]
           },
         ]
       }
+      reports_ppt_history: {
+        Row: {
+          campaign_label: string | null
+          campaign_name: string | null
+          created_at: string
+          file_name: string
+          id: string
+          params: Json
+          registres: string[] | null
+          type_rapport: string
+          user_id: string
+        }
+        Insert: {
+          campaign_label?: string | null
+          campaign_name?: string | null
+          created_at?: string
+          file_name: string
+          id?: string
+          params?: Json
+          registres?: string[] | null
+          type_rapport: string
+          user_id?: string
+        }
+        Update: {
+          campaign_label?: string | null
+          campaign_name?: string | null
+          created_at?: string
+          file_name?: string
+          id?: string
+          params?: Json
+          registres?: string[] | null
+          type_rapport?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       shipment_excel_templates: {
         Row: {
           coop_logo_path: string | null
-          cooperative_id: string
           created_at: string
           created_by: string | null
           custom_footer: string | null
@@ -731,6 +756,7 @@ export type Database = {
           is_default: boolean
           logo_position: string
           partner_logo_path: string | null
+          registre_id: string
           show_bill_of_lading: boolean
           show_departure_date: boolean
           show_destination: boolean
@@ -751,7 +777,6 @@ export type Database = {
         }
         Insert: {
           coop_logo_path?: string | null
-          cooperative_id: string
           created_at?: string
           created_by?: string | null
           custom_footer?: string | null
@@ -760,6 +785,7 @@ export type Database = {
           is_default?: boolean
           logo_position?: string
           partner_logo_path?: string | null
+          registre_id: string
           show_bill_of_lading?: boolean
           show_departure_date?: boolean
           show_destination?: boolean
@@ -780,7 +806,6 @@ export type Database = {
         }
         Update: {
           coop_logo_path?: string | null
-          cooperative_id?: string
           created_at?: string
           created_by?: string | null
           custom_footer?: string | null
@@ -789,6 +814,7 @@ export type Database = {
           is_default?: boolean
           logo_position?: string
           partner_logo_path?: string | null
+          registre_id?: string
           show_bill_of_lading?: boolean
           show_departure_date?: boolean
           show_destination?: boolean
@@ -809,10 +835,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "shipment_excel_templates_cooperative_id_fkey"
-            columns: ["cooperative_id"]
+            foreignKeyName: "shipment_excel_templates_registre_id_fkey"
+            columns: ["registre_id"]
             isOneToOne: false
-            referencedRelation: "cooperatives"
+            referencedRelation: "registres"
             referencedColumns: ["id"]
           },
         ]
@@ -820,10 +846,8 @@ export type Database = {
       shipments: {
         Row: {
           avg_bag_weight: number
-          campaign: string
-          campaign_id: string | null
+          campaign_label: string | null
           connaissement: string | null
-          cooperative_id: string | null
           created_at: string
           deleted_at: string | null
           delivery_end: string
@@ -836,6 +860,7 @@ export type Database = {
           lot_number: string | null
           partner_id: string | null
           project: string
+          registre_id: string
           status: string
           total_bags: number
           total_weight: number
@@ -845,10 +870,8 @@ export type Database = {
         }
         Insert: {
           avg_bag_weight: number
-          campaign: string
-          campaign_id?: string | null
+          campaign_label?: string | null
           connaissement?: string | null
-          cooperative_id?: string | null
           created_at?: string
           deleted_at?: string | null
           delivery_end: string
@@ -861,6 +884,7 @@ export type Database = {
           lot_number?: string | null
           partner_id?: string | null
           project: string
+          registre_id: string
           status?: string
           total_bags: number
           total_weight: number
@@ -870,10 +894,8 @@ export type Database = {
         }
         Update: {
           avg_bag_weight?: number
-          campaign?: string
-          campaign_id?: string | null
+          campaign_label?: string | null
           connaissement?: string | null
-          cooperative_id?: string | null
           created_at?: string
           deleted_at?: string | null
           delivery_end?: string
@@ -886,6 +908,7 @@ export type Database = {
           lot_number?: string | null
           partner_id?: string | null
           project?: string
+          registre_id?: string
           status?: string
           total_bags?: number
           total_weight?: number
@@ -895,24 +918,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "shipments_campaign_id_fkey"
-            columns: ["campaign_id"]
-            isOneToOne: false
-            referencedRelation: "campaigns"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "shipments_cooperative_id_fkey"
-            columns: ["cooperative_id"]
-            isOneToOne: false
-            referencedRelation: "cooperatives"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "shipments_partner_id_fkey"
             columns: ["partner_id"]
             isOneToOne: false
             referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_registre_id_fkey"
+            columns: ["registre_id"]
+            isOneToOne: false
+            referencedRelation: "registres"
             referencedColumns: ["id"]
           },
         ]
@@ -996,6 +1012,35 @@ export type Database = {
           },
         ]
       }
+      user_registres: {
+        Row: {
+          created_at: string
+          id: string
+          registre_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          registre_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          registre_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_registres_registre_id_fkey"
+            columns: ["registre_id"]
+            isOneToOne: false
+            referencedRelation: "registres"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -1019,6 +1064,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_registre: { Args: { _registre_id: string }; Returns: boolean }
+      compute_campaign_label: { Args: { d: string }; Returns: string }
       create_cooperative_with_admin:
         | {
             Args: {
@@ -1057,38 +1104,19 @@ export type Database = {
       export_all_producers: {
         Args: never
         Returns: {
-          cooperative: string
           delivery_potential: number
           full_name: string
           id: string
           is_active: boolean
           plantation_code: string
+          registre_id: string
           remaining_potential: number
           section: string
           sexe: string
         }[]
       }
-      get_active_campaign: {
-        Args: never
-        Returns: {
-          active: boolean
-          archived: boolean
-          created_at: string
-          date_debut: string
-          date_fin: string
-          id: string
-          nom: string
-          utilise_pour_chargement: boolean
-        }
-        SetofOptions: {
-          from: "*"
-          to: "campaigns"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      get_dashboard_stats_by_campaign: {
-        Args: { p_campaign_id: string }
+      get_dashboard_stats_by_registre: {
+        Args: { p_campaign_label?: string; p_registre_id: string }
         Returns: {
           nb_chargements: number
           nb_producteurs: number
@@ -1098,17 +1126,8 @@ export type Database = {
         }[]
       }
       get_max_receipt_number: {
-        Args: { p_cooperative_id: string }
+        Args: { p_registre_id: string }
         Returns: string
-      }
-      get_remaining_potential_by_campaign: {
-        Args: { p_campaign_id: string }
-        Returns: {
-          cooperative: string
-          livre: number
-          potentiel_total: number
-          restant: number
-        }[]
       }
       has_role: {
         Args: {
@@ -1123,8 +1142,9 @@ export type Database = {
       log_login_event: { Args: { p_user_agent?: string }; Returns: undefined }
       my_cooperative_ids: { Args: never; Returns: string[] }
       my_cooperative_names: { Args: never; Returns: string[] }
+      my_registre_ids: { Args: never; Returns: string[] }
       next_lot_number: {
-        Args: { p_campaign: string; p_coop: string }
+        Args: { p_campaign_label: string; p_registre: string }
         Returns: string
       }
     }
