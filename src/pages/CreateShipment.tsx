@@ -263,7 +263,7 @@ export default function CreateShipment() {
       num_bags: d.num_bags,
     }));
 
-    const { error: delErr } = await supabase.from("deliveries").insert(deliveries);
+    const { error: delErr } = await (supabase.from as any)("deliveries").insert(deliveries);
     if (delErr) throw delErr;
 
     for (const d of preview) {
