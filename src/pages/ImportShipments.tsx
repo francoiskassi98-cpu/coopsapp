@@ -163,8 +163,7 @@ export default function ImportShipments() {
         if (first.partenaire) {
           partnerId = partnerMap.get(first.partenaire.toLowerCase()) || null;
           if (!partnerId) {
-            const { data: newPartner } = await supabase
-              .from("partners")
+            const { data: newPartner } = await (supabase.from as any)("partners")
               .insert({ name: first.partenaire })
               .select()
               .single();
