@@ -5,6 +5,9 @@ import NotificationsBell from "@/components/NotificationsBell";
 import GlobalSearch from "@/components/GlobalSearch";
 import Breadcrumb from "@/components/Breadcrumb";
 import CooperativeSwitcher from "@/components/CooperativeSwitcher";
+import RegistreSwitcher from "@/components/RegistreSwitcher";
+
+
 
 export default function AppHeader() {
   const { theme, toggle } = useTheme();
@@ -18,6 +21,7 @@ export default function AppHeader() {
       </div>
       <div className="flex items-center gap-2">
         <CooperativeSwitcher />
+        <RegistreSwitcher />
         <Button variant="ghost" size="icon" onClick={toggle} aria-label="Changer de thème" className="h-9 w-9">
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
