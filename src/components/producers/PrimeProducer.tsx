@@ -53,12 +53,12 @@ export default function PrimeProducer() {
   useEffect(() => {
     (async () => {
       const [{ data: c }, { data: cp }] = await Promise.all([
-        supabase.from("cooperatives").select("id,name,logo_path").order("name"),
-        supabase.from("campaigns").select("id,nom").order("nom", { ascending: false }),
+        (supabase.from as any)("cooperatives").select("id,name,logo_path").order("name"),
+        (supabase.from as any)("campaigns").select("id,nom").order("nom", { ascending: false }),
       ]);
-      const list = (c || []) as Coop[];
+      const list = ((c || []) as unknown) as Coop[];
       setCoops(isSuperAdmin ? list : list.filter(x => cooperativeRefs.some(r => r.id === x.id)));
-      setCampaigns((cp || []) as Campaign[]);
+      setCampaigns(((cp || []) as unknown) as Campaign[]);
       if (!isSuperAdmin && cooperativeRefs[0]) setCoopId(cooperativeRefs[0].id);
     })();
   }, [isSuperAdmin, cooperativeRefs]);
@@ -72,13 +72,13 @@ export default function PrimeProducer() {
       let all: ProducerOpt[] = [];
       let from = 0;
       while (true) {
-        const { data } = await supabase.from("producers")
+        const { data } = await (supabase.from as any)("producers")
           .select("id,full_name,section,cooperative")
           .in("cooperative", scopeNames)
           .order("full_name")
           .range(from, from + 999);
         if (!data || data.length === 0) break;
-        all = all.concat(data as ProducerOpt[]);
+        all = all.concat((data as unknown) as ProducerOpt[]);
         if (data.length < 1000) break;
         from += 1000;
       }

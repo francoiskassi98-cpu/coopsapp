@@ -33,8 +33,7 @@ export default function ExportPage() {
 
   // Reload shipments when campaign filter changes
   useEffect(() => {
-    let q = supabase
-      .from("shipments")
+    let q: any = (supabase.from as any)("shipments")
       .select("id, connaissement, zone, cooperative_id, campaign_id")
       .eq("status", "active")
       .order("created_at", { ascending: false });

@@ -185,8 +185,7 @@ export default function CreateShipment() {
     let fetchFrom = 0;
     const FETCH_PAGE = 1000;
     while (true) {
-      const { data } = await supabase
-        .from("producers")
+      const { data } = await (supabase.from as any)("producers")
         .select("id, full_name, section, plantation_code, remaining_potential, delivery_potential")
         .eq("is_active", true)
         .eq("cooperative", coopName)
@@ -264,7 +263,7 @@ export default function CreateShipment() {
       num_bags: d.num_bags,
     }));
 
-    const { error: delErr } = await supabase.from("deliveries").insert(deliveries);
+    const { error: delErr } = await (supabase.from as any)("deliveries").insert(deliveries);
     if (delErr) throw delErr;
 
     for (const d of preview) {
@@ -309,7 +308,7 @@ export default function CreateShipment() {
 
   const addPartner = async () => {
     if (!newPartnerName.trim()) return;
-    const { data, error } = await supabase.from("partners").insert({ name: newPartnerName.trim() }).select().single();
+    const { data, error } = await (supabase.from as any)("partners").insert({ name: newPartnerName.trim() }).select().single();
     if (error) {
       console.error(error);
       toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
