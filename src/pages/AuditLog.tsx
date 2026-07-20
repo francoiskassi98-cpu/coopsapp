@@ -83,7 +83,7 @@ export default function AuditLog() {
     (async () => {
       try {
         const [{ data: camps }, coops] = await Promise.all([
-          supabase.from("campaigns").select("id, nom").order("date_debut", { ascending: false }),
+          (supabase.from as any)("campaigns").select("id, nom").order("date_debut", { ascending: false }),
           fetchAllRows("cooperatives", "name", { order: { column: "name" } }),
         ]);
         setCampaigns((camps ?? []) as any);
