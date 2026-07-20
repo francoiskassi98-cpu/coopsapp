@@ -27,11 +27,10 @@ export default function ReportGenerator() {
   useEffect(() => {
     (async () => {
       try {
-        const { data: camps } = await supabase
-          .from("campaigns")
+        const { data: camps } = await (supabase.from as any)("campaigns")
           .select("id, nom, utilise_pour_chargement, active")
           .order("date_debut", { ascending: false });
-        setCampaigns((camps ?? []) as Campaign[]);
+        setCampaigns(((camps ?? []) as unknown) as Campaign[]);
         const activeCamp = (camps ?? []).find((c: any) => c.utilise_pour_chargement) || (camps ?? [])[0];
         if (activeCamp) setCampaignId(activeCamp.id);
       } catch (e) {
