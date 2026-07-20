@@ -281,7 +281,7 @@ export default function Producers() {
           }));
           for (let i = 0; i < toInsert.length; i += 500) {
             const batch = toInsert.slice(i, i + 500);
-            const { error } = await supabase.from("producers").insert(batch);
+            const { error } = await (supabase.from as any)("producers").insert(batch);
             if (error) throw error;
           }
           toast({ title: "Importation réussie", description: `${newRows.length} producteur(s) ajouté(s).` });
