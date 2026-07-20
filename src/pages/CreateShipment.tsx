@@ -308,7 +308,7 @@ export default function CreateShipment() {
 
   const addPartner = async () => {
     if (!newPartnerName.trim()) return;
-    const { data, error } = await supabase.from("partners").insert({ name: newPartnerName.trim() }).select().single();
+    const { data, error } = await (supabase.from as any)("partners").insert({ name: newPartnerName.trim() }).select().single();
     if (error) {
       console.error(error);
       toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
