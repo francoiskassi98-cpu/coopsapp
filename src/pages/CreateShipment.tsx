@@ -185,8 +185,7 @@ export default function CreateShipment() {
     let fetchFrom = 0;
     const FETCH_PAGE = 1000;
     while (true) {
-      const { data } = await supabase
-        .from("producers")
+      const { data } = await (supabase.from as any)("producers")
         .select("id, full_name, section, plantation_code, remaining_potential, delivery_potential")
         .eq("is_active", true)
         .eq("cooperative", coopName)
