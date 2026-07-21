@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { BarChart3, Truck, FileSpreadsheet, Users, Settings, LogOut, ShieldCheck, Building2, Sprout, Handshake, Trash2, KeyRound, FileCog, BookOpen } from "lucide-react";
+import { BarChart3, Truck, FileSpreadsheet, Users, Settings, Calendar, LogOut, ShieldCheck, Building2, Sprout, Handshake, Trash2, KeyRound, FileCog } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { cn } from "@/lib/utils";
 import { useActiveCampaign } from "@/hooks/useActiveCampaign";
@@ -15,6 +15,7 @@ const groups: NavGroup[] = [
     label: "Pilotage",
     items: [
       { to: "/", label: "Tableau de bord", icon: BarChart3 },
+      { to: "/campagnes", label: "Campagnes", icon: Calendar },
     ],
   },
   {
@@ -30,7 +31,6 @@ const groups: NavGroup[] = [
     label: "Administration",
     items: [
       { to: "/gestion", label: "Gestion du projet", icon: Settings, adminOnly: true },
-      { to: "/gestion/registres", label: "Registres", icon: BookOpen, adminOnly: true },
       { to: "/gestion/cooperatives/nouvelle", label: "Nouvelle coopérative", icon: Building2, superAdminOnly: true },
       { to: "/gestion/modeles-chargement", label: "Modèles chargement", icon: FileCog, adminOnly: true },
       { to: "/audit", label: "Journal d'audit", icon: ShieldCheck, adminOnly: true },

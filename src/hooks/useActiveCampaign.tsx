@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export type Campaign = {
   id: string;
@@ -11,47 +12,59 @@ export type Campaign = {
   created_at: string;
 };
 
-/**
- * Calcule automatiquement l'étiquette de campagne pour une date donnée.
- * Cycle : 1er septembre AAAA → 31 août AAAA+1.
- */
-export function computeCampaignLabel(d: Date = new Date()): string {
-  const y = d.getFullYear();
-  const m = d.getMonth() + 1;
-  return m >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
-}
-
-function buildCampaign(label: string): Campaign {
-  const [start, end] = label.split("-").map((v) => parseInt(v, 10));
-  return {
-    id: label,
-    nom: label,
-    date_debut: `${start}-09-01`,
-    date_fin: `${end}-08-31`,
-    active: true,
-    utilise_pour_chargement: true,
-    archived: false,
-    created_at: new Date().toISOString(),
-  };
-}
-
-/** La campagne courante est calculée par le système (plus de table campaigns). */
 export function useActiveCampaign() {
-  const label = useMemo(() => computeCampaignLabel(), []);
-  const campaign = useMemo(() => buildCampaign(label), [label]);
-  return { campaign, label, loading: false, refetch: async () => {} };
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchActive = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("campaigns" as any)
+      .select("*")
+      .eq("utilise_pour_chargement", true)
+      .maybeSingle();
+    setCampaign((data as any) ?? null);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchActive();
+    const channel = supabase
+      .channel("campaigns-active")
+      .on("postgres_changes", { event: "*", schema: "public", table: "campaigns" }, () => fetchActive())
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchActive]);
+
+  return { campaign, loading, refetch: fetchActive };
 }
 
-/**
- * Compat rétro : renvoie la campagne courante + la précédente,
- * pour les écrans qui listent encore les campagnes en attendant leur refonte.
- */
 export function useCampaigns() {
-  const campaigns = useMemo(() => {
-    const now = computeCampaignLabel();
-    const [start] = now.split("-").map((v) => parseInt(v, 10));
-    const prev = `${start - 1}-${start}`;
-    return [buildCampaign(now), buildCampaign(prev)];
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("campaigns" as any)
+      .select("*")
+      .order("date_debut", { ascending: false });
+    setCampaigns((data as any) ?? []);
+    setLoading(false);
   }, []);
-  return { campaigns, loading: false, refetch: async () => {} };
+
+  useEffect(() => {
+    fetchAll();
+    const channel = supabase
+      .channel("campaigns-all")
+      .on("postgres_changes", { event: "*", schema: "public", table: "campaigns" }, () => fetchAll())
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchAll]);
+
+  return { campaigns, loading, refetch: fetchAll };
 }

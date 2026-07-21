@@ -163,7 +163,8 @@ export default function ImportShipments() {
         if (first.partenaire) {
           partnerId = partnerMap.get(first.partenaire.toLowerCase()) || null;
           if (!partnerId) {
-            const { data: newPartner } = await (supabase.from as any)("partners")
+            const { data: newPartner } = await supabase
+              .from("partners")
               .insert({ name: first.partenaire })
               .select()
               .single();
@@ -195,7 +196,8 @@ export default function ImportShipments() {
         const deliveryStart = dates[0] || first.date_livraison;
         const deliveryEnd = dates[dates.length - 1] || first.date_livraison;
 
-        const { data: shipment, error: shipErr } = await (supabase.from as any)("shipments")
+        const { data: shipment, error: shipErr } = await supabase
+          .from("shipments")
           .insert({
             connaissement: first.connaissement || null,
             total_weight: totalWeight,

@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { KeyRound, Loader2 } from "lucide-react";
-import PageHeader from "@/components/PageHeader";
 
 interface Row { id: string; email: string | null; user_agent: string | null; created_at: string; }
 
@@ -24,11 +23,10 @@ export default function LoginEvents() {
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader
-        icon={KeyRound}
-        title="Journal de connexion"
-        description="Historique des authentifications réussies."
-      />
+      <div>
+        <h1 className="text-2xl font-bold flex items-center gap-2"><KeyRound className="h-6 w-6" /> Journal de connexion</h1>
+        <p className="text-sm text-muted-foreground">Historique des authentifications réussies.</p>
+      </div>
       <Card>
         <CardHeader><CardTitle className="text-base">500 dernières connexions</CardTitle></CardHeader>
         <CardContent>

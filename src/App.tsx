@@ -10,7 +10,6 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import ScrollToTop from "@/components/ScrollToTop";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
-import { ActiveRegistreProvider } from "@/hooks/useActiveRegistre";
 
 const Auth = lazy(() => import("@/pages/Auth"));
 const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
@@ -19,7 +18,7 @@ const Producers = lazy(() => import("@/pages/Producers"));
 const CreateShipment = lazy(() => import("@/pages/CreateShipment"));
 const ExportPage = lazy(() => import("@/pages/ExportPage"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
-const Registres = lazy(() => import("@/pages/Registres"));
+const Campaigns = lazy(() => import("@/pages/Campaigns"));
 const AuditLog = lazy(() => import("@/pages/AuditLog"));
 const CreateCooperative = lazy(() => import("@/pages/CreateCooperative"));
 const Trash = lazy(() => import("@/pages/Trash"));
@@ -53,36 +52,34 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <ActiveRegistreProvider>
-              <ScrollToTop />
-              <Suspense fallback={<PageFallback />}>
-                <Routes>
-                  <Route path="/auth" element={<Auth />} />
-                  <Route path="/reset-password" element={<ResetPassword />} />
-                  <Route element={<ProtectedRoute />}>
-                    <Route element={<AppLayout />}>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/producteurs" element={<Producers />} />
-                      <Route path="/chargements" element={<CreateShipment />} />
-                      <Route path="/export" element={<ExportPage />} />
-                      <Route path="/partenaires" element={<Partners />} />
-                      <Route element={<ProtectedRoute adminOnly />}>
-                        <Route path="/gestion" element={<UserManagement />} />
-                        <Route path="/gestion/registres" element={<Registres />} />
-                        <Route path="/gestion/modeles-chargement" element={<ShipmentTemplates />} />
-                        <Route path="/audit" element={<AuditLog />} />
-                        <Route path="/audit/connexions" element={<LoginEvents />} />
-                        <Route path="/corbeille" element={<Trash />} />
-                      </Route>
-                      <Route element={<ProtectedRoute superAdminOnly />}>
-                        <Route path="/gestion/cooperatives/nouvelle" element={<CreateCooperative />} />
-                      </Route>
+            <ScrollToTop />
+            <Suspense fallback={<PageFallback />}>
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route element={<ProtectedRoute />}>
+                  <Route element={<AppLayout />}>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/producteurs" element={<Producers />} />
+                    <Route path="/chargements" element={<CreateShipment />} />
+                    <Route path="/export" element={<ExportPage />} />
+                    <Route path="/partenaires" element={<Partners />} />
+                    <Route element={<ProtectedRoute adminOnly />}>
+                      <Route path="/campagnes" element={<Campaigns />} />
+                      <Route path="/gestion" element={<UserManagement />} />
+                      <Route path="/gestion/modeles-chargement" element={<ShipmentTemplates />} />
+                      <Route path="/audit" element={<AuditLog />} />
+                      <Route path="/audit/connexions" element={<LoginEvents />} />
+                      <Route path="/corbeille" element={<Trash />} />
+                    </Route>
+                    <Route element={<ProtectedRoute superAdminOnly />}>
+                      <Route path="/gestion/cooperatives/nouvelle" element={<CreateCooperative />} />
                     </Route>
                   </Route>
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </ActiveRegistreProvider>
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

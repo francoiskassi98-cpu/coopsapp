@@ -10,7 +10,6 @@ import { fetchAllRows } from "@/lib/database-utils";
 import { useCampaigns, useActiveCampaign } from "@/hooks/useActiveCampaign";
 import { toast } from "@/hooks/use-toast";
 import { FileSpreadsheet, Download, Users, Ship, MapPin, Loader2, Calendar } from "lucide-react";
-import PageHeader from "@/components/PageHeader";
 
 const ALL_CAMPAIGNS = "__all__";
 
@@ -33,7 +32,8 @@ export default function ExportPage() {
 
   // Reload shipments when campaign filter changes
   useEffect(() => {
-    let q: any = (supabase.from as any)("shipments")
+    let q = supabase
+      .from("shipments")
       .select("id, connaissement, zone, cooperative_id, campaign_id")
       .eq("status", "active")
       .order("created_at", { ascending: false });
@@ -257,11 +257,11 @@ export default function ExportPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader
-        icon={FileSpreadsheet}
-        title="Export Excel"
-        description="Exportez producteurs, chargements, livraisons et audits sur la période de votre choix."
-      />
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <FileSpreadsheet className="h-6 w-6 text-primary" /> Export Excel
+        </h1>
+      </div>
 
       {/* Sélecteur global de campagne */}
       <Card>

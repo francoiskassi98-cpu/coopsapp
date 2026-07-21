@@ -1,19 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useActiveRegistre } from "@/hooks/useActiveRegistre";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Users, UserCheck, UserCog, Activity, TrendingUp, Package, Weight, PieChart as PieIcon, Layers,
+  Users, UserCheck, UserCog, Activity, TrendingUp, Package, Weight, PieChart as PieIcon, Layers, Building2,
 } from "lucide-react";
 import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line,
 } from "recharts";
-
 
 interface Producer {
   id: string;
@@ -42,6 +41,8 @@ interface Shipment {
   is_cancelled: boolean | null;
 }
 
+interface Campaign { id: string; nom: string }
+
 const COLORS = {
   primary: "hsl(174 72% 56%)",
   female: "hsl(340 82% 65%)",
@@ -51,14 +52,12 @@ const COLORS = {
   accent3: "hsl(280 70% 65%)",
 };
 
-async function fetchAll<T>(table: string, select: string, filter?: (q: any) => any): Promise<T[]> {
+async function fetchAll<T>(table: string, select = "*"): Promise<T[]> {
   let all: T[] = [];
   let from = 0;
   const PAGE = 1000;
   while (true) {
-    let q = ((supabase as any).from(table)).select(select);
-    if (filter) q = filter(q);
-    const { data, error } = await q.range(from, from + PAGE - 1);
+    const { data, error } = await ((supabase as any).from(table)).select(select).range(from, from + PAGE - 1);
     if (error) { console.error(error); break; }
     if (!data || data.length === 0) break;
     all = all.concat(data as T[]);
@@ -68,12 +67,12 @@ async function fetchAll<T>(table: string, select: string, filter?: (q: any) => a
   return all;
 }
 
-function KpiCard({ label, value, icon: Icon, loading }: {
-  label: string; value: string | number; icon: any; loading?: boolean;
+function KpiCard({ label, value, icon: Icon, accent = "primary", loading }: {
+  label: string; value: string | number; icon: any; accent?: string; loading?: boolean;
 }) {
   return (
     <Card className="relative overflow-hidden group hover:shadow-glow transition-all duration-300 animate-fade-in">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-50" />
+      <div className={`absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-50`} />
       <CardContent className="p-5 relative">
         <div className="flex items-center justify-between mb-3">
           <div className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">{label}</div>
@@ -81,66 +80,75 @@ function KpiCard({ label, value, icon: Icon, loading }: {
             <Icon className="h-4 w-4 text-primary" />
           </div>
         </div>
-        {loading ? <Skeleton className="h-8 w-24" /> : <div className="text-2xl font-bold tracking-tight">{value}</div>}
+        {loading ? (
+          <Skeleton className="h-8 w-24" />
+        ) : (
+          <div className="text-2xl font-bold tracking-tight">{value}</div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
 export default function ProducersAnalytics() {
-  const { active: activeRegistre } = useActiveRegistre();
-  const registreId = activeRegistre?.id ?? null;
+  const { isSuperAdmin } = useAuth();
   const [loading, setLoading] = useState(true);
   const [producers, setProducers] = useState<Producer[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
 
+  // Filters
+  const [coopFilter, setCoopFilter] = useState("all");
   const [campaignFilter, setCampaignFilter] = useState("all");
   const [sectionFilter, setSectionFilter] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
-    if (!registreId) { setProducers([]); setShipments([]); setDeliveries([]); setLoading(false); return; }
     (async () => {
       setLoading(true);
       try {
-        const [p, s, d] = await Promise.all([
-          fetchAll<Producer>("producers", "id,full_name,section,sexe,delivery_potential,remaining_potential,is_active", (q) => q.eq("registre_id", registreId)),
-          fetchAll<Shipment>("shipments", "id,campaign_label,total_weight,departure_date,status", (q) => q.eq("registre_id", registreId)),
-          fetchAll<Delivery>("deliveries", "id,shipment_id,net_weight,delivery_date", (q) => q.eq("registre_id", registreId)),
+        const [p, s, d, c] = await Promise.all([
+          fetchAll<Producer>("producers", "id,full_name,cooperative,section,sexe,delivery_potential,remaining_potential,is_active"),
+          fetchAll<Shipment>("shipments", "id,cooperative_id,campaign_id,total_weight,departure_date,is_cancelled"),
+          fetchAll<Delivery>("deliveries", "id,shipment_id,net_weight,delivery_date"),
+          fetchAll<Campaign>("campaigns", "id,nom"),
         ]);
         setProducers(p);
         setShipments(s);
         setDeliveries(d);
+        setCampaigns(c);
       } catch (e) {
         console.error("[ProducersAnalytics]", e);
       } finally {
         setLoading(false);
       }
     })();
-  }, [registreId]);
+  }, []);
 
+  const coopList = useMemo(() => [...new Set(producers.map(p => p.cooperative).filter(Boolean))].sort(), [producers]);
   const sectionList = useMemo(() => [...new Set(producers.map(p => p.section).filter(Boolean))].sort(), [producers]);
-  const campaignList = useMemo(() => [...new Set(shipments.map((s: any) => s.campaign_label).filter(Boolean))].sort(), [shipments]);
 
+  // Filtered producers
   const filtered = useMemo(() => producers.filter(p => {
+    if (coopFilter !== "all" && p.cooperative !== coopFilter) return false;
     if (sectionFilter !== "all" && p.section !== sectionFilter) return false;
     return true;
-  }), [producers, sectionFilter]);
+  }), [producers, coopFilter, sectionFilter]);
 
+  // Filtered deliveries (by period + campaign coop)
   const filteredDeliveries = useMemo(() => {
-    const shipMap = new Map(shipments.map((s: any) => [s.id, s]));
+    const shipmentsByCoop = new Map(shipments.map(s => [s.id, s]));
     return deliveries.filter(d => {
-      const ship: any = shipMap.get(d.shipment_id);
-      if (!ship || ship.status === "cancelled") return false;
-      if (campaignFilter !== "all" && ship.campaign_label !== campaignFilter) return false;
+      const ship = shipmentsByCoop.get(d.shipment_id);
+      if (!ship || ship.is_cancelled) return false;
+      if (campaignFilter !== "all" && ship.campaign_id !== campaignFilter) return false;
       if (startDate && d.delivery_date < startDate) return false;
       if (endDate && d.delivery_date > endDate) return false;
       return true;
     });
   }, [deliveries, shipments, campaignFilter, startDate, endDate]);
-
 
   // KPIs — normalisation (accepte Homme/Femme, H/F, M, Masculin/Feminin)
   const sexeKey = (v: string | null) => {
@@ -191,15 +199,21 @@ export default function ProducersAnalytics() {
 
   const byCampaign = useMemo(() => {
     const map = new Map<string, number>();
+    const cName = new Map(campaigns.map(c => [c.id, c.nom]));
     deliveries.forEach(d => {
-      const ship: any = shipments.find((s: any) => s.id === d.shipment_id);
-      if (!ship || ship.status === "cancelled" || !ship.campaign_label) return;
-      const name = ship.campaign_label as string;
+      const ship = shipments.find(s => s.id === d.shipment_id);
+      if (!ship || ship.is_cancelled || !ship.campaign_id) return;
+      const name = cName.get(ship.campaign_id) || "—";
       map.set(name, (map.get(name) || 0) + Number(d.net_weight || 0));
     });
     return Array.from(map.entries()).map(([campagne, kg]) => ({ campagne, kg: Math.round(kg) }));
-  }, [deliveries, shipments]);
+  }, [deliveries, shipments, campaigns]);
 
+  const byCoop = useMemo(() => {
+    const map = new Map<string, number>();
+    producers.forEach(p => map.set(p.cooperative, (map.get(p.cooperative) || 0) + 1));
+    return Array.from(map.entries()).map(([cooperative, count]) => ({ cooperative, count }));
+  }, [producers]);
 
   if (loading) {
     return (
@@ -217,17 +231,28 @@ export default function ProducersAnalytics() {
       {/* Filters */}
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
         <CardContent className="p-4 flex flex-wrap gap-3 items-end">
+          {isSuperAdmin && (
+            <div className="min-w-[180px]">
+              <Label className="text-xs">Coopérative</Label>
+              <Select value={coopFilter} onValueChange={setCoopFilter}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes</SelectItem>
+                  {coopList.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="min-w-[180px]">
             <Label className="text-xs">Campagne</Label>
             <Select value={campaignFilter} onValueChange={setCampaignFilter}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Toutes</SelectItem>
-                {campaignList.map((c: any) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                {campaigns.map(c => <SelectItem key={c.id} value={c.id}>{c.nom}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-
           <div className="min-w-[160px]">
             <Label className="text-xs">Section</Label>
             <Select value={sectionFilter} onValueChange={setSectionFilter}>
@@ -260,8 +285,8 @@ export default function ProducersAnalytics() {
         <KpiCard label="Volume livré" value={fmtKg(livre)} icon={Weight} />
         <KpiCard label="Volume restant" value={fmtKg(restant)} icon={Package} />
         <KpiCard label="Sections" value={fmt(sectionList.length)} icon={Layers} />
+        {isSuperAdmin && <KpiCard label="Coopératives" value={fmt(coopList.length)} icon={Building2} />}
       </div>
-
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -325,7 +350,22 @@ export default function ProducersAnalytics() {
           </CardContent>
         </Card>
 
-
+        {isSuperAdmin && (
+          <Card className="lg:col-span-2 animate-fade-in">
+            <CardHeader><CardTitle className="text-base">Producteurs par coopérative</CardTitle></CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={byCoop}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="cooperative" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                  <Bar dataKey="count" fill={COLORS.accent3} radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
