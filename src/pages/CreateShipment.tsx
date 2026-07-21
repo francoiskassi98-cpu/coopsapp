@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { distributeShipment, getCurrentCampaign, normalizeCampaign, type DistributionResult } from "@/lib/shipment-utils";
+import { distributeShipment, getCurrentCampaign, type DistributionResult } from "@/lib/shipment-utils";
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { Truck, Plus, Download, Pencil, Check, X } from "lucide-react";
@@ -18,8 +18,12 @@ import ShipmentDetails from "@/components/ShipmentDetails";
 import ShipmentHistory from "@/components/ShipmentHistory";
 import { TemplatePreview, type TemplatePreviewData } from "@/components/shipments/TemplatePreview";
 import PageHeader from "@/components/PageHeader";
+import { useActiveRegistre } from "@/hooks/useActiveRegistre";
 
 export default function CreateShipment() {
+  const { active: activeRegistre } = useActiveRegistre();
+  const registreId = activeRegistre?.id ?? null;
+
   const [totalWeight, setTotalWeight] = useState("");
   const [totalBags, setTotalBags] = useState("");
   const [connaissement, setConnaissement] = useState("");
@@ -31,9 +35,7 @@ export default function CreateShipment() {
   const [endDate, setEndDate] = useState("");
   const [project, setProject] = useState("");
   const [partnerId, setPartnerId] = useState("");
-  const [zone, setZone] = useState("");
   const [destination, setDestination] = useState("");
-  const [campaign, setCampaign] = useState("Principale");
   const [partners, setPartners] = useState<any[]>([]);
   const [newPartnerName, setNewPartnerName] = useState("");
   const [preview, setPreview] = useState<DistributionResult[]>([]);
@@ -44,24 +46,27 @@ export default function CreateShipment() {
   const [editBags, setEditBags] = useState("");
   const { sortConfig, toggleSort, sortData } = useSortableTable();
 
-  const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
-  const [coopDelivered, setCoopDelivered] = useState<Record<string, number>>({});
-  const [coopPotential, setCoopPotential] = useState<Record<string, { potentiel: number; remaining: number }>>({});
+  const [registreStats, setRegistreStats] = useState<{ potentiel: number; delivered: number; remaining: number } | null>(null);
   const [suggestedReceipt, setSuggestedReceipt] = useState<string>("");
   const [receiptNumber, setReceiptNumber] = useState<string>("");
-  const [selectedCoopId, setSelectedCoopId] = useState<string>("");
   const [template, setTemplate] = useState<any | null>(null);
 
   useEffect(() => {
-    supabase.from("partners").select("*").order("name").then(({ data }) => setPartners(data || []));
-    loadCooperatives();
-    loadTemplate();
+    (supabase.from as any)("partners").select("*").is("deleted_at", null).order("name").then(({ data }: any) => setPartners(data || []));
   }, []);
 
+  useEffect(() => {
+    if (!registreId) { setTemplate(null); setRegistreStats(null); setSuggestedReceipt(""); return; }
+    loadTemplate();
+    loadRegistreStats();
+    loadNextReceipt();
+  }, [registreId]);
+
   async function loadTemplate() {
-    const { data } = await supabase
-      .from("shipment_excel_templates")
+    if (!registreId) return;
+    const { data } = await (supabase.from as any)("shipment_excel_templates")
       .select("*")
+      .eq("registre_id", registreId)
       .order("is_default", { ascending: false })
       .order("updated_at", { ascending: false })
       .limit(1)
@@ -69,90 +74,54 @@ export default function CreateShipment() {
     setTemplate(data);
   }
 
-
-  async function loadCooperatives() {
-    // Load cooperatives from cooperatives table
-    const { data: coopData } = await supabase.from("cooperatives").select("id, name").order("name");
-    const coopList = coopData || [];
-    setCooperatives(coopList);
-
-    // Get producer stats by cooperative name
+  async function loadRegistreStats() {
+    if (!registreId) return;
+    // Producers potential
     let allProducers: any[] = [];
     let from = 0;
     const PAGE = 1000;
     while (true) {
-      const { data } = await supabase.from("producers").select("cooperative, delivery_potential, remaining_potential").range(from, from + PAGE - 1);
+      const { data } = await (supabase.from as any)("producers")
+        .select("delivery_potential, remaining_potential")
+        .eq("registre_id", registreId)
+        .range(from, from + PAGE - 1);
       if (!data || data.length === 0) break;
       allProducers = allProducers.concat(data);
       if (data.length < PAGE) break;
       from += PAGE;
     }
-    const potMap: Record<string, { potentiel: number; remaining: number }> = {};
-    allProducers.forEach((p) => {
-      if (p.cooperative) {
-        if (!potMap[p.cooperative]) potMap[p.cooperative] = { potentiel: 0, remaining: 0 };
-        potMap[p.cooperative].potentiel += Number(p.delivery_potential);
-        potMap[p.cooperative].remaining += Number(p.remaining_potential);
-      }
-    });
-    setCoopPotential(potMap);
+    const potentiel = allProducers.reduce((s, p) => s + Number(p.delivery_potential || 0), 0);
+    const remaining = allProducers.reduce((s, p) => s + Number(p.remaining_potential || 0), 0);
 
-    // Get delivered by zone from active shipments
-    let allShipments: any[] = [];
+    let delivered = 0;
     from = 0;
     while (true) {
-      const { data } = await supabase.from("shipments").select("zone, total_weight").eq("status", "active").range(from, from + PAGE - 1);
+      const { data } = await (supabase.from as any)("shipments")
+        .select("total_weight")
+        .eq("registre_id", registreId)
+        .eq("status", "active")
+        .range(from, from + PAGE - 1);
       if (!data || data.length === 0) break;
-      allShipments = allShipments.concat(data);
+      delivered += data.reduce((s: number, r: any) => s + Number(r.total_weight || 0), 0);
       if (data.length < PAGE) break;
       from += PAGE;
     }
-    const delMap: Record<string, number> = {};
-    allShipments.forEach((s) => {
-      if (s.zone) delMap[s.zone] = (delMap[s.zone] || 0) + Number(s.total_weight);
-    });
-    setCoopDelivered(delMap);
+    setRegistreStats({ potentiel, delivered, remaining });
   }
 
-  async function loadNextReceiptForCooperative(cooperativeId: string) {
-    if (!cooperativeId) { setSuggestedReceipt(""); setReceiptNumber(""); return; }
-
-    // Appel RPC : MAX(receipt_number::bigint) filtré par cooperative_id
-    // La fonction SQL fait le JOIN shipments→deliveries côté serveur en une seule requête.
-    const { data, error } = await (supabase as any).rpc("get_max_receipt_number", {
-      p_cooperative_id: cooperativeId,
-    });
-
-    if (error) {
-      console.error("Erreur get_max_receipt_number:", error);
-      setSuggestedReceipt("000001");
-      setReceiptNumber("");
-      return;
-    }
-
-    // data est la valeur texte du receipt_number max, ou null si aucune livraison
+  async function loadNextReceipt() {
+    if (!registreId) { setSuggestedReceipt(""); return; }
+    const { data, error } = await (supabase as any).rpc("get_max_receipt_number", { p_registre_id: registreId });
+    if (error) { console.error(error); setSuggestedReceipt("000001"); return; }
     const maxNum = data ? parseInt(String(data).replace(/\D/g, ""), 10) : 0;
     const next = String((isNaN(maxNum) ? 0 : maxNum) + 1).padStart(6, "0");
     setSuggestedReceipt(next);
     setReceiptNumber("");
   }
 
-  const handleZoneChange = (coopId: string) => {
-    setSelectedCoopId(coopId);
-    const coop = cooperatives.find(c => c.id === coopId);
-    setZone(coop?.name || "");
-    loadNextReceiptForCooperative(coopId);
-  };
-
-  const selectedCoopStats = useMemo(() => {
-    if (!zone) return null;
-    const pot = coopPotential[zone] || { potentiel: 0, remaining: 0 };
-    const del = coopDelivered[zone] || 0;
-    return { potentiel: pot.potentiel, delivered: del, remaining: pot.remaining };
-  }, [zone, coopPotential, coopDelivered]);
-
   const missingFields = useMemo(() => {
     const m: string[] = [];
+    if (!registreId) m.push("Registre actif");
     if (!totalWeight) m.push("Poids total");
     if (!totalBags) m.push("Nombre de sacs");
     if (!connaissement.trim()) m.push("N° Connaissement");
@@ -160,27 +129,25 @@ export default function CreateShipment() {
     if (!endDate) m.push("Date fin");
     if (!project) m.push("Projet");
     if (!partnerId) m.push("Partenaire");
-    if (!selectedCoopId) m.push("Coopérative");
     if (!destination) m.push("Destination");
     if (!driverName.trim()) m.push("Chauffeur");
     if (!truckNumber.trim()) m.push("N° Camion");
     if (!trailerNumber.trim()) m.push("N° Remorque");
     if (!departureDate) m.push("Date départ");
     return m;
-  }, [totalWeight, totalBags, connaissement, startDate, endDate, project, partnerId, selectedCoopId, destination, driverName, truckNumber, trailerNumber, departureDate]);
+  }, [registreId, totalWeight, totalBags, connaissement, startDate, endDate, project, partnerId, destination, driverName, truckNumber, trailerNumber, departureDate]);
 
   const handleCalculate = async () => {
     if (missingFields.length > 0) {
       toast({ title: "Champs requis manquants", description: `Renseignez : ${missingFields.join(", ")}.`, variant: "destructive" });
       return;
     }
+    if (!registreId) return;
 
-    // Fetch disabled sections
-    const { data: disabledSectionsData } = await supabase.from("disabled_sections").select("section_name");
+    const { data: disabledSectionsData } = await (supabase.from as any)("disabled_sections")
+      .select("section_name").eq("registre_id", registreId);
     const disabledSectionNames = new Set((disabledSectionsData || []).map((d: any) => d.section_name));
 
-    // Fetch only active producers of the selected cooperative with remaining potential, exclude disabled sections
-    const coopName = cooperatives.find(c => c.id === selectedCoopId)?.name || "";
     let allActiveProducers: any[] = [];
     let fetchFrom = 0;
     const FETCH_PAGE = 1000;
@@ -188,7 +155,7 @@ export default function CreateShipment() {
       const { data } = await (supabase.from as any)("producers")
         .select("id, full_name, section, plantation_code, remaining_potential, delivery_potential")
         .eq("is_active", true)
-        .eq("cooperative", coopName)
+        .eq("registre_id", registreId)
         .gt("remaining_potential", 0)
         .order("section")
         .range(fetchFrom, fetchFrom + FETCH_PAGE - 1);
@@ -198,11 +165,10 @@ export default function CreateShipment() {
       fetchFrom += FETCH_PAGE;
     }
 
-    // Filter out producers from disabled sections
     const producers = allActiveProducers.filter((p: any) => !disabledSectionNames.has(p.section));
 
     if (!producers || producers.length === 0) {
-      toast({ title: "Aucun producteur disponible", description: "Importez d'abord des producteurs avec un potentiel restant.", variant: "destructive" });
+      toast({ title: "Aucun producteur disponible", description: "Importez d'abord des producteurs avec un potentiel restant dans ce registre.", variant: "destructive" });
       return;
     }
 
@@ -210,7 +176,7 @@ export default function CreateShipment() {
     const lastNum = effectiveReceipt ? parseInt(effectiveReceipt, 10) - 1 : 0;
 
     const results = distributeShipment(
-      producers.map((p) => ({ ...p, remaining_potential: Number(p.remaining_potential), delivery_potential: Number(p.delivery_potential) })),
+      producers.map((p: any) => ({ ...p, remaining_potential: Number(p.remaining_potential), delivery_potential: Number(p.delivery_potential) })),
       Number(totalWeight),
       Number(totalBags),
       new Date(startDate),
@@ -227,28 +193,25 @@ export default function CreateShipment() {
   };
 
   const persistShipment = async (): Promise<string | null> => {
-    if (preview.length === 0) return null;
+    if (preview.length === 0 || !registreId) return null;
 
-    const { data: shipment, error: shipErr } = await supabase
-      .from("shipments")
+    const { data: shipment, error: shipErr } = await (supabase.from as any)("shipments")
       .insert({
+        registre_id: registreId,
         connaissement: connaissement || null,
         total_weight: Number(totalWeight),
         total_bags: Number(totalBags),
         avg_bag_weight: Number(totalWeight) / Number(totalBags),
         project,
         partner_id: partnerId || null,
-        zone: zone || null,
-        cooperative_id: selectedCoopId || null,
         destination,
-        campaign: normalizeCampaign(getCurrentCampaign()),
         delivery_start: startDate,
         delivery_end: endDate,
         driver_name: driverName.trim() || null,
         truck_number: truckNumber.trim() || null,
         trailer_number: trailerNumber.trim() || null,
         departure_date: departureDate || null,
-      } as any)
+      })
       .select()
       .single();
 
@@ -257,6 +220,7 @@ export default function CreateShipment() {
     const deliveries = preview.map((d) => ({
       shipment_id: shipment.id,
       producer_id: d.producer_id,
+      registre_id: registreId,
       receipt_number: d.receipt_number,
       delivery_date: d.delivery_date,
       net_weight: d.allocated_weight,
@@ -267,10 +231,9 @@ export default function CreateShipment() {
     if (delErr) throw delErr;
 
     for (const d of preview) {
-      const { data: producer } = await supabase.from("producers").select("remaining_potential").eq("id", d.producer_id).single();
+      const { data: producer } = await (supabase.from as any)("producers").select("remaining_potential").eq("id", d.producer_id).single();
       if (producer) {
-        await supabase
-          .from("producers")
+        await (supabase.from as any)("producers")
           .update({ remaining_potential: Number(producer.remaining_potential) - d.allocated_weight })
           .eq("id", d.producer_id);
       }
@@ -288,6 +251,8 @@ export default function CreateShipment() {
     setTruckNumber("");
     setTrailerNumber("");
     setDepartureDate("");
+    loadRegistreStats();
+    loadNextReceipt();
   };
 
   const handleSave = async () => {
@@ -350,14 +315,12 @@ export default function CreateShipment() {
 
     updated[index] = { ...updated[index], allocated_weight: newWeight, num_bags: newBags };
 
-    // Redistribute the weight difference across other producers proportionally
     if (weightDiff !== 0 && updated.length > 1) {
       const othersTotal = updated.reduce((s, d, i) => i !== index ? s + d.allocated_weight : s, 0);
       let remaining = -weightDiff;
       for (let i = 0; i < updated.length; i++) {
         if (i === index) continue;
         if (i === updated.length - 1 || (i === updated.length - 2 && index === updated.length - 1)) {
-          // Last other producer gets the remainder
           updated[i] = { ...updated[i], allocated_weight: updated[i].allocated_weight + remaining };
           remaining = 0;
         } else {
@@ -395,10 +358,16 @@ export default function CreateShipment() {
       <PageHeader
         icon={Truck}
         title="Chargements"
-        description="Créez, suivez et exportez vos fiches de chargement."
+        description={activeRegistre ? `Registre : ${activeRegistre.name}` : "Sélectionnez un registre actif dans l'en-tête."}
       />
 
-
+      {!registreId && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="py-4 text-sm">
+            Sélectionnez un registre dans l'en-tête pour créer des chargements.
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="create">
         <TabsList>
@@ -477,7 +446,7 @@ export default function CreateShipment() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Partenaire</Label>
+                  <Label>Partenaire *</Label>
                   <div className="flex gap-2">
                     <Select value={partnerId} onValueChange={setPartnerId}>
                       <SelectTrigger className="flex-1"><SelectValue placeholder="Sélectionner" /></SelectTrigger>
@@ -502,27 +471,12 @@ export default function CreateShipment() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Coopérative *</Label>
-                  <Select value={selectedCoopId} onValueChange={handleZoneChange}>
-                    <SelectTrigger><SelectValue placeholder="Sélectionner une coopérative" /></SelectTrigger>
-                    <SelectContent>
-                      {cooperatives.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {selectedCoopId && (
+                {registreId && (
                   <div className="space-y-2">
                     <Label>Prochain N° Reçu</Label>
                     <Input
                       value={receiptNumber}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, "");
-                        setReceiptNumber(val);
-                      }}
+                      onChange={(e) => setReceiptNumber(e.target.value.replace(/\D/g, ""))}
                       placeholder={suggestedReceipt || "Chargement..."}
                       className="font-mono"
                       maxLength={6}
@@ -535,22 +489,13 @@ export default function CreateShipment() {
                   </div>
                 )}
 
-                {selectedCoopStats && (
+                {registreStats && activeRegistre && (
                   <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">Stats coopérative — {zone}</p>
+                    <p className="text-xs font-medium text-muted-foreground">Stats registre — {activeRegistre.name}</p>
                     <div className="grid grid-cols-3 gap-2 text-sm">
-                      <div>
-                        <p className="text-muted-foreground text-xs">Potentiel</p>
-                        <p className="font-semibold">{selectedCoopStats.potentiel.toLocaleString("fr-FR")} kg</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">Livré</p>
-                        <p className="font-semibold">{selectedCoopStats.delivered.toLocaleString("fr-FR")} kg</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">Restant</p>
-                        <p className="font-semibold">{selectedCoopStats.remaining.toLocaleString("fr-FR")} kg</p>
-                      </div>
+                      <div><p className="text-muted-foreground text-xs">Potentiel</p><p className="font-semibold">{registreStats.potentiel.toLocaleString("fr-FR")} kg</p></div>
+                      <div><p className="text-muted-foreground text-xs">Livré</p><p className="font-semibold">{registreStats.delivered.toLocaleString("fr-FR")} kg</p></div>
+                      <div><p className="text-muted-foreground text-xs">Restant</p><p className="font-semibold">{registreStats.remaining.toLocaleString("fr-FR")} kg</p></div>
                     </div>
                   </div>
                 )}
@@ -566,17 +511,7 @@ export default function CreateShipment() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Campagne</Label>
-                  <Select value={campaign} onValueChange={setCampaign}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Principale">Principale</SelectItem>
-                      <SelectItem value="Intermédiaire">Intermédiaire</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">Campagne actuelle : {getCurrentCampaign()}</p>
-                </div>
+                <p className="text-xs text-muted-foreground">Campagne actuelle : {getCurrentCampaign()}</p>
 
                 {missingFields.length > 0 && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -626,32 +561,13 @@ export default function CreateShipment() {
                       <TabsContent value="template">
                         {!template ? (
                           <p className="text-sm text-muted-foreground py-6 text-center">
-                            Aucun modèle configuré. Définissez-en un dans « Modèles chargement ».
+                            Aucun modèle configuré pour ce registre. Définissez-en un dans « Modèles chargement ».
                           </p>
                         ) : (
                           <div className="max-h-[60vh] overflow-auto">
                             <TemplatePreview
-                              title={template.title}
-                              subtitle={template.subtitle}
-                              slogan={template.slogan}
-                              coop_logo_path={template.coop_logo_path}
-                              partner_logo_path={template.partner_logo_path}
-                              logo_position={template.logo_position}
-                              custom_header={template.custom_header}
-                              custom_footer={template.custom_footer}
-                              show_driver={template.show_driver}
-                              show_truck={template.show_truck}
-                              show_trailer={template.show_trailer}
-                              show_bill_of_lading={template.show_bill_of_lading}
-                              show_destination={template.show_destination}
-                              show_project={template.show_project}
-                              show_partner={template.show_partner}
-                              show_departure_date={template.show_departure_date}
-                              show_num_bags={template.show_num_bags}
-                              show_total_weight={template.show_total_weight}
-                              show_num_producers={template.show_num_producers}
-                              show_partner_logo={template.show_partner_logo}
-                              coopName={cooperatives.find((c) => c.id === selectedCoopId)?.name}
+                              {...template}
+                              coopName={activeRegistre?.name}
                               data={{
                                 driver: driverName || "—",
                                 truck: truckNumber || "—",
@@ -682,8 +598,8 @@ export default function CreateShipment() {
 
                       <TabsContent value="edit">
                         <div className="max-h-[60vh] overflow-auto">
-                         <Table>
-                             <TableHeader>
+                          <Table>
+                            <TableHeader>
                               <TableRow>
                                 <TableHead className="w-12">N°</TableHead>
                                 <SortableHeader column="receipt" label="N° Reçu" sortConfig={sortConfig} onToggle={toggleSort} />
@@ -711,45 +627,35 @@ export default function CreateShipment() {
                               }).map((d, index) => {
                                 const originalIndex = preview.indexOf(d);
                                 return (
-                                <TableRow key={d.receipt_number}>
-                                  <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                                  <TableCell className="font-mono text-xs">{d.receipt_number}</TableCell>
-                                  <TableCell>{d.full_name}</TableCell>
-                                  <TableCell className="font-mono text-xs">{d.plantation_code}</TableCell>
-                                  <TableCell>{d.section}</TableCell>
-                                  {editingIndex === originalIndex ? (
-                                    <>
-                                      <TableCell>
-                                        <Input type="number" value={editWeight} onChange={(e) => setEditWeight(e.target.value)} className="h-7 w-20" />
-                                      </TableCell>
-                                      <TableCell>
-                                        <Input type="number" value={editBags} onChange={(e) => setEditBags(e.target.value)} className="h-7 w-16" />
-                                      </TableCell>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <TableCell>{Math.round(d.allocated_weight).toLocaleString("fr-FR")}</TableCell>
-                                      <TableCell>{d.num_bags}</TableCell>
-                                    </>
-                                  )}
-                                  <TableCell>{d.delivery_date}</TableCell>
-                                  <TableCell>
+                                  <TableRow key={d.receipt_number}>
+                                    <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                                    <TableCell className="font-mono text-xs">{d.receipt_number}</TableCell>
+                                    <TableCell>{d.full_name}</TableCell>
+                                    <TableCell className="font-mono text-xs">{d.plantation_code}</TableCell>
+                                    <TableCell>{d.section}</TableCell>
                                     {editingIndex === originalIndex ? (
-                                      <div className="flex gap-1">
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleSaveEdit(originalIndex)}>
-                                          <Check className="h-3 w-3" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit}>
-                                          <X className="h-3 w-3" />
-                                        </Button>
-                                      </div>
+                                      <>
+                                        <TableCell><Input type="number" value={editWeight} onChange={(e) => setEditWeight(e.target.value)} className="h-7 w-20" /></TableCell>
+                                        <TableCell><Input type="number" value={editBags} onChange={(e) => setEditBags(e.target.value)} className="h-7 w-16" /></TableCell>
+                                      </>
                                     ) : (
-                                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleStartEdit(originalIndex)}>
-                                        <Pencil className="h-3 w-3" />
-                                      </Button>
+                                      <>
+                                        <TableCell>{Math.round(d.allocated_weight).toLocaleString("fr-FR")}</TableCell>
+                                        <TableCell>{d.num_bags}</TableCell>
+                                      </>
                                     )}
-                                  </TableCell>
-                                </TableRow>
+                                    <TableCell>{d.delivery_date}</TableCell>
+                                    <TableCell>
+                                      {editingIndex === originalIndex ? (
+                                        <div className="flex gap-1">
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleSaveEdit(originalIndex)}><Check className="h-3 w-3" /></Button>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit}><X className="h-3 w-3" /></Button>
+                                        </div>
+                                      ) : (
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleStartEdit(originalIndex)}><Pencil className="h-3 w-3" /></Button>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
                                 );
                               })}
                             </TableBody>
@@ -764,17 +670,9 @@ export default function CreateShipment() {
           </div>
         </TabsContent>
 
-        <TabsContent value="history">
-          <ShipmentHistory />
-        </TabsContent>
-
-        <TabsContent value="details">
-          <ShipmentDetails />
-        </TabsContent>
-
-        <TabsContent value="import">
-          <ImportShipments />
-        </TabsContent>
+        <TabsContent value="history"><ShipmentHistory /></TabsContent>
+        <TabsContent value="details"><ShipmentDetails /></TabsContent>
+        <TabsContent value="import"><ImportShipments /></TabsContent>
       </Tabs>
     </div>
   );
