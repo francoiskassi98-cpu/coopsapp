@@ -90,10 +90,9 @@ export default function ShipmentDetails() {
       const partnerMap = new Map((partnersData || []).map((p) => [p.id, p.name]));
       setPartners(partnersData || []);
 
-      // Fetch cooperatives
-      const { data: coopsData } = await supabase.from("cooperatives").select("id, name").order("name");
+      // Fetch registres (used as "Registre" selector in edit)
+      const { data: coopsData } = await supabase.from("registres").select("id, name").order("name");
       setCooperativesList(coopsData || []);
-      const coopMap = new Map((coopsData || []).map((c) => [c.id, c.name]));
 
       // Fetch producer counts per shipment (all deliveries)
       let allDeliveries: any[] = [];
