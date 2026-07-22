@@ -46,6 +46,7 @@ export default function CreateShipment() {
   const [templateId, setTemplateId] = useState<string>("");
   const [preview, setPreview] = useState<DistributionResult[]>([]);
   const [saving, setSaving] = useState(false);
+  const [saveDiagnostic, setSaveDiagnostic] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editWeight, setEditWeight] = useState("");
@@ -206,7 +207,20 @@ export default function CreateShipment() {
     return m;
   }, [totalWeight, totalBags, connaissement, startDate, endDate, project, partnerId, selectedCoopId, destination, driverName, truckNumber, trailerNumber, departureDate, templateId]);
 
+  const formatTechnicalError = (error: any, context: string) => {
+    const parts = [
+      context,
+      error?.code ? `Code: ${error.code}` : null,
+      error?.message ? `Message: ${error.message}` : null,
+      error?.details ? `Détails: ${error.details}` : null,
+      error?.hint ? `Indice: ${error.hint}` : null,
+      !error?.message && typeof error === "string" ? error : null,
+    ].filter(Boolean);
+    return parts.join("\n");
+  };
+
   const handleCalculate = async () => {
+    setSaveDiagnostic(null);
     if (missingFields.length > 0) {
       toast({ title: "Champs requis manquants", description: `Renseignez : ${missingFields.join(", ")}.`, variant: "destructive" });
       return;
@@ -273,13 +287,23 @@ export default function CreateShipment() {
     if (preview.length === 0) return null;
 
     const campaignLabel = normalizeCampaign(getCurrentCampaign());
+    const selectedProject = projects.find((p) => p.id === project);
+
+    if (!selectedProject) {
+      throw new Error("Projet introuvable dans la liste chargée. Sélectionnez à nouveau le projet puis recalculez la distribution.");
+    }
+
+    const invalidDelivery = preview.find((d) => !d.producer_id || Number(d.allocated_weight) <= 0 || Number(d.num_bags) <= 0 || !d.delivery_date || !d.receipt_number);
+    if (invalidDelivery) {
+      throw new Error(`Distribution invalide pour ${invalidDelivery.full_name || "un producteur"}. Vérifiez le poids, le nombre de sacs, la date et le numéro de reçu.`);
+    }
 
     const shipmentPayload = {
       connaissement: connaissement || null,
       total_weight: Number(totalWeight),
       total_bags: Number(totalBags),
       avg_bag_weight: Number(totalWeight) / Number(totalBags),
-      project: projects.find((p) => p.id === project)?.name || null,
+      project: selectedProject.name,
       project_id: project || null,
       template_id: templateId || null,
       partner_id: partnerId || null,
@@ -302,7 +326,9 @@ export default function CreateShipment() {
       .single();
 
     if (shipErr) {
-      console.error("[persistShipment] shipments insert failed", shipErr, shipmentPayload);
+      const message = formatTechnicalError(shipErr, "Échec création du chargement");
+      console.error("[CreateShipment] shipments insert failed", { error: shipErr, payload: shipmentPayload });
+      setSaveDiagnostic(message);
       throw shipErr;
     }
 
@@ -319,18 +345,32 @@ export default function CreateShipment() {
 
     const { error: delErr } = await (supabase as any).from("deliveries").insert(deliveries);
     if (delErr) {
-      console.error("[persistShipment] deliveries insert failed", delErr, deliveries[0]);
+      const message = formatTechnicalError(delErr, "Échec création des livraisons");
+      console.error("[CreateShipment] deliveries insert failed", { error: delErr, firstDelivery: deliveries[0], count: deliveries.length });
+      setSaveDiagnostic(message);
       throw delErr;
     }
 
 
     for (const d of preview) {
-      const { data: producer } = await supabase.from("producers").select("remaining_potential").eq("id", d.producer_id).single();
+      const { data: producer, error: readErr } = await supabase.from("producers").select("remaining_potential").eq("id", d.producer_id).single();
+      if (readErr) {
+        const message = formatTechnicalError(readErr, `Échec lecture du potentiel producteur ${d.full_name}`);
+        console.error("[CreateShipment] producer read failed", { error: readErr, producerId: d.producer_id });
+        setSaveDiagnostic(message);
+        throw readErr;
+      }
       if (producer) {
-        await supabase
+        const { error: updateErr } = await supabase
           .from("producers")
           .update({ remaining_potential: Number(producer.remaining_potential) - d.allocated_weight })
           .eq("id", d.producer_id);
+        if (updateErr) {
+          const message = formatTechnicalError(updateErr, `Échec mise à jour du potentiel producteur ${d.full_name}`);
+          console.error("[CreateShipment] producer update failed", { error: updateErr, producerId: d.producer_id, allocatedWeight: d.allocated_weight });
+          setSaveDiagnostic(message);
+          throw updateErr;
+        }
       }
     }
 
@@ -351,14 +391,17 @@ export default function CreateShipment() {
   const handleSave = async () => {
     if (preview.length === 0) return;
     setSaving(true);
+    setSaveDiagnostic(null);
     try {
       const count = preview.length;
-      await persistShipment();
-      toast({ title: "Chargement créé", description: `${count} fiches de livraison générées.` });
+      const shipmentId = await persistShipment();
+      toast({ title: "Chargement créé", description: `${count} fiches de livraison générées. N° chargement : ${shipmentId?.slice(0, 8) || "créé"}.` });
       resetForm();
     } catch (err: any) {
-      console.error(err);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+      const message = formatTechnicalError(err, "Validation impossible");
+      console.error("[CreateShipment] save failed", err);
+      setSaveDiagnostic((current) => current || message);
+      toast({ title: "Validation impossible", description: err?.message || "Consultez le diagnostic affiché sous l’aperçu.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -476,16 +519,19 @@ export default function CreateShipment() {
   const handleSaveAndDownload = async () => {
     if (preview.length === 0) return;
     setSaving(true);
+    setSaveDiagnostic(null);
     try {
       const count = preview.length;
       const shipmentId = await persistShipment();
       if (!shipmentId) return;
       await generateShipmentFiche(shipmentId);
-      toast({ title: "Chargement créé", description: `${count} fiches générées et fiche Excel téléchargée.` });
+      toast({ title: "Chargement créé", description: `${count} fiches générées et fiche Excel téléchargée. N° chargement : ${shipmentId.slice(0, 8)}.` });
       resetForm();
     } catch (err: any) {
-      console.error(err);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+      const message = formatTechnicalError(err, "Enregistrement/téléchargement impossible");
+      console.error("[CreateShipment] save and download failed", err);
+      setSaveDiagnostic((current) => current || message);
+      toast({ title: "Enregistrement impossible", description: err?.message || "Consultez le diagnostic affiché sous l’aperçu.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -790,6 +836,13 @@ export default function CreateShipment() {
                       {preview.length} producteurs • {preview.reduce((s, d) => s + d.num_bags, 0)} sacs •{" "}
                       {preview.reduce((s, d) => s + d.allocated_weight, 0).toLocaleString("fr-FR")} kg
                     </p>
+
+                    {saveDiagnostic && (
+                      <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                        <p className="font-semibold mb-1">Diagnostic technique</p>
+                        <pre className="whitespace-pre-wrap break-words font-mono text-xs">{saveDiagnostic}</pre>
+                      </div>
+                    )}
 
                     <Tabs defaultValue="template">
                       <TabsList>
