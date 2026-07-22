@@ -24,10 +24,11 @@ export default function LoginEvents() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><KeyRound className="h-6 w-6" /> Journal de connexion</h1>
-        <p className="text-sm text-muted-foreground">Historique des authentifications réussies.</p>
-      </div>
+      <PageHeader
+        icon={KeyRound}
+        title="Journal de connexion"
+        description="Historique des authentifications réussies."
+      />
       <Card>
         <CardHeader><CardTitle className="text-base">500 dernières connexions</CardTitle></CardHeader>
         <CardContent>
