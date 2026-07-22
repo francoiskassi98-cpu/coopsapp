@@ -173,8 +173,8 @@ export default function Dashboard() {
       
       <PageHeader
         icon={LayoutDashboard}
-        title="COOPS APP — Gestion des chargements de registres"
-        description={`Campagne ${getCurrentCampaign()}`}
+        title="COOPS APP — Plateforme de gestion des livraisons et de la traçabilité des coopératives"
+        description={`Plateforme intégrée de gestion des registres, des producteurs, des livraisons, de la traçabilité, des primes et des rapports de performance. — Campagne ${getCurrentCampaign()}`}
         actions={
           <>
             <Button onClick={() => setShowReportDialog(true)} variant="outline">
