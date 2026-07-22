@@ -279,9 +279,8 @@ export default function Producers() {
             ...r,
             remaining_potential: r.delivery_potential,
             sexe: r.sexe || null,
-            num_men: r.num_men || 0,
-            num_women: r.num_women || 0,
           }));
+
           for (let i = 0; i < toInsert.length; i += 500) {
             const batch = toInsert.slice(i, i + 500);
             const { error } = await (supabase as any).from("producers").insert(batch);
