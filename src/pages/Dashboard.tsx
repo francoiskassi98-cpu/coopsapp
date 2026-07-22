@@ -85,14 +85,14 @@ export default function Dashboard() {
   // Available campaigns
   const campaigns = useMemo(() => {
     const set = new Set<string>();
-    allShipments.forEach((s) => { if (s.campaign) set.add(normalizeCampaign(s.campaign)); });
+    allShipments.forEach((s) => { if (s.campaign_label) set.add(normalizeCampaign(s.campaign_label)); });
     return Array.from(set).sort();
   }, [allShipments]);
 
   // Filtered shipments based on chronology
   const shipments = useMemo(() => {
     return allShipments.filter((s) => {
-      if (selectedCampaign !== "all" && normalizeCampaign(s.campaign) !== selectedCampaign) return false;
+      if (selectedCampaign !== "all" && normalizeCampaign(s.campaign_label) !== selectedCampaign) return false;
       if (selectedMonths.length > 0) {
         const date = new Date(s.created_at);
         const month = date.getMonth() + 1;
