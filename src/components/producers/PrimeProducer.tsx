@@ -14,7 +14,7 @@ import { generatePrimeExcel } from "@/lib/prime-excel";
 
 interface Coop { id: string; name: string; logo_path?: string | null }
 interface Campaign { id: string; nom: string }
-interface ProducerOpt { id: string; full_name: string; section: string; cooperative: string }
+interface ProducerOpt { id: string; full_name: string; section: string; registre_id: string | null }
 
 interface PrimeRow {
   producer_id: string; // représentant (première plantation) pour l'enregistrement
