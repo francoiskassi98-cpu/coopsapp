@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, TrendingUp, Leaf, Truck, BarChart3 } from "lucide-react";
 
 type Props = {
@@ -8,30 +7,51 @@ type Props = {
   shipmentCount: number;
 };
 
+type KpiTone = "green" | "blue" | "orange" | "purple" | "red";
+
+const TONE: Record<KpiTone, { bg: string; ring: string; icon: string; bar: string; chip: string }> = {
+  green:  { bg: "bg-emerald-50/70", ring: "ring-emerald-100", icon: "bg-emerald-500 text-white", bar: "bg-emerald-500", chip: "text-emerald-600" },
+  blue:   { bg: "bg-blue-50/70",    ring: "ring-blue-100",    icon: "bg-blue-500 text-white",    bar: "bg-blue-500",    chip: "text-blue-600" },
+  orange: { bg: "bg-amber-50/70",   ring: "ring-amber-100",   icon: "bg-amber-500 text-white",   bar: "bg-amber-500",   chip: "text-amber-600" },
+  purple: { bg: "bg-violet-50/70",  ring: "ring-violet-100",  icon: "bg-violet-500 text-white",  bar: "bg-violet-500",  chip: "text-violet-600" },
+  red:    { bg: "bg-rose-50/70",    ring: "ring-rose-100",    icon: "bg-rose-500 text-white",    bar: "bg-rose-500",    chip: "text-rose-600" },
+};
+
 export default function KpiCards({ totalPotential, totalDelivered, remaining, shipmentCount }: Props) {
   const deliveryRate = totalPotential > 0 ? (totalDelivered / totalPotential) * 100 : 0;
+  const deliveredPct = totalPotential > 0 ? Math.min(100, (totalDelivered / totalPotential) * 100) : 0;
+  const remainingPct = totalPotential > 0 ? Math.min(100, (remaining / totalPotential) * 100) : 0;
 
-  const cards = [
-    { label: "Potentiel total", value: `${totalPotential.toLocaleString("fr-FR")} kg`, icon: Leaf, iconClass: "text-destructive" },
-    { label: "Poids livré total", value: `${totalDelivered.toLocaleString("fr-FR")} kg`, icon: Package, iconClass: "text-primary" },
-    { label: "Potentiel restant", value: `${remaining.toLocaleString("fr-FR")} kg`, icon: TrendingUp, iconClass: "text-destructive" },
-    { label: "Taux livraison global", value: `${deliveryRate.toFixed(1)}%`, icon: BarChart3, iconClass: "text-primary" },
-    { label: "Total chargements", value: shipmentCount.toString(), icon: Truck, iconClass: "text-destructive" },
+  const cards: Array<{ label: string; value: string; sub: string; icon: any; tone: KpiTone; progress: number }> = [
+    { label: "Potentiel total",       value: `${totalPotential.toLocaleString("fr-FR")} kg`, sub: "Objectif de collecte",                     icon: Leaf,      tone: "green",  progress: 100 },
+    { label: "Poids livré total",     value: `${totalDelivered.toLocaleString("fr-FR")} kg`, sub: `${deliveryRate.toFixed(1)}% de l'objectif`, icon: Package,   tone: "blue",   progress: deliveredPct },
+    { label: "Potentiel restant",     value: `${remaining.toLocaleString("fr-FR")} kg`,      sub: `${(100 - deliveryRate).toFixed(1)}% restant`, icon: TrendingUp, tone: "orange", progress: remainingPct },
+    { label: "Taux livraison global", value: `${deliveryRate.toFixed(1)}%`,                  sub: "Performance actuelle",                     icon: BarChart3, tone: "purple", progress: deliveryRate },
+    { label: "Total chargements",     value: shipmentCount.toString(),                       sub: "Chargements réalisés",                     icon: Truck,     tone: "red",    progress: Math.min(100, shipmentCount) },
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-5 sm:grid-cols-2">
-      {cards.map((c) => (
-        <Card key={c.label}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">{c.label}</CardTitle>
-            <c.icon className={`h-4 w-4 ${c.iconClass}`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold">{c.value}</div>
-          </CardContent>
-        </Card>
-      ))}
+    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5 sm:grid-cols-2">
+      {cards.map((c) => {
+        const t = TONE[c.tone];
+        return (
+          <div key={c.label} className={`relative rounded-[20px] p-5 ring-1 ${t.ring} ${t.bg} shadow-glass transition-all hover:shadow-float`}>
+            <div className="flex items-start justify-between mb-4">
+              <div className={`h-11 w-11 rounded-full flex items-center justify-center shadow-sm ${t.icon}`}>
+                <c.icon className="h-5 w-5" />
+              </div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-right leading-tight max-w-[110px]">
+                {c.label}
+              </div>
+            </div>
+            <div className="text-[22px] font-bold tracking-tight leading-none mb-1">{c.value}</div>
+            <div className={`text-[11px] font-medium ${t.chip} mb-3`}>{c.sub}</div>
+            <div className="h-1.5 w-full rounded-full bg-white/70 overflow-hidden">
+              <div className={`h-full rounded-full ${t.bar} transition-all`} style={{ width: `${c.progress}%` }} />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
