@@ -47,11 +47,11 @@ const FALLBACK_TEMPLATE: TemplateConfig = {
   show_partner_logo: true,
 };
 
-async function loadTemplate(cooperativeId: string | null): Promise<TemplateConfig> {
-  if (!cooperativeId) return FALLBACK_TEMPLATE;
+async function loadTemplate(registreId: string | null): Promise<TemplateConfig> {
+  if (!registreId) return FALLBACK_TEMPLATE;
   const { data } = await (supabase.from("shipment_excel_templates") as any)
     .select("*")
-    .eq("cooperative_id", cooperativeId)
+    .eq("registre_id", registreId)
     .order("is_default", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(1);
