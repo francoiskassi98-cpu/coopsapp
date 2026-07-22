@@ -138,16 +138,16 @@ export default function Dashboard() {
 
   const coopStats = useMemo(() => {
     const coopPotentialMap: Record<string, { potentiel: number; remaining: number }> = {};
-    allProducers.forEach((p) => {
-      const coop = p.cooperative || "Inconnu";
+    allProducers.forEach((p: any) => {
+      const coop = registreName[p.registre_id] || "Inconnu";
       if (!coopPotentialMap[coop]) coopPotentialMap[coop] = { potentiel: 0, remaining: 0 };
       coopPotentialMap[coop].potentiel += Number(p.delivery_potential);
       coopPotentialMap[coop].remaining += Number(p.remaining_potential);
     });
 
     const coopDeliveredMap: Record<string, { delivered: number; count: number }> = {};
-    shipments.forEach((s) => {
-      const coop = (s.cooperatives as any)?.name || s.zone || "Inconnu";
+    shipments.forEach((s: any) => {
+      const coop = registreName[s.registre_id] || s.zone || "Inconnu";
       if (!coopDeliveredMap[coop]) coopDeliveredMap[coop] = { delivered: 0, count: 0 };
       coopDeliveredMap[coop].delivered += Number(s.total_weight);
       coopDeliveredMap[coop].count += 1;
@@ -161,10 +161,10 @@ export default function Dashboard() {
       remaining: coopPotentialMap[name]?.remaining || 0,
       shipmentCount: coopDeliveredMap[name]?.count || 0,
     })).sort((a, b) => b.delivered - a.delivered);
-  }, [allProducers, shipments]);
+  }, [allProducers, shipments, registreName]);
 
   const coopDetailShipments = coopDetailName
-    ? shipments.filter((s) => ((s.cooperatives as any)?.name || s.zone || "Inconnu") === coopDetailName)
+    ? shipments.filter((s: any) => (registreName[s.registre_id] || s.zone || "Inconnu") === coopDetailName)
     : [];
 
   return (
