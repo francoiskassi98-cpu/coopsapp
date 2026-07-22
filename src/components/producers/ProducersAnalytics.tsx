@@ -207,21 +207,20 @@ export default function ProducersAnalytics() {
 
   const byCampaign = useMemo(() => {
     const map = new Map<string, number>();
-    const cName = new Map(campaigns.map(c => [c.id, c.nom]));
     deliveries.forEach(d => {
       const ship = shipments.find(s => s.id === d.shipment_id);
       if (!ship || ship.is_cancelled || !ship.campaign_label) return;
-      const name = cName.get(ship.campaign_label) || "—";
+      const name = ship.campaign_label;
       map.set(name, (map.get(name) || 0) + Number(d.net_weight || 0));
     });
     return Array.from(map.entries()).map(([campagne, kg]) => ({ campagne, kg: Math.round(kg) }));
-  }, [deliveries, shipments, campaigns]);
+  }, [deliveries, shipments]);
 
   const byCoop = useMemo(() => {
     const map = new Map<string, number>();
-    producers.forEach(p => map.set(p.cooperative, (map.get(p.cooperative) || 0) + 1));
+    producers.forEach(p => { const c = producerCoop(p) || "—"; map.set(c, (map.get(c) || 0) + 1); });
     return Array.from(map.entries()).map(([cooperative, count]) => ({ cooperative, count }));
-  }, [producers]);
+  }, [producers, registreName]);
 
   if (loading) {
     return (
