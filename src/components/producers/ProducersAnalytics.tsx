@@ -43,13 +43,26 @@ interface Shipment {
 
 interface Registre { id: string; name: string }
 
+// Palette alignée sur les tokens du Design System (thème navy/blue)
 const COLORS = {
-  primary: "hsl(174 72% 56%)",
-  female: "hsl(340 82% 65%)",
-  male: "hsl(200 85% 60%)",
-  accent1: "hsl(45 95% 60%)",
-  accent2: "hsl(150 65% 55%)",
-  accent3: "hsl(280 70% 65%)",
+  primary: "hsl(221 83% 53%)",
+  primaryGlow: "hsl(217 91% 60%)",
+  female: "hsl(340 82% 60%)",
+  male: "hsl(221 83% 53%)",
+  success: "hsl(158 84% 39%)",
+  warning: "hsl(38 92% 50%)",
+  violet: "hsl(262 70% 58%)",
+  teal: "hsl(174 72% 42%)",
+};
+
+type Tone = "blue" | "green" | "orange" | "violet" | "rose" | "teal";
+const TONE: Record<Tone, { bg: string; ring: string; icon: string; chip: string }> = {
+  blue:   { bg: "bg-blue-50/70",    ring: "ring-blue-100",    icon: "bg-blue-500 text-white",    chip: "text-blue-600" },
+  green:  { bg: "bg-emerald-50/70", ring: "ring-emerald-100", icon: "bg-emerald-500 text-white", chip: "text-emerald-600" },
+  orange: { bg: "bg-amber-50/70",   ring: "ring-amber-100",   icon: "bg-amber-500 text-white",   chip: "text-amber-600" },
+  violet: { bg: "bg-violet-50/70",  ring: "ring-violet-100",  icon: "bg-violet-500 text-white",  chip: "text-violet-600" },
+  rose:   { bg: "bg-rose-50/70",    ring: "ring-rose-100",    icon: "bg-rose-500 text-white",    chip: "text-rose-600" },
+  teal:   { bg: "bg-teal-50/70",    ring: "ring-teal-100",    icon: "bg-teal-500 text-white",    chip: "text-teal-600" },
 };
 
 async function fetchAll<T>(table: string, select = "*"): Promise<T[]> {
@@ -67,26 +80,29 @@ async function fetchAll<T>(table: string, select = "*"): Promise<T[]> {
   return all;
 }
 
-function KpiCard({ label, value, icon: Icon, accent = "primary", loading }: {
-  label: string; value: string | number; icon: any; accent?: string; loading?: boolean;
+function KpiCard({ label, value, icon: Icon, tone = "blue", sub, loading }: {
+  label: string; value: string | number; icon: any; tone?: Tone; sub?: string; loading?: boolean;
 }) {
+  const t = TONE[tone];
   return (
-    <Card className="relative overflow-hidden group hover:shadow-glow transition-all duration-300 animate-fade-in">
-      <div className={`absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-50`} />
-      <CardContent className="p-5 relative">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">{label}</div>
-          <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-            <Icon className="h-4 w-4 text-primary" />
-          </div>
+    <div className={`relative rounded-[20px] p-4 md:p-5 ring-1 ${t.ring} ${t.bg} shadow-glass hover:shadow-float transition-all animate-fade-in`}>
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className={`h-10 w-10 rounded-full flex items-center justify-center shadow-sm ${t.icon}`}>
+          <Icon className="h-4 w-4" />
         </div>
-        {loading ? (
-          <Skeleton className="h-8 w-24" />
-        ) : (
-          <div className="text-2xl font-bold tracking-tight">{value}</div>
-        )}
-      </CardContent>
-    </Card>
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-right leading-tight max-w-[110px]">
+          {label}
+        </div>
+      </div>
+      {loading ? (
+        <Skeleton className="h-7 w-24" />
+      ) : (
+        <>
+          <div className="text-xl md:text-[22px] font-bold tracking-tight leading-none mb-1 break-words">{value}</div>
+          {sub && <div className={`text-[11px] font-medium ${t.chip} truncate`}>{sub}</div>}
+        </>
+      )}
+    </div>
   );
 }
 
