@@ -13,7 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle, ShieldOff } from "lucide-react";
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
-import { parseExcelFile, downloadImportTemplate, exportToExcel, type ProducerRow, type ImportError } from "@/lib/excel-utils";
+import { parseExcelFile, downloadImportTemplate, exportToExcel, downloadErrorReport, type ProducerRow, type ImportError, type ImportReport } from "@/lib/excel-utils";
 import PageHeader from "@/components/PageHeader";
 import { Users as UsersIcon } from "lucide-react";
 
@@ -36,9 +36,11 @@ export default function Producers() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<ProducerRow[]>([]);
   const [importErrors, setImportErrors] = useState<ImportError[]>([]);
+  const [importReport, setImportReport] = useState<ImportReport | null>(null);
   const [importing, setImporting] = useState(false);
   const [importDone, setImportDone] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+
 
   useEffect(() => {
     loadProducers();
@@ -182,27 +184,26 @@ export default function Producers() {
       toast({ title: "Aucune donnée à exporter", variant: "destructive" });
       return;
     }
+    // Export dans le MÊME format que le modèle d'import (compat aller-retour)
     const rows = data.map((p) => ({
       "Registre": p.cooperative,
-      "Nom complet": p.full_name,
-      "N° producteur": p.producer_number || "",
-      "CNI": p.national_id || "",
-      "Code producteur": p.producer_code || "",
+      "Campagne": p.campaign_label || "",
+      "Nom et prenom du producteur": p.full_name,
+      "Numero du producteur": p.producer_number || "",
+      "N° identification nationale du producteur": p.national_id || "",
+      "Code du producteur": p.producer_code || "",
       "Sexe": p.sexe || "",
       "Section": p.section,
-      "Surface cacao totale": p.total_cocoa_area || 0,
-      "Nb parcelles": p.num_plots || 0,
-      "Code plantation": p.plantation_code,
-      "Potentiel livraison (kg)": p.delivery_potential,
-      "Potentiel restant (kg)": p.remaining_potential,
+      "Superficie total cacao": p.total_cocoa_area || 0,
+      "Nombre de champ de cacao": p.num_plots || 0,
+      "Code de la plantation": p.plantation_code,
+      "Potentiel de livraison": p.delivery_potential,
       "Superficie": p.plantation_area || 0,
-      "Latitude": p.latitude || 0,
-      "Longitude": p.longitude || 0,
-      "Nombre d'hommes": p.num_men || 0,
-      "Nombre de femmes": p.num_women || 0,
+      "Latitude polygone": p.latitude || 0,
+      "Longitude polygone": p.longitude || 0,
     }));
     const suffix = cooperative && cooperative !== "all" ? `-${cooperative}` : "";
-    await exportToExcel(rows, `Registre-Producteurs${suffix}.xlsx`, "Producteurs");
+    await exportToExcel(rows, `Registre-Producteurs${suffix}.xlsx`, "Registre");
     toast({ title: "Export réussi" });
   }
 
@@ -212,6 +213,7 @@ export default function Producers() {
     setImportFile(null);
     setParsedRows([]);
     setImportErrors([]);
+    setImportReport(null);
     setImportDone(false);
   }
 
@@ -219,10 +221,12 @@ export default function Producers() {
     setImportFile(f);
     setImportDone(false);
     const buffer = await f.arrayBuffer();
-    const { rows, errors } = await parseExcelFile(buffer);
-    setParsedRows(rows);
-    setImportErrors(errors);
+    const report = await parseExcelFile(buffer);
+    setParsedRows(report.rows);
+    setImportErrors(report.errors);
+    setImportReport(report);
   }, []);
+
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -275,13 +279,11 @@ export default function Producers() {
         }
 
         if (newRows.length > 0) {
-          const toInsert = newRows.map((r) => ({
-            ...r,
-            remaining_potential: r.delivery_potential,
-            sexe: r.sexe || null,
-            num_men: r.num_men || 0,
-            num_women: r.num_women || 0,
-          }));
+          const toInsert = newRows.map((r) => {
+            const { campaign_label, ...rest } = r;
+            return { ...rest, remaining_potential: r.delivery_potential, sexe: r.sexe || null };
+          });
+
           for (let i = 0; i < toInsert.length; i += 500) {
             const batch = toInsert.slice(i, i + 500);
             const { error } = await (supabase as any).from("producers").insert(batch);
@@ -305,50 +307,32 @@ export default function Producers() {
 
         for (const r of parsedRows) {
           const existingId = existingMap.get(r.plantation_code);
+          const base = {
+            cooperative: r.cooperative,
+            full_name: r.full_name,
+            producer_number: r.producer_number,
+            national_id: r.national_id,
+            producer_code: r.producer_code,
+            sexe: r.sexe || null,
+            section: r.section,
+            total_cocoa_area: r.total_cocoa_area,
+            num_plots: r.num_plots,
+            delivery_potential: r.delivery_potential,
+            remaining_potential: r.delivery_potential,
+            plantation_area: r.plantation_area,
+            latitude: r.latitude,
+            longitude: r.longitude,
+          };
           if (existingId) {
-            const updateData: any = {
-              cooperative: r.cooperative,
-              full_name: r.full_name,
-              producer_number: r.producer_number,
-              national_id: r.national_id,
-              producer_code: r.producer_code,
-              sexe: r.sexe || null,
-              section: r.section,
-              total_cocoa_area: r.total_cocoa_area,
-              num_plots: r.num_plots,
-              delivery_potential: r.delivery_potential,
-              remaining_potential: r.delivery_potential,
-              plantation_area: r.plantation_area,
-              latitude: r.latitude,
-              longitude: r.longitude,
-              num_men: r.num_men || 0,
-              num_women: r.num_women || 0,
-            };
-            toInsert.push({ id: existingId, ...updateData, plantation_code: r.plantation_code });
+            toInsert.push({ id: existingId, ...base, plantation_code: r.plantation_code });
             updatedCount++;
           } else {
-            toInsert.push({
-              cooperative: r.cooperative,
-              full_name: r.full_name,
-              producer_number: r.producer_number,
-              national_id: r.national_id,
-              producer_code: r.producer_code,
-              sexe: r.sexe || null,
-              section: r.section,
-              total_cocoa_area: r.total_cocoa_area,
-              num_plots: r.num_plots,
-              plantation_code: r.plantation_code,
-              delivery_potential: r.delivery_potential,
-              remaining_potential: r.delivery_potential,
-              plantation_area: r.plantation_area,
-              latitude: r.latitude,
-              longitude: r.longitude,
-              num_men: r.num_men || 0,
-              num_women: r.num_women || 0,
-            });
+            toInsert.push({ ...base, plantation_code: r.plantation_code });
             insertedCount++;
           }
         }
+
+
 
         for (let i = 0; i < toInsert.length; i += 500) {
           const batch = toInsert.slice(i, i + 500);
@@ -610,22 +594,89 @@ export default function Producers() {
             {importFile && <p className="mt-2 text-sm font-medium">{importFile.name}</p>}
           </div>
 
-          {/* Errors */}
-          {importErrors.length > 0 && (
-            <div className="border border-destructive rounded-lg p-3">
-              <p className="text-sm font-medium text-destructive flex items-center gap-2 mb-2">
-                <AlertCircle className="h-4 w-4" />
-                {importErrors.length} erreur(s) détectée(s)
-              </p>
-              <div className="max-h-32 overflow-auto space-y-1">
-                {importErrors.map((e, i) => (
-                  <p key={i} className="text-xs text-destructive">
-                    Ligne {e.row} : {e.message}
-                  </p>
-                ))}
+          {/* Summary */}
+          {importReport && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <div className="rounded-md border p-2 text-center">
+                <p className="text-xs text-muted-foreground">Total analysées</p>
+                <p className="text-lg font-semibold">{importReport.totalRows}</p>
+              </div>
+              <div className="rounded-md border p-2 text-center bg-green-50 dark:bg-green-950/20">
+                <p className="text-xs text-muted-foreground">Valides</p>
+                <p className="text-lg font-semibold text-green-700 dark:text-green-400">{importReport.validRows}</p>
+              </div>
+              <div className="rounded-md border p-2 text-center bg-red-50 dark:bg-red-950/20">
+                <p className="text-xs text-muted-foreground">Rejetées</p>
+                <p className="text-lg font-semibold text-red-700 dark:text-red-400">{importReport.rejectedRows}</p>
+              </div>
+              <div className="rounded-md border p-2 text-center bg-amber-50 dark:bg-amber-950/20">
+                <p className="text-xs text-muted-foreground">Avertissements</p>
+                <p className="text-lg font-semibold text-amber-700 dark:text-amber-400">{importReport.warnings}</p>
+              </div>
+              <div className="rounded-md border p-2 text-center bg-red-50 dark:bg-red-950/20">
+                <p className="text-xs text-muted-foreground">Bloquantes</p>
+                <p className="text-lg font-semibold text-red-700 dark:text-red-400">{importReport.blockingErrors}</p>
               </div>
             </div>
           )}
+
+          {/* No errors: success message */}
+          {importReport && importErrors.length === 0 && parsedRows.length > 0 && (
+            <div className="border border-green-500/40 bg-green-50 dark:bg-green-950/20 rounded-lg p-3 flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <p className="text-sm text-green-700 dark:text-green-400">
+                Aucune erreur détectée. Le fichier est prêt à être importé.
+              </p>
+            </div>
+          )}
+
+          {/* Errors — detailed report */}
+          {importErrors.length > 0 && (
+            <div className="border border-destructive rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-sm font-medium text-destructive flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  {importErrors.length} erreur(s) détectée(s)
+                </p>
+                <Button size="sm" variant="outline" onClick={() => downloadErrorReport(importErrors)}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Télécharger le rapport
+                </Button>
+              </div>
+              <div className="max-h-64 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-14">Ligne</TableHead>
+                      <TableHead>Colonne</TableHead>
+                      <TableHead>Valeur trouvée</TableHead>
+                      <TableHead>Cause</TableHead>
+                      <TableHead>Valeur attendue</TableHead>
+                      <TableHead>Action recommandée</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {importErrors.slice(0, 200).map((e, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-mono text-xs">{e.row}</TableCell>
+                        <TableCell className="text-xs">{e.column || "—"}</TableCell>
+                        <TableCell className="text-xs font-mono max-w-32 truncate" title={e.value}>{e.value || "—"}</TableCell>
+                        <TableCell className="text-xs text-destructive">{e.cause}</TableCell>
+                        <TableCell className="text-xs">{e.expected || "—"}</TableCell>
+                        <TableCell className="text-xs">{e.action || "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {importErrors.length > 200 && (
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    ... et {importErrors.length - 200} autres erreur(s) (télécharger le rapport pour la liste complète)
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
 
           {/* Preview */}
           {parsedRows.length > 0 && (
