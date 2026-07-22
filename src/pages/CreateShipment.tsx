@@ -64,19 +64,40 @@ export default function CreateShipment() {
   useEffect(() => {
     supabase.from("partners").select("*").order("name").then(({ data }) => setPartners(data || []));
     loadCooperatives();
-    loadTemplate();
   }, []);
 
-  async function loadTemplate() {
-    const { data } = await supabase
+  const selectedTemplate = useMemo(
+    () => templates.find((t) => t.id === templateId) || null,
+    [templates, templateId]
+  );
+
+  async function loadTemplatesForCoop(coopId: string) {
+    if (!coopId) { setTemplates([]); setTemplateId(""); return; }
+    const { data } = await (supabase as any)
       .from("shipment_excel_templates")
       .select("*")
+      .eq("cooperative_id", coopId)
+      .eq("is_active", true)
       .order("is_default", { ascending: false })
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    setTemplate(data);
+      .order("updated_at", { ascending: false });
+    const list = (data || []) as any[];
+    setTemplates(list);
+    // auto-select default
+    const def = list.find((t) => t.is_default) || list[0];
+    setTemplateId(def?.id || "");
   }
+
+  async function loadProjectsForCoop(coopId: string) {
+    if (!coopId) { setProjects([]); setProject(""); return; }
+    const { data } = await (supabase as any)
+      .from("projects")
+      .select("*, partners(name)")
+      .eq("registre_id", coopId)
+      .eq("is_active", true)
+      .order("name");
+    setProjects((data || []) as any[]);
+  }
+
 
 
   async function loadCooperatives() {
