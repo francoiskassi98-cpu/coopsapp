@@ -17,7 +17,7 @@ import {
 interface Producer {
   id: string;
   full_name: string;
-  cooperative: string;
+  registre_id: string | null;
   section: string;
   sexe: string | null;
   delivery_potential: number;
@@ -34,14 +34,14 @@ interface Delivery {
 
 interface Shipment {
   id: string;
-  cooperative_id: string | null;
+  registre_id: string | null;
   campaign_label: string | null;
   total_weight: number;
   departure_date: string | null;
   is_cancelled: boolean | null;
 }
 
-interface Campaign { id: string; nom: string }
+interface Registre { id: string; name: string }
 
 const COLORS = {
   primary: "hsl(174 72% 56%)",
