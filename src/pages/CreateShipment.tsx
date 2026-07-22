@@ -932,6 +932,45 @@ export default function CreateShipment() {
           <ImportShipments />
         </TabsContent>
       </Tabs>
+
+      <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Nouveau projet</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Nom du projet *</Label>
+              <Input value={newProject.name} onChange={(e) => setNewProject({ ...newProject, name: e.target.value })} placeholder="Ex. Fairtrade 2025" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Code du projet</Label>
+              <Input value={newProject.code} onChange={(e) => setNewProject({ ...newProject, code: e.target.value })} placeholder="Auto si vide" className="font-mono" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Partenaire</Label>
+              <Select value={newProject.partner_id || "none"} onValueChange={(v) => setNewProject({ ...newProject, partner_id: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucun</SelectItem>
+                  {partners.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description</Label>
+              <Textarea rows={2} value={newProject.description} onChange={(e) => setNewProject({ ...newProject, description: e.target.value })} />
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-2">
+              <Label className="text-sm">Statut actif</Label>
+              <input type="checkbox" checked={newProject.is_active} onChange={(e) => setNewProject({ ...newProject, is_active: e.target.checked })} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setProjectDialogOpen(false)}>Annuler</Button>
+              <Button onClick={createProject} disabled={creatingProject}>{creatingProject ? "Création..." : "Créer le projet"}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
