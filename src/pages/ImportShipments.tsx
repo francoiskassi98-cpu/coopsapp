@@ -149,8 +149,7 @@ export default function ImportShipments() {
 
       // Load registres for mapping zone -> registre_id
       const { data: regsData } = await (supabase as any).from("registres").select("id, name, cooperative_id");
-      const regNameToId = new Map((regsData || []).map((r: any) => [r.name.toLowerCase(), r.id]));
-      const regNameToCoop = new Map((regsData || []).map((r: any) => [r.name.toLowerCase(), r.cooperative_id]));
+      const regNameToId = new Map<string, string>((regsData || []).map((r: any) => [String(r.name).toLowerCase(), r.id as string]));
 
       const groups = groupByShipment(importRows);
       let totalDeliveries = 0;
