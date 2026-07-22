@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +27,7 @@ const signedUrl = async (path: string) => {
 };
 
 export default function Partners() {
+  const { cooperativeRefs } = useAuth();
   const [items, setItems] = useState<Partner[]>([]);
   const [logoUrls, setLogoUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -110,8 +112,14 @@ export default function Partners() {
       return;
     }
     setUploading(true);
+    const coopId = cooperativeRefs[0]?.id;
+    if (!coopId) {
+      toast.error("Aucune coopérative associée : impossible de téléverser le logo.");
+      setUploading(false);
+      return;
+    }
     const ext = file.name.split(".").pop() ?? "png";
-    const path = `${crypto.randomUUID()}.${ext}`;
+    const path = `${coopId}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
       cacheControl: "3600",
       upsert: false,
