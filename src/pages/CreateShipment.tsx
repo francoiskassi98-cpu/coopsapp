@@ -507,15 +507,84 @@ export default function CreateShipment() {
 
                 <div className="space-y-2">
                   <Label>Projet *</Label>
-                  <Select value={project} onValueChange={setProject}>
-                    <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                  <div className="flex gap-2">
+                    <Select value={project} onValueChange={setProject} disabled={!selectedCoopId}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder={selectedCoopId ? "Sélectionner un projet" : "Sélectionnez d'abord un registre"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projects.length === 0 ? (
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground">Aucun projet</div>
+                        ) : projects.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}{p.partners?.name ? ` — ${p.partners.name}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {canCreateProject && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          if (!selectedCoopId) {
+                            toast({ title: "Registre requis", description: "Sélectionnez d'abord un registre.", variant: "destructive" });
+                            return;
+                          }
+                          setNewProject({ name: "", code: "", partner_id: partnerId || "", description: "", is_active: true });
+                          setProjectDialogOpen(true);
+                        }}
+                      >
+                        <FolderPlus className="h-4 w-4 mr-1" /> Nouveau projet
+                      </Button>
+                    )}
+                  </div>
+                  {project && (() => {
+                    const p = projects.find((x) => x.id === project);
+                    if (!p) return null;
+                    return (
+                      <div className="rounded-md border bg-muted/30 p-2 text-xs space-y-0.5">
+                        <div><span className="text-muted-foreground">Nom :</span> <span className="font-medium">{p.name}</span>{p.code ? <span className="font-mono ml-2">[{p.code}]</span> : null}</div>
+                        {p.partners?.name && <div><span className="text-muted-foreground">Partenaire :</span> {p.partners.name}</div>}
+                        <div><span className="text-muted-foreground">Créé le :</span> {new Date(p.created_at).toLocaleDateString("fr-FR")}</div>
+                        {p.description && <div className="text-muted-foreground italic">{p.description}</div>}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Modèle de chargement *</Label>
+                  <Select value={templateId} onValueChange={setTemplateId} disabled={!selectedCoopId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={selectedCoopId ? "Sélectionner un modèle" : "Sélectionnez d'abord un registre"} />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Fairtrade">Fairtrade</SelectItem>
-                      <SelectItem value="Rainforest Alliance">Rainforest Alliance</SelectItem>
-                      <SelectItem value="Ordinaire">Ordinaire</SelectItem>
+                      {templates.length === 0 ? (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">Aucun modèle actif</div>
+                      ) : templates.map((t) => {
+                        const partnerName = partners.find((p) => p.id === t.partner_id)?.name;
+                        return (
+                          <SelectItem key={t.id} value={t.id}>
+                            <span className="flex items-center gap-2">
+                              <FileSpreadsheet className="h-3.5 w-3.5" />
+                              {t.template_name}{partnerName ? ` — ${partnerName}` : ""}{t.is_default ? " ★" : ""}
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
+                  {selectedTemplate && (
+                    <div className="rounded-md border bg-muted/30 p-2 text-xs space-y-0.5">
+                      <div><span className="text-muted-foreground">Modèle :</span> <span className="font-medium">{selectedTemplate.template_name}</span></div>
+                      {selectedTemplate.partner_id && <div><span className="text-muted-foreground">Partenaire :</span> {partners.find((p) => p.id === selectedTemplate.partner_id)?.name || "—"}</div>}
+                      <div><span className="text-muted-foreground">Créé le :</span> {new Date(selectedTemplate.created_at).toLocaleDateString("fr-FR")}</div>
+                      {selectedTemplate.description && <div className="text-muted-foreground italic">{selectedTemplate.description}</div>}
+                    </div>
+                  )}
                 </div>
+
 
                 <div className="space-y-2">
                   <Label>Partenaire</Label>
