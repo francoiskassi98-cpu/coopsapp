@@ -594,22 +594,89 @@ export default function Producers() {
             {importFile && <p className="mt-2 text-sm font-medium">{importFile.name}</p>}
           </div>
 
-          {/* Errors */}
-          {importErrors.length > 0 && (
-            <div className="border border-destructive rounded-lg p-3">
-              <p className="text-sm font-medium text-destructive flex items-center gap-2 mb-2">
-                <AlertCircle className="h-4 w-4" />
-                {importErrors.length} erreur(s) détectée(s)
-              </p>
-              <div className="max-h-32 overflow-auto space-y-1">
-                {importErrors.map((e, i) => (
-                  <p key={i} className="text-xs text-destructive">
-                    Ligne {e.row} : {e.message}
-                  </p>
-                ))}
+          {/* Summary */}
+          {importReport && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <div className="rounded-md border p-2 text-center">
+                <p className="text-xs text-muted-foreground">Total analysées</p>
+                <p className="text-lg font-semibold">{importReport.totalRows}</p>
+              </div>
+              <div className="rounded-md border p-2 text-center bg-green-50 dark:bg-green-950/20">
+                <p className="text-xs text-muted-foreground">Valides</p>
+                <p className="text-lg font-semibold text-green-700 dark:text-green-400">{importReport.validRows}</p>
+              </div>
+              <div className="rounded-md border p-2 text-center bg-red-50 dark:bg-red-950/20">
+                <p className="text-xs text-muted-foreground">Rejetées</p>
+                <p className="text-lg font-semibold text-red-700 dark:text-red-400">{importReport.rejectedRows}</p>
+              </div>
+              <div className="rounded-md border p-2 text-center bg-amber-50 dark:bg-amber-950/20">
+                <p className="text-xs text-muted-foreground">Avertissements</p>
+                <p className="text-lg font-semibold text-amber-700 dark:text-amber-400">{importReport.warnings}</p>
+              </div>
+              <div className="rounded-md border p-2 text-center bg-red-50 dark:bg-red-950/20">
+                <p className="text-xs text-muted-foreground">Bloquantes</p>
+                <p className="text-lg font-semibold text-red-700 dark:text-red-400">{importReport.blockingErrors}</p>
               </div>
             </div>
           )}
+
+          {/* No errors: success message */}
+          {importReport && importErrors.length === 0 && parsedRows.length > 0 && (
+            <div className="border border-green-500/40 bg-green-50 dark:bg-green-950/20 rounded-lg p-3 flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <p className="text-sm text-green-700 dark:text-green-400">
+                Aucune erreur détectée. Le fichier est prêt à être importé.
+              </p>
+            </div>
+          )}
+
+          {/* Errors — detailed report */}
+          {importErrors.length > 0 && (
+            <div className="border border-destructive rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-sm font-medium text-destructive flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  {importErrors.length} erreur(s) détectée(s)
+                </p>
+                <Button size="sm" variant="outline" onClick={() => downloadErrorReport(importErrors)}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Télécharger le rapport
+                </Button>
+              </div>
+              <div className="max-h-64 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-14">Ligne</TableHead>
+                      <TableHead>Colonne</TableHead>
+                      <TableHead>Valeur trouvée</TableHead>
+                      <TableHead>Cause</TableHead>
+                      <TableHead>Valeur attendue</TableHead>
+                      <TableHead>Action recommandée</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {importErrors.slice(0, 200).map((e, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-mono text-xs">{e.row}</TableCell>
+                        <TableCell className="text-xs">{e.column || "—"}</TableCell>
+                        <TableCell className="text-xs font-mono max-w-32 truncate" title={e.value}>{e.value || "—"}</TableCell>
+                        <TableCell className="text-xs text-destructive">{e.cause}</TableCell>
+                        <TableCell className="text-xs">{e.expected || "—"}</TableCell>
+                        <TableCell className="text-xs">{e.action || "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {importErrors.length > 200 && (
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    ... et {importErrors.length - 200} autres erreur(s) (télécharger le rapport pour la liste complète)
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
 
           {/* Preview */}
           {parsedRows.length > 0 && (
