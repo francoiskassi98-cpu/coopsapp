@@ -395,7 +395,7 @@ export default function CreateShipment() {
     try {
       const count = preview.length;
       const shipmentId = await persistShipment();
-      toast({ title: "Chargement créé", description: `${count} fiches de livraison générées. N° chargement : ${shipmentId?.slice(0, 8) || "créé"}.` });
+      toast({ title: "Chargement validé et enregistré avec succès.", description: `${count} fiches de livraison générées. N° chargement : ${shipmentId?.slice(0, 8) || "créé"}.` });
       resetForm();
     } catch (err: any) {
       const message = formatTechnicalError(err, "Validation impossible");
