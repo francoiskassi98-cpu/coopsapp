@@ -70,11 +70,13 @@ export type Database = {
           estimated_producers: number | null
           id: string
           logo_path: string | null
+          manager_name: string | null
           name: string
           official_email: string | null
           phone: string | null
           president_name: string | null
           rccm: string | null
+          region: string | null
           subscription_status: Database["public"]["Enums"]["subscription_status"]
           tax_number: string | null
           updated_at: string
@@ -92,11 +94,13 @@ export type Database = {
           estimated_producers?: number | null
           id?: string
           logo_path?: string | null
+          manager_name?: string | null
           name: string
           official_email?: string | null
           phone?: string | null
           president_name?: string | null
           rccm?: string | null
+          region?: string | null
           subscription_status?: Database["public"]["Enums"]["subscription_status"]
           tax_number?: string | null
           updated_at?: string
@@ -114,11 +118,13 @@ export type Database = {
           estimated_producers?: number | null
           id?: string
           logo_path?: string | null
+          manager_name?: string | null
           name?: string
           official_email?: string | null
           phone?: string | null
           president_name?: string | null
           rccm?: string | null
+          region?: string | null
           subscription_status?: Database["public"]["Enums"]["subscription_status"]
           tax_number?: string | null
           updated_at?: string
@@ -1128,6 +1134,20 @@ export type Database = {
       get_max_receipt_number: {
         Args: { p_registre_id: string }
         Returns: string
+      }
+      get_subscription_status: { Args: { _coop_id: string }; Returns: string }
+      get_super_admin_stats: {
+        Args: never
+        Returns: {
+          active_coops: number
+          expired_coops: number
+          suspended_coops: number
+          total_coops: number
+          total_producers: number
+          total_registres: number
+          total_users: number
+          trial_coops: number
+        }[]
       }
       has_role: {
         Args: {
