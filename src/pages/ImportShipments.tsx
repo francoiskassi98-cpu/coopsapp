@@ -163,7 +163,7 @@ export default function ImportShipments() {
         if (first.partenaire) {
           partnerId = partnerMap.get(first.partenaire.toLowerCase()) || null;
           if (!partnerId) {
-            const { data: newPartner } = await supabase
+            const { data: newPartner } = await (supabase as any)
               .from("partners")
               .insert({ name: first.partenaire })
               .select()
@@ -184,7 +184,7 @@ export default function ImportShipments() {
           cooperativeId = coopNameToId.get(first.zone.toLowerCase()) || null;
           if (!cooperativeId) {
             // Auto-create the cooperative
-            const { data: newCoop } = await supabase.from("cooperatives").insert({ name: first.zone }).select().single();
+            const { data: newCoop } = await (supabase as any).from("cooperatives").insert({ name: first.zone }).select().single();
             if (newCoop) {
               cooperativeId = newCoop.id;
               coopNameToId.set(first.zone.toLowerCase(), newCoop.id);
@@ -196,7 +196,7 @@ export default function ImportShipments() {
         const deliveryStart = dates[0] || first.date_livraison;
         const deliveryEnd = dates[dates.length - 1] || first.date_livraison;
 
-        const { data: shipment, error: shipErr } = await supabase
+        const { data: shipment, error: shipErr } = await (supabase as any)
           .from("shipments")
           .insert({
             connaissement: first.connaissement || null,

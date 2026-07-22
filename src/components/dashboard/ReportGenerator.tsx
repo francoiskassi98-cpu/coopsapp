@@ -27,7 +27,7 @@ export default function ReportGenerator() {
   useEffect(() => {
     (async () => {
       try {
-        const { data: camps } = await supabase
+        const { data: camps } = await (supabase as any)
           .from("campaigns")
           .select("id, nom, utilise_pour_chargement, active")
           .order("date_debut", { ascending: false });
