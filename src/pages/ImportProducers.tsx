@@ -75,7 +75,7 @@ export default function ImportProducers() {
       }
 
       const toInsert = parsedRows.map((r) => ({
-        campaign_label: campaignId,
+        campaign_label: r.campaign_label || campaignId,
         cooperative: r.cooperative,
         nom_complet: r.full_name,
         numero_producteur: r.producer_number || null,
@@ -89,10 +89,9 @@ export default function ImportProducers() {
         potentiel_restant: r.delivery_potential || 0,
         latitude: r.latitude || null,
         longitude: r.longitude || null,
-        num_men: r.num_men || 0,
-        num_women: r.num_women || 0,
         actif: true,
       }));
+
 
       // bulk insert in batches
       for (let i = 0; i < toInsert.length; i += 200) {
