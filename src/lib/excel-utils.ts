@@ -48,7 +48,7 @@ export function normalizeSexe(raw: unknown): "Homme" | "Femme" | null | "" {
 
 // Exact template column headers
 export const TEMPLATE_COLUMNS: { header: string; field: keyof ProducerRow }[] = [
-  { header: "Coopérative", field: "cooperative" },
+  { header: "Registre", field: "cooperative" },
   { header: "Nom et prenom du producteur", field: "full_name" },
   { header: "Numero du producteur", field: "producer_number" },
   { header: "N° identification nationale du producteur", field: "national_id" },

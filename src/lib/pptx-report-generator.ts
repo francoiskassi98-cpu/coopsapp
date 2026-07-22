@@ -64,7 +64,7 @@ function coverSlide(pptx: PptxGenJS, title: string, payload: ReportPayload) {
   s.addText("COOPS APP", { x: 0.6, y: 0.5, w: 6, h: 0.5, fontSize: 14, bold: true, color: TH.accent, fontFace: "Calibri" });
   s.addText(title, { x: 0.6, y: 1.8, w: 12, h: 1.2, fontSize: 44, bold: true, color: "FFFFFF" });
   s.addText(`Campagne ${payload.campaign}`, { x: 0.6, y: 3.2, w: 12, h: 0.6, fontSize: 22, color: "DDDDDD" });
-  const coops = payload.cooperatives.length === 0 ? "Toutes coopératives" : payload.cooperatives.join(" · ");
+  const coops = payload.cooperatives.length === 0 ? "Toutes registres" : payload.cooperatives.join(" · ");
   s.addText(coops, { x: 0.6, y: 4.0, w: 12, h: 0.6, fontSize: 16, color: TH.accent });
   s.addText(`Généré le ${payload.generatedAt.toLocaleDateString("fr-FR")} à ${payload.generatedAt.toLocaleTimeString("fr-FR")}`, {
     x: 0.6, y: 6.4, w: 12, h: 0.4, fontSize: 12, color: "BBBBBB",
@@ -95,7 +95,7 @@ function kpiSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total: 
   });
   // Auto commentary
   const lines: string[] = [];
-  lines.push(`• ${payload.coopStats.length} coopérative(s) active(s).`);
+  lines.push(`• ${payload.coopStats.length} registre(s) active(s).`);
   lines.push(`• ${fr(payload.stats.producerCount)} producteur(s) référencé(s) dans le registre.`);
   if (rate >= 75) lines.push("• ✅ Campagne en excellente progression.");
   else if (rate >= 50) lines.push("• 🟢 Progression satisfaisante de la campagne.");
@@ -163,13 +163,13 @@ function distributionSlide(pptx: PptxGenJS, title: string, data: Array<{ name: s
 
 function coopSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total: number) {
   const s = pptx.addSlide();
-  header(s, pptx, "Performance par coopérative", `Campagne ${payload.campaign}`, page, total);
+  header(s, pptx, "Performance par registre", `Campagne ${payload.campaign}`, page, total);
   if (payload.coopStats.length === 0) {
-    s.addText("Aucune coopérative.", { x: 0.6, y: 3, w: 12, h: 0.6, fontSize: 14, color: TH.muted, align: "center" });
+    s.addText("Aucune registre.", { x: 0.6, y: 3, w: 12, h: 0.6, fontSize: 14, color: TH.muted, align: "center" });
     return;
   }
   const rows: any[][] = [[
-    { text: "Coopérative", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10 } },
+    { text: "Registre", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10 } },
     { text: "Potentiel", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10, align: "right" } },
     { text: "Livré", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10, align: "right" } },
     { text: "Restant", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10, align: "right" } },
@@ -315,7 +315,7 @@ function conclusionSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, 
     `• Volume livré : ${fr(payload.stats.totalDelivered)} kg (${rate.toFixed(1)} %)`,
     `• Volume restant : ${fr(payload.stats.remaining)} kg`,
     `• Chargements réalisés : ${fr(payload.stats.shipmentCount)}`,
-    `• Coopératives actives : ${payload.coopStats.length}`,
+    `• Registres actives : ${payload.coopStats.length}`,
     `• Producteurs référencés : ${fr(payload.stats.producerCount)}`,
     "",
     rate >= 75
@@ -331,7 +331,7 @@ function conclusionSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, 
 function buildSlides(pptx: PptxGenJS, type: ReportType, payload: ReportPayload) {
   const titles: Record<ReportType, string> = {
     campaign: "Rapport de campagne",
-    cooperative: "Rapport coopératives",
+    cooperative: "Rapport registres",
     shipments: "Rapport chargements",
     tracability: "Rapport traçabilité",
     eudr: "Rapport EUDR / Durabilité",

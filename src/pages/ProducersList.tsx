@@ -179,7 +179,7 @@ export default function Producers() {
       return;
     }
     const rows = data.map((p) => ({
-      "Coopérative": p.cooperative,
+      "Registre": p.cooperative,
       "Nom complet": p.full_name,
       "N° producteur": p.producer_number || "",
       "CNI": p.national_id || "",
@@ -446,10 +446,10 @@ export default function Producers() {
         <div className="w-60">
           <Select value={coopFilter} onValueChange={setCoopFilter}>
             <SelectTrigger>
-              <SelectValue placeholder="Toutes les coopératives" />
+              <SelectValue placeholder="Toutes les registres" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Toutes les coopératives</SelectItem>
+              <SelectItem value="all">Toutes les registres</SelectItem>
               {cooperatives.map((c) => (
                 <SelectItem key={c} value={c}>{c}</SelectItem>
               ))}
@@ -486,7 +486,7 @@ export default function Producers() {
                     <SortableHeader column="plantation_code" label="Code plantation" sortConfig={sortConfig} onToggle={toggleSort} />
                     <SortableHeader column="delivery_potential" label="Potentiel initial (kg)" sortConfig={sortConfig} onToggle={toggleSort} />
                     <SortableHeader column="remaining_potential" label="Potentiel restant (kg)" sortConfig={sortConfig} onToggle={toggleSort} />
-                    <SortableHeader column="cooperative" label="Coopérative" sortConfig={sortConfig} onToggle={toggleSort} />
+                    <SortableHeader column="cooperative" label="Registre" sortConfig={sortConfig} onToggle={toggleSort} />
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -560,10 +560,10 @@ export default function Producers() {
               <div className="flex items-center gap-2 flex-wrap">
                 <Select value={exportCoopForUpdate} onValueChange={setExportCoopForUpdate}>
                   <SelectTrigger className="w-56">
-                    <SelectValue placeholder="Toutes les coopératives" />
+                    <SelectValue placeholder="Toutes les registres" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Toutes les coopératives</SelectItem>
+                    <SelectItem value="all">Toutes les registres</SelectItem>
                     {cooperatives.map((c) => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
@@ -639,7 +639,7 @@ export default function Producers() {
                       <TableHead>Section</TableHead>
                       <TableHead>Code plantation</TableHead>
                       <TableHead>Potentiel (kg)</TableHead>
-                      <TableHead>Coopérative</TableHead>
+                      <TableHead>Registre</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -677,7 +677,7 @@ export default function Producers() {
               <div><span className="text-muted-foreground">Nom :</span> <strong>{detailProducer.full_name}</strong></div>
               <div><span className="text-muted-foreground">Sexe :</span> <strong>{detailProducer.sexe || "—"}</strong></div>
               <div><span className="text-muted-foreground">Section :</span> <strong>{detailProducer.section}</strong></div>
-              <div><span className="text-muted-foreground">Coopérative :</span> <strong>{detailProducer.cooperative}</strong></div>
+              <div><span className="text-muted-foreground">Registre :</span> <strong>{detailProducer.cooperative}</strong></div>
               <div><span className="text-muted-foreground">Code plantation :</span> <strong className="font-mono">{detailProducer.plantation_code}</strong></div>
               <div><span className="text-muted-foreground">Code producteur :</span> <strong>{detailProducer.producer_code || "—"}</strong></div>
               <div><span className="text-muted-foreground">N° producteur :</span> <strong>{detailProducer.producer_number || "—"}</strong></div>
@@ -723,7 +723,7 @@ export default function Producers() {
               <Input value={editForm.section || ""} onChange={(e) => setEditForm({ ...editForm, section: e.target.value })} />
             </div>
             <div>
-              <Label>Coopérative</Label>
+              <Label>Registre</Label>
               <Input value={editForm.cooperative || ""} onChange={(e) => setEditForm({ ...editForm, cooperative: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-3">

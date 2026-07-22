@@ -64,7 +64,7 @@ export default function PrimeProducer() {
     })();
   }, [isSuperAdmin, cooperativeRefs]);
 
-  // Charge producteurs + sections en fonction du filtre coopérative
+  // Charge producteurs + sections en fonction du filtre registre
   useEffect(() => {
     if (!coopId) { setSections([]); setProducersList([]); return; }
     const scopeNames = coopId === "all" ? coops.map(c => c.name) : [coops.find(c => c.id === coopId)?.name].filter(Boolean) as string[];
@@ -95,7 +95,7 @@ export default function PrimeProducer() {
 
   async function calculate() {
     if (!coopId || !startDate || !endDate || amount <= 0) {
-      toast({ title: "Champs requis", description: "Coopérative, période et montant sont requis.", variant: "destructive" });
+      toast({ title: "Champs requis", description: "Registre, période et montant sont requis.", variant: "destructive" });
       return;
     }
     if (startDate > endDate) {
@@ -216,7 +216,7 @@ export default function PrimeProducer() {
   async function saveCalc() {
     if (!coopId || rows.length === 0) return;
     if (isAllCoops) {
-      toast({ title: "Non disponible", description: "L'enregistrement n'est pas disponible en mode « Toutes coopératives ». Sélectionnez une coopérative.", variant: "destructive" });
+      toast({ title: "Non disponible", description: "L'enregistrement n'est pas disponible en mode « Toutes registres ». Sélectionnez une registre.", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -260,7 +260,7 @@ export default function PrimeProducer() {
     if (rows.length === 0) return;
     try {
       await generatePrimeExcel({
-        cooperativeName: isAllCoops ? "Toutes les coopératives" : (coopSelected?.name ?? ""),
+        cooperativeName: isAllCoops ? "Toutes les registres" : (coopSelected?.name ?? ""),
         logoUrl: isAllCoops ? null : (coopSelected?.logo_path ?? null),
         startDate, endDate,
         bonusType, amount,
@@ -287,11 +287,11 @@ export default function PrimeProducer() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div>
-              <Label className="text-xs">Coopérative *</Label>
+              <Label className="text-xs">Registre *</Label>
               <Select value={coopId} onValueChange={setCoopId} disabled={!isSuperAdmin && cooperativeRefs.length <= 1}>
                 <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                 <SelectContent>
-                  {isSuperAdmin && <SelectItem value="all">Toutes les coopératives</SelectItem>}
+                  {isSuperAdmin && <SelectItem value="all">Toutes les registres</SelectItem>}
                   {coops.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>

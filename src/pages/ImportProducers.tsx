@@ -236,7 +236,7 @@ export default function ImportProducers() {
                     <TableHead>Section</TableHead>
                     <TableHead>Code plantation</TableHead>
                     <TableHead>Potentiel (kg)</TableHead>
-                    <TableHead>Coopérative</TableHead>
+                    <TableHead>Registre</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

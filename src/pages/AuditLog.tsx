@@ -106,7 +106,7 @@ export default function AuditLog() {
         { header: "Action", key: "action", width: 10 },
         { header: "ID enregistrement", key: "record_id", width: 38 },
         { header: "Utilisateur", key: "changed_by_email", width: 28 },
-        { header: "Coopérative", key: "cooperative", width: 18 },
+        { header: "Registre", key: "cooperative", width: 18 },
         { header: "Campagne", key: "campaign_label", width: 38 },
         { header: "Ancien", key: "old_data", width: 60 },
         { header: "Nouveau", key: "new_data", width: 60 },
@@ -178,7 +178,7 @@ export default function AuditLog() {
               <Input value={fEmail} onChange={(e) => setFEmail(e.target.value)} placeholder="email" />
             </div>
             <div className="space-y-1">
-              <Label>Coopérative</Label>
+              <Label>Registre</Label>
               <Select value={fCoop} onValueChange={setFCoop}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -228,7 +228,7 @@ export default function AuditLog() {
                   <TableHead>Table</TableHead>
                   <TableHead>Action</TableHead>
                   <TableHead>Utilisateur</TableHead>
-                  <TableHead>Coopérative</TableHead>
+                  <TableHead>Registre</TableHead>
                   <TableHead>Campagne</TableHead>
                   <TableHead>ID</TableHead>
                 </TableRow>
@@ -276,7 +276,7 @@ export default function AuditLog() {
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div><span className="text-muted-foreground">Date : </span>{new Date(selected.changed_at).toLocaleString("fr-FR")}</div>
                 <div><span className="text-muted-foreground">Utilisateur : </span>{selected.changed_by_email ?? "—"}</div>
-                <div><span className="text-muted-foreground">Coopérative : </span>{selected.cooperative ?? "—"}</div>
+                <div><span className="text-muted-foreground">Registre : </span>{selected.cooperative ?? "—"}</div>
                 <div><span className="text-muted-foreground">Campagne : </span>{selected.campaign_label ? (campMap.get(selected.campaign_label) ?? selected.campaign_label) : "—"}</div>
                 <div className="col-span-2"><span className="text-muted-foreground">ID : </span><span className="font-mono">{selected.record_id ?? "—"}</span></div>
               </div>

@@ -223,7 +223,7 @@ export default function ShipmentDetails() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Connaissement</TableHead>
-                    <TableHead>Coopérative</TableHead>
+                    <TableHead>Registre</TableHead>
                     <TableHead>Poids total (kg)</TableHead>
                     <TableHead>Producteurs</TableHead>
                     <TableHead>Sacs</TableHead>
@@ -310,9 +310,9 @@ export default function ShipmentDetails() {
             </div>
 
             <div className="space-y-2">
-              <Label>Coopérative</Label>
+              <Label>Registre</Label>
               <Select value={editCoopId} onValueChange={setEditCoopId}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner une coopérative" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Sélectionner une registre" /></SelectTrigger>
                 <SelectContent>
                   {cooperativesList.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>

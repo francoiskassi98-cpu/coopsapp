@@ -114,7 +114,7 @@ export default function Partners() {
     setUploading(true);
     const coopId = cooperativeRefs[0]?.id;
     if (!coopId) {
-      toast.error("Aucune coopérative associée : impossible de téléverser le logo.");
+      toast.error("Aucune registre associée : impossible de téléverser le logo.");
       setUploading(false);
       return;
     }

@@ -15,7 +15,7 @@ interface Row {
 
 const TYPE_LABEL: Record<string, string> = {
   campaign: "Campagne",
-  cooperative: "Coopérative",
+  cooperative: "Registre",
   shipments: "Chargements",
   tracability: "Traçabilité",
   eudr: "EUDR",
@@ -58,7 +58,7 @@ export default function ReportHistory({ refreshKey }: { refreshKey: number }) {
                 <TableHead>Date</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Campagne</TableHead>
-                <TableHead>Coopératives</TableHead>
+                <TableHead>Registres</TableHead>
                 <TableHead>Fichier</TableHead>
               </TableRow>
             </TableHeader>

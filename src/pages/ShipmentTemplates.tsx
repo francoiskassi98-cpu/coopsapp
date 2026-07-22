@@ -90,7 +90,7 @@ export default function ShipmentTemplates() {
 
   async function save() {
     if (!editing || !editing.cooperative_id || !editing.template_name) {
-      toast({ title: "Champs requis", description: "Coopérative et nom du modèle requis.", variant: "destructive" });
+      toast({ title: "Champs requis", description: "Registre et nom du modèle requis.", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -152,9 +152,9 @@ export default function ShipmentTemplates() {
         </div>
         <div className="flex gap-2">
           <Select value={coopFilter} onValueChange={setCoopFilter}>
-            <SelectTrigger className="w-56"><SelectValue placeholder="Toutes les coopératives" /></SelectTrigger>
+            <SelectTrigger className="w-56"><SelectValue placeholder="Toutes les registres" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Toutes les coopératives</SelectItem>
+              <SelectItem value="all">Toutes les registres</SelectItem>
               {coops.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -216,7 +216,7 @@ export default function ShipmentTemplates() {
               <TabsContent value="config" className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Coopérative *</Label>
+                  <Label>Registre *</Label>
                   <Select value={editing.cooperative_id || ""} onValueChange={(v) => setEditing({ ...editing, cooperative_id: v })}>
                     <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                     <SelectContent>{coops.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
@@ -227,7 +227,7 @@ export default function ShipmentTemplates() {
                   <Input value={editing.template_name || ""} onChange={e => setEditing({ ...editing, template_name: e.target.value })} />
                 </div>
                 <div className="col-span-2 flex items-center justify-between rounded-md border p-3">
-                  <Label>Modèle par défaut pour cette coopérative</Label>
+                  <Label>Modèle par défaut pour cette registre</Label>
                   <Switch checked={!!editing.is_default} onCheckedChange={(c) => setEditing({ ...editing, is_default: c })} />
                 </div>
               </div>
@@ -251,7 +251,7 @@ export default function ShipmentTemplates() {
                     pathPrefix={`${editing.cooperative_id || "shared"}/templates`}
                     value={editing.coop_logo_path || null}
                     onChange={(p) => setEditing({ ...editing, coop_logo_path: p })}
-                    label="Logo coopérative"
+                    label="Logo registre"
                   />
                 </div>
                 <div>
