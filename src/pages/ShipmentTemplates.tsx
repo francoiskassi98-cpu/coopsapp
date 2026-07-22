@@ -176,13 +176,19 @@ export default function ShipmentTemplates() {
           {filtered.map(t => {
             const coop = coops.find(c => c.id === t.cooperative_id);
             return (
-              <Card key={t.id} className="hover:shadow-glow transition-all">
+              <Card key={t.id} className="shadow-glass hover:shadow-float transition-all overflow-hidden">
+                <div className={`h-1 w-full ${t.is_default ? "bg-primary" : "bg-muted"}`} />
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center justify-between">
-                    <span className="truncate">{t.template_name}</span>
-                    {t.is_default && <Badge variant="default" className="gap-1"><Star className="h-3 w-3" />Défaut</Badge>}
+                  <CardTitle className="text-base flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        <FileSpreadsheet className="h-4 w-4" />
+                      </span>
+                      <span className="truncate">{t.template_name}</span>
+                    </span>
+                    {t.is_default && <Badge variant="default" className="gap-1 shrink-0"><Star className="h-3 w-3" />Défaut</Badge>}
                   </CardTitle>
-                  <p className="text-xs text-muted-foreground">{coop?.name ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground pl-10">{coop?.name ?? "—"}</p>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="text-xs text-muted-foreground line-clamp-2">{t.title || "—"}</div>
@@ -191,9 +197,9 @@ export default function ShipmentTemplates() {
                       <Badge key={s.key} variant="secondary" className="text-[10px]">{s.label}</Badge>
                     ))}
                   </div>
-                  <div className="flex justify-end gap-1">
+                  <div className="flex justify-end gap-1 pt-1 border-t">
                     <Button variant="ghost" size="icon" onClick={() => setEditing(t)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteId(t.id)}><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteId(t.id)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </CardContent>
               </Card>
