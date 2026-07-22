@@ -138,7 +138,7 @@ export default function Producers() {
       full_name: p.full_name,
       section: p.section,
       plantation_code: p.plantation_code,
-      cooperative: p.cooperative,
+      registre_id: p.registre_id,
       sexe: p.sexe || "",
       delivery_potential: p.delivery_potential,
       remaining_potential: p.remaining_potential,
