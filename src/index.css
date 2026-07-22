@@ -8,64 +8,64 @@ html, body {
 
 @layer base {
   :root {
-    /* AgroServices Digital — thème clair */
-    --background: 0 0% 100%;             /* blanc */
-    --foreground: 240 17% 5%;            /* #0A0A0F */
+    /* AgroServices Digital — thème clair (inspiration bleu marine) */
+    --background: 210 40% 98%;           /* #F8FAFC */
+    --foreground: 222 47% 11%;           /* #0F172A navy */
 
     --card: 0 0% 100%;
-    --card-foreground: 240 17% 5%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 17% 5%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 181 100% 41%;             /* #00D2D3 turquoise */
+    --primary: 221 83% 53%;              /* #2563EB bleu */
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 181 100% 55%;
+    --primary-glow: 217 91% 60%;         /* #3B82F6 */
 
-    --secondary: 43 100% 50%;            /* jaune */
-    --secondary-foreground: 240 17% 5%;
+    --secondary: 210 40% 96%;            /* #F1F5F9 */
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 5% 45%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;     /* #64748B lisible */
 
-    --accent: 272 60% 96%;
-    --accent-foreground: 240 17% 5%;
+    --accent: 214 100% 97%;              /* #EFF6FF bleu très clair */
+    --accent-foreground: 221 83% 53%;
 
-    --destructive: 0 84% 60%;            /* rouge */
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 158 95% 40%;              /* #06D6A0 */
+    --success: 158 84% 39%;              /* #10B981 */
     --success-foreground: 0 0% 100%;
-    --warning: 43 100% 50%;
-    --warning-foreground: 240 17% 5%;
+    --warning: 38 92% 50%;               /* #F59E0B */
+    --warning-foreground: 222 47% 11%;
 
-    --border: 240 5% 88%;
-    --input: 240 5% 88%;
-    --ring: 181 100% 41%;
+    --border: 214 32% 91%;               /* #E2E8F0 */
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
 
-    --radius: 0.875rem;
+    --radius: 0.75rem;
 
-    /* Sidebar — clair */
+    /* Sidebar — blanc avec accent bleu */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 240 17% 5%;
-    --sidebar-primary: 181 100% 41%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 221 83% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 5% 96%;
-    --sidebar-accent-foreground: 240 17% 5%;
-    --sidebar-border: 240 5% 90%;
-    --sidebar-ring: 181 100% 55%;
+    --sidebar-accent: 214 100% 97%;      /* état actif bleu clair */
+    --sidebar-accent-foreground: 221 83% 53%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 221 83% 53%;
 
-    /* Gradients & ombres claires */
-    --gradient-primary: linear-gradient(135deg, hsl(181 100% 41%), hsl(181 100% 55%));
-    --gradient-sidebar: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(240 5% 98%) 100%);
-    --gradient-hero: radial-gradient(ellipse at top left, hsl(272 60% 96% / 0.8), transparent 60%),
-                     radial-gradient(ellipse at bottom right, hsl(181 100% 90% / 0.5), transparent 55%),
-                     hsl(0 0% 100%);
-    --gradient-card: linear-gradient(160deg, hsl(0 0% 100% / 0.95), hsl(240 5% 98% / 0.9));
+    /* Gradients & ombres */
+    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%), hsl(217 91% 60%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 40% 99%) 100%);
+    --gradient-hero: radial-gradient(ellipse at top left, hsl(214 100% 97% / 0.9), transparent 60%),
+                     radial-gradient(ellipse at bottom right, hsl(221 83% 90% / 0.4), transparent 55%),
+                     hsl(210 40% 98%);
+    --gradient-card: linear-gradient(160deg, hsl(0 0% 100%), hsl(210 40% 99%));
 
-    --shadow-glass: 0 1px 0 hsl(0 0% 100% / 0.8) inset, 0 4px 24px hsl(240 10% 60% / 0.12);
-    --shadow-float: 0 20px 60px -20px hsl(181 100% 41% / 0.2), 0 8px 24px hsl(240 10% 60% / 0.15);
-    --shadow-glow: 0 0 40px hsl(181 100% 55% / 0.25);
+    --shadow-glass: 0 1px 2px hsl(222 47% 11% / 0.04), 0 4px 16px hsl(222 47% 11% / 0.06);
+    --shadow-float: 0 20px 50px -20px hsl(221 83% 53% / 0.25), 0 8px 24px hsl(222 47% 11% / 0.08);
+    --shadow-glow: 0 0 32px hsl(217 91% 60% / 0.25);
 
     --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
