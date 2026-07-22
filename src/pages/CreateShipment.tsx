@@ -153,7 +153,7 @@ export default function CreateShipment() {
     // Appel RPC : MAX(receipt_number::bigint) filtré par cooperative_id
     // La fonction SQL fait le JOIN shipments→deliveries côté serveur en une seule requête.
     const { data, error } = await (supabase as any).rpc("get_max_receipt_number", {
-      p_cooperative_id: cooperativeId,
+      p_registre_id: cooperativeId,
     });
 
     if (error) {
@@ -216,25 +216,30 @@ export default function CreateShipment() {
     const { data: disabledSectionsData } = await supabase.from("disabled_sections").select("section_name");
     const disabledSectionNames = new Set((disabledSectionsData || []).map((d: any) => d.section_name));
 
-    // Fetch only active producers of the selected cooperative with remaining potential, exclude disabled sections
-    const coopName = cooperatives.find(c => c.id === selectedCoopId)?.name || "";
+    // Fetch only active producers of the selected registre with remaining potential, exclude disabled sections
     let allActiveProducers: any[] = [];
     let fetchFrom = 0;
     const FETCH_PAGE = 1000;
     while (true) {
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("producers")
         .select("id, full_name, section, plantation_code, remaining_potential, delivery_potential")
         .eq("is_active", true)
-        .eq("cooperative", coopName)
+        .eq("registre_id", selectedCoopId)
         .gt("remaining_potential", 0)
         .order("section")
         .range(fetchFrom, fetchFrom + FETCH_PAGE - 1);
+      if (error) {
+        console.error("[CreateShipment] producers fetch failed", error);
+        toast({ title: "Erreur chargement producteurs", description: `${error.message}${error.hint ? " — " + error.hint : ""}`, variant: "destructive" });
+        return;
+      }
       if (!data || data.length === 0) break;
       allActiveProducers = allActiveProducers.concat(data);
       if (data.length < FETCH_PAGE) break;
       fetchFrom += FETCH_PAGE;
     }
+
 
     // Filter out producers from disabled sections
     const producers = allActiveProducers.filter((p: any) => !disabledSectionNames.has(p.section));
