@@ -641,6 +641,60 @@ export type Database = {
         }
         Relationships: []
       }
+      projects: {
+        Row: {
+          code: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          partner_id: string | null
+          registre_id: string
+          updated_at: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          partner_id?: string | null
+          registre_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          partner_id?: string | null
+          registre_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_registre_id_fkey"
+            columns: ["registre_id"]
+            isOneToOne: false
+            referencedRelation: "registres"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rapports_envoyes: {
         Row: {
           date_envoi: string
@@ -758,9 +812,12 @@ export type Database = {
           created_by: string | null
           custom_footer: string | null
           custom_header: string | null
+          description: string | null
           id: string
+          is_active: boolean
           is_default: boolean
           logo_position: string
+          partner_id: string | null
           partner_logo_path: string | null
           registre_id: string
           show_bill_of_lading: boolean
@@ -787,9 +844,12 @@ export type Database = {
           created_by?: string | null
           custom_footer?: string | null
           custom_header?: string | null
+          description?: string | null
           id?: string
+          is_active?: boolean
           is_default?: boolean
           logo_position?: string
+          partner_id?: string | null
           partner_logo_path?: string | null
           registre_id: string
           show_bill_of_lading?: boolean
@@ -816,9 +876,12 @@ export type Database = {
           created_by?: string | null
           custom_footer?: string | null
           custom_header?: string | null
+          description?: string | null
           id?: string
+          is_active?: boolean
           is_default?: boolean
           logo_position?: string
+          partner_id?: string | null
           partner_logo_path?: string | null
           registre_id?: string
           show_bill_of_lading?: boolean
@@ -840,6 +903,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "shipment_excel_templates_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shipment_excel_templates_registre_id_fkey"
             columns: ["registre_id"]
@@ -866,8 +936,10 @@ export type Database = {
           lot_number: string | null
           partner_id: string | null
           project: string
+          project_id: string | null
           registre_id: string
           status: string
+          template_id: string | null
           total_bags: number
           total_weight: number
           trailer_number: string | null
@@ -890,8 +962,10 @@ export type Database = {
           lot_number?: string | null
           partner_id?: string | null
           project: string
+          project_id?: string | null
           registre_id: string
           status?: string
+          template_id?: string | null
           total_bags: number
           total_weight: number
           trailer_number?: string | null
@@ -914,8 +988,10 @@ export type Database = {
           lot_number?: string | null
           partner_id?: string | null
           project?: string
+          project_id?: string | null
           registre_id?: string
           status?: string
+          template_id?: string | null
           total_bags?: number
           total_weight?: number
           trailer_number?: string | null
@@ -931,10 +1007,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "shipments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "shipments_registre_id_fkey"
             columns: ["registre_id"]
             isOneToOne: false
             referencedRelation: "registres"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_excel_templates"
             referencedColumns: ["id"]
           },
         ]
