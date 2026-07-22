@@ -6,7 +6,7 @@ import AppHeader from "@/components/AppHeader";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { currentCampaign } from "@/lib/campaign";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import SubscriptionBlocked from "@/components/SubscriptionBlocked";
@@ -174,17 +174,15 @@ export default function AppLayout() {
 
       <div className="flex flex-col flex-1 overflow-hidden">
         <div className="flex items-center gap-2 lg:gap-0">
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden ml-2 mt-2 shrink-0"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Ouvrir la navigation"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden ml-2 mt-2 shrink-0"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Ouvrir la navigation"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
           <div className="flex-1 min-w-0">
             <AppHeader />
           </div>
