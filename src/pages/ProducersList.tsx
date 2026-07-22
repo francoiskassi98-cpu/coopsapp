@@ -36,9 +36,11 @@ export default function Producers() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<ProducerRow[]>([]);
   const [importErrors, setImportErrors] = useState<ImportError[]>([]);
+  const [importReport, setImportReport] = useState<ImportReport | null>(null);
   const [importing, setImporting] = useState(false);
   const [importDone, setImportDone] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+
 
   useEffect(() => {
     loadProducers();
