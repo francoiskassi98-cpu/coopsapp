@@ -175,6 +175,9 @@ export default function CreateShipment() {
     const coop = cooperatives.find(c => c.id === coopId);
     setZone(coop?.name || "");
     loadNextReceiptForCooperative(coopId);
+    loadTemplatesForCoop(coopId);
+    loadProjectsForCoop(coopId);
+    setProject("");
   };
 
   const selectedCoopStats = useMemo(() => {
