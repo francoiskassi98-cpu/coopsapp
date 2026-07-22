@@ -278,10 +278,16 @@ export default function PrimeProducer() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <Card>
+      <Card className="shadow-glass">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Coins className="h-5 w-5 text-primary" /> Paramètres du calcul
+          <CardTitle className="flex items-center gap-3 text-base">
+            <span className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+              <Coins className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="font-bold">Paramètres du calcul</div>
+              <p className="text-xs font-normal text-muted-foreground mt-0.5">Sélectionnez la période et le montant pour calculer les primes.</p>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
