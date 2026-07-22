@@ -539,7 +539,7 @@ export default function CreateShipment() {
       const shipmentId = await persistShipment();
       if (!shipmentId) return;
       await generateShipmentFiche(shipmentId);
-      toast({ title: "Chargement créé", description: `${count} fiches générées et fiche Excel téléchargée. N° chargement : ${shipmentId.slice(0, 8)}.` });
+      toast({ title: "Chargement validé et enregistré avec succès.", description: `${count} fiches générées et fiche Excel téléchargée. N° chargement : ${shipmentId.slice(0, 8)}.` });
       resetForm();
     } catch (err: any) {
       const message = formatTechnicalError(err, "Enregistrement/téléchargement impossible");
