@@ -173,7 +173,7 @@ export default function ShipmentDetails() {
         .update({
           connaissement: editConnaissement || null,
           zone: coopName,
-          cooperative_id: editCoopId || null,
+          registre_id: editCoopId || null,
           total_weight: weight,
           total_bags: bags,
           avg_bag_weight: bags > 0 ? weight / bags : 0,
