@@ -202,8 +202,9 @@ export default function CreateShipment() {
     if (!truckNumber.trim()) m.push("N° Camion");
     if (!trailerNumber.trim()) m.push("N° Remorque");
     if (!departureDate) m.push("Date départ");
+    if (!templateId) m.push("Modèle de chargement");
     return m;
-  }, [totalWeight, totalBags, connaissement, startDate, endDate, project, partnerId, selectedCoopId, destination, driverName, truckNumber, trailerNumber, departureDate]);
+  }, [totalWeight, totalBags, connaissement, startDate, endDate, project, partnerId, selectedCoopId, destination, driverName, truckNumber, trailerNumber, departureDate, templateId]);
 
   const handleCalculate = async () => {
     if (missingFields.length > 0) {
