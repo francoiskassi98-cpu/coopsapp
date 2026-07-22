@@ -127,7 +127,7 @@ export default function Producers() {
     const map = new Map<string, string>();
     producers.forEach((p) => {
       if (coopFilter === "all" || p.cooperative === coopFilter) {
-        if (!map.has(p.section)) map.set(p.section, p.cooperative);
+        if (!map.has(p.section)) map.set(p.section, p.registre_id);
       }
     });
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
