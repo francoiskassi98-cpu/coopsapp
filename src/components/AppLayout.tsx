@@ -173,17 +173,17 @@ export default function AppLayout() {
       </Sheet>
 
       <div className="flex flex-col flex-1 overflow-hidden">
-        <div className="flex items-center gap-2 lg:gap-0">
+        <div className="relative">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden ml-2 mt-2 shrink-0"
+            className="lg:hidden absolute left-1 top-1/2 -translate-y-1/2 z-10"
             onClick={() => setMobileOpen(true)}
             aria-label="Ouvrir la navigation"
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <div className="flex-1 min-w-0">
+          <div className="lg:pl-0 pl-12">
             <AppHeader />
           </div>
         </div>
