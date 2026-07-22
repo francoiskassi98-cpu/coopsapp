@@ -58,7 +58,7 @@ export default function Trash() {
     r.name || r.full_name || r.lot_number || r.connaissement || r.id?.slice(0, 8);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <PageHeader
         icon={Trash2}
         title="Corbeille"

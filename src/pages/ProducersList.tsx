@@ -385,7 +385,7 @@ export default function Producers() {
   const [exportCoopForUpdate, setExportCoopForUpdate] = useState("all");
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <PageHeader
         icon={UsersIcon}
         title="Registre des producteurs"

@@ -35,20 +35,20 @@ export default function CooperativeBanner() {
 
   return (
     <div className="flex items-center gap-3 min-w-0 flex-1">
-      <div className="h-11 w-11 shrink-0 rounded-xl bg-muted flex items-center justify-center overflow-hidden ring-1 ring-border">
+      <div className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 rounded-xl bg-muted flex items-center justify-center overflow-hidden ring-1 ring-border">
         {logoUrl ? (
           <img src={logoUrl} alt={cooperative.name} className="h-full w-full object-cover" />
         ) : (
           <Building2 className="h-5 w-5 text-muted-foreground" />
         )}
       </div>
-      <div className="flex items-stretch gap-0 min-w-0 overflow-x-auto">
+      <div className="flex items-stretch gap-0 min-w-0 overflow-x-auto scrollbar-none">
         <Segment label="Coopérative" value={cooperative.acronym || cooperative.name} />
         <Segment label="Registre actif" value={currentRegistre} tone="primary" />
-        <Segment label="Campagne" value={currentCampaign()} />
-        {subscription && <Segment label="Abonnement" value={<span className="capitalize">{subscription.plan_name}</span>} tone="success" />}
-        <Segment label="Début" value={fmtDate(subscription?.start_date)} />
-        <Segment label="Fin" value={fmtDate(subscription?.end_date)} />
+        <div className="hidden sm:flex"><Segment label="Campagne" value={currentCampaign()} /></div>
+        {subscription && <div className="hidden md:flex"><Segment label="Abonnement" value={<span className="capitalize">{subscription.plan_name}</span>} tone="success" /></div>}
+        <div className="hidden lg:flex"><Segment label="Début" value={fmtDate(subscription?.start_date)} /></div>
+        <div className="hidden lg:flex"><Segment label="Fin" value={fmtDate(subscription?.end_date)} /></div>
         <Segment label="Jours restants" value={subscription ? `${subscription.days_remaining} j` : "—"} tone={daysTone} />
       </div>
     </div>

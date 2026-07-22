@@ -105,6 +105,8 @@ html, body {
   .shadow-glass { box-shadow: var(--shadow-glass); }
   .shadow-float { box-shadow: var(--shadow-float); }
   .shadow-glow  { box-shadow: var(--shadow-glow); }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
 }
 
 @keyframes fade-in {
