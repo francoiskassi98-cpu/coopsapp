@@ -35,9 +35,9 @@ export default function ShipmentHistory() {
     try {
       const [shipmentsData, coopsData] = await Promise.all([
         fetchAllRows(
-          supabase.from("shipments").select("*, partners(name), cooperatives(name)").order("created_at", { ascending: false })
+          supabase.from("shipments").select("*, partners(name), registres(name)").order("created_at", { ascending: false })
         ),
-        supabase.from("cooperatives").select("id, name").order("name"),
+        supabase.from("registres").select("id, name").order("name"),
       ]);
       setShipments(shipmentsData);
       setCooperatives(coopsData.data || []);
@@ -57,7 +57,7 @@ export default function ShipmentHistory() {
 
   const filtered = useMemo(() => {
     const base = shipments.filter((s) => {
-      const coopName = (s.cooperatives as any)?.name || s.zone || "";
+      const coopName = (s.registres as any)?.name || s.zone || "";
       const matchesCoop = selectedCoop === "all" || coopName === selectedCoop;
       const matchesSearch =
         !search ||
@@ -69,7 +69,7 @@ export default function ShipmentHistory() {
     return sortData(base, (item: any, col: string) => {
       if (col === "total_weight" || col === "total_bags") return Number(item[col]);
       if (col === "partner") return (item.partners as any)?.name || "";
-      if (col === "cooperative") return (item.cooperatives as any)?.name || item.zone || "";
+      if (col === "cooperative") return (item.registres as any)?.name || item.zone || "";
       if (col === "created_at") return new Date(item[col]).getTime();
       return item[col];
     });
@@ -137,7 +137,7 @@ export default function ShipmentHistory() {
                       <TableCell className="font-medium">{s.connaissement || "—"}</TableCell>
                       <TableCell>{s.project}</TableCell>
                       <TableCell>{(s.partners as any)?.name || "—"}</TableCell>
-                      <TableCell>{(s.cooperatives as any)?.name || s.zone || "—"}</TableCell>
+                      <TableCell>{(s.registres as any)?.name || s.zone || "—"}</TableCell>
                       <TableCell>{s.destination}</TableCell>
                       <TableCell>{Number(s.total_weight).toLocaleString("fr-FR")}</TableCell>
                       <TableCell>{s.total_bags}</TableCell>

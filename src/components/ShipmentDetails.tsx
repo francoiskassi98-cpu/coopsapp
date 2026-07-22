@@ -75,7 +75,7 @@ export default function ShipmentDetails() {
       while (true) {
         const { data, error } = await supabase
           .from("shipments")
-          .select("*, cooperatives(name)")
+          .select("*, registres(id, name, cooperative_id, cooperatives(name))")
           .order("created_at", { ascending: false })
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -90,10 +90,9 @@ export default function ShipmentDetails() {
       const partnerMap = new Map((partnersData || []).map((p) => [p.id, p.name]));
       setPartners(partnersData || []);
 
-      // Fetch cooperatives
-      const { data: coopsData } = await supabase.from("cooperatives").select("id, name").order("name");
+      // Fetch registres (used as "Registre" selector in edit)
+      const { data: coopsData } = await supabase.from("registres").select("id, name").order("name");
       setCooperativesList(coopsData || []);
-      const coopMap = new Map((coopsData || []).map((c) => [c.id, c.name]));
 
       // Fetch producer counts per shipment (all deliveries)
       let allDeliveries: any[] = [];
@@ -120,13 +119,13 @@ export default function ShipmentDetails() {
         id: s.id,
         connaissement: s.connaissement,
         zone: s.zone,
-        cooperative_id: s.cooperative_id,
-        cooperative_name: s.cooperative_id ? (coopMap.get(s.cooperative_id) || (s.cooperatives as any)?.name || s.zone) : (s.zone || null),
+        cooperative_id: (s as any).registres?.id || null,
+        cooperative_name: (s as any).registres?.name || s.zone || null,
         total_weight: Number(s.total_weight),
         total_bags: Number(s.total_bags),
         project: s.project,
         destination: s.destination,
-        campaign: s.campaign,
+        campaign: (s as any).campaign_label || (s as any).campaign || "",
         partner_id: s.partner_id,
         partner_name: s.partner_id ? partnerMap.get(s.partner_id) || "—" : "—",
         producer_count: producerCountMap.get(s.id)?.size || 0,
@@ -174,7 +173,7 @@ export default function ShipmentDetails() {
         .update({
           connaissement: editConnaissement || null,
           zone: coopName,
-          cooperative_id: editCoopId || null,
+          registre_id: editCoopId || null,
           total_weight: weight,
           total_bags: bags,
           avg_bag_weight: bags > 0 ? weight / bags : 0,
