@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Building2, CheckCircle2, Clock, AlertCircle, Ban, Users, Layers, Sprout } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import PageHeader from "@/components/PageHeader";
 
 interface Stats {
   total_coops: number;
