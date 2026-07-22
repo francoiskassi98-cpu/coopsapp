@@ -77,19 +77,20 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen w-full grid lg:grid-cols-2 bg-gradient-hero overflow-hidden">
+    <div className="min-h-screen w-full grid lg:grid-cols-2 bg-background overflow-hidden">
       <motion.aside
         initial={{ opacity: 0, x: -30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden"
-        style={{ background: "linear-gradient(160deg, hsl(272 100% 14%) 0%, hsl(272 80% 8%) 60%, hsl(240 17% 5%) 100%)" }}
+        style={{ background: "linear-gradient(160deg, hsl(0 0% 100%) 0%, hsl(240 5% 98%) 100%)" }}
       >
-        <div className="absolute inset-0 opacity-30 mix-blend-screen">
+        <div className="absolute inset-0 opacity-10 mix-blend-multiply">
           <img src={heroImage} alt="" aria-hidden className="h-full w-full object-cover" width={1024} height={1536} />
         </div>
-        <div className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
         <div className="absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-secondary/10 blur-3xl" />
+
 
         <div className="relative">
           <div className="flex items-center gap-3">

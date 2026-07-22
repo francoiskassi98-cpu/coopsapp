@@ -8,64 +8,64 @@ html, body {
 
 @layer base {
   :root {
-    /* AgroServices Digital — palette premium */
-    --background: 240 17% 5%;            /* #0A0A0F */
-    --foreground: 210 40% 98%;           /* #F8FAFC */
+    /* AgroServices Digital — thème clair */
+    --background: 0 0% 100%;             /* blanc */
+    --foreground: 240 17% 5%;            /* #0A0A0F */
 
-    --card: 240 17% 8%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 17% 5%;
 
-    --popover: 240 17% 8%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 17% 5%;
 
     --primary: 181 100% 41%;             /* #00D2D3 turquoise */
-    --primary-foreground: 240 17% 5%;
+    --primary-foreground: 0 0% 100%;
     --primary-glow: 181 100% 55%;
 
-    --secondary: 43 100% 70%;            /* #FFD166 jaune */
+    --secondary: 43 100% 50%;            /* jaune */
     --secondary-foreground: 240 17% 5%;
 
-    --muted: 240 15% 14%;
-    --muted-foreground: 240 10% 65%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 5% 45%;
 
-    --accent: 272 60% 18%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 272 60% 96%;
+    --accent-foreground: 240 17% 5%;
 
-    --destructive: 0 100% 71%;           /* #FF6B6B */
-    --destructive-foreground: 240 17% 5%;
+    --destructive: 0 84% 60%;            /* rouge */
+    --destructive-foreground: 0 0% 100%;
 
-    --success: 158 95% 43%;              /* #06D6A0 */
-    --success-foreground: 240 17% 5%;
-    --warning: 43 100% 70%;
+    --success: 158 95% 40%;              /* #06D6A0 */
+    --success-foreground: 0 0% 100%;
+    --warning: 43 100% 50%;
     --warning-foreground: 240 17% 5%;
 
-    --border: 240 15% 16%;
-    --input: 240 15% 16%;
+    --border: 240 5% 88%;
+    --input: 240 5% 88%;
     --ring: 181 100% 41%;
 
     --radius: 0.875rem;
 
-    /* Sidebar — deep purple */
-    --sidebar-background: 272 100% 14%;  /* #2A004A */
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 181 100% 55%;
-    --sidebar-primary-foreground: 272 100% 10%;
-    --sidebar-accent: 272 60% 22%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 272 50% 22%;
+    /* Sidebar — clair */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 240 17% 5%;
+    --sidebar-primary: 181 100% 41%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 5% 96%;
+    --sidebar-accent-foreground: 240 17% 5%;
+    --sidebar-border: 240 5% 90%;
     --sidebar-ring: 181 100% 55%;
 
-    /* Gradients & shadows premium */
+    /* Gradients & ombres claires */
     --gradient-primary: linear-gradient(135deg, hsl(181 100% 41%), hsl(181 100% 55%));
-    --gradient-sidebar: linear-gradient(180deg, hsl(272 100% 14%) 0%, hsl(272 80% 8%) 100%);
-    --gradient-hero: radial-gradient(ellipse at top left, hsl(272 100% 18% / 0.7), transparent 60%),
-                     radial-gradient(ellipse at bottom right, hsl(181 100% 25% / 0.4), transparent 55%),
-                     hsl(240 17% 5%);
-    --gradient-card: linear-gradient(160deg, hsl(240 17% 10% / 0.9), hsl(272 30% 9% / 0.7));
+    --gradient-sidebar: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(240 5% 98%) 100%);
+    --gradient-hero: radial-gradient(ellipse at top left, hsl(272 60% 96% / 0.8), transparent 60%),
+                     radial-gradient(ellipse at bottom right, hsl(181 100% 90% / 0.5), transparent 55%),
+                     hsl(0 0% 100%);
+    --gradient-card: linear-gradient(160deg, hsl(0 0% 100% / 0.95), hsl(240 5% 98% / 0.9));
 
-    --shadow-glass: 0 1px 0 hsl(0 0% 100% / 0.04) inset, 0 8px 32px hsl(240 50% 2% / 0.6);
-    --shadow-float: 0 20px 60px -20px hsl(181 100% 41% / 0.25), 0 8px 24px hsl(240 50% 2% / 0.5);
-    --shadow-glow: 0 0 40px hsl(181 100% 55% / 0.35);
+    --shadow-glass: 0 1px 0 hsl(0 0% 100% / 0.8) inset, 0 4px 24px hsl(240 10% 60% / 0.12);
+    --shadow-float: 0 20px 60px -20px hsl(181 100% 41% / 0.2), 0 8px 24px hsl(240 10% 60% / 0.15);
+    --shadow-glow: 0 0 40px hsl(181 100% 55% / 0.25);
 
     --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -82,11 +82,11 @@ html, body {
 
 @layer components {
   .glass-card {
-    @apply bg-card/60 backdrop-blur-xl border border-white/5 rounded-[var(--radius)];
+    @apply bg-card/80 backdrop-blur-xl border border-black/5 rounded-[var(--radius)];
     box-shadow: var(--shadow-glass);
   }
   .glass-panel {
-    @apply bg-card/40 backdrop-blur-2xl border border-white/5;
+    @apply bg-card/70 backdrop-blur-2xl border border-black/5;
     box-shadow: var(--shadow-glass);
   }
   .gradient-text {
