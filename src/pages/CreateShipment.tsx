@@ -92,7 +92,7 @@ export default function CreateShipment() {
     if (!coopId) { setProjects([]); setProject(""); return; }
     const { data } = await (supabase as any)
       .from("projects")
-      .select("*, partners(name)")
+      .select("id, name, code, description, is_active, registre_id")
       .eq("registre_id", coopId)
       .eq("is_active", true)
       .order("name");
