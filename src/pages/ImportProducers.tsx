@@ -116,7 +116,7 @@ export default function ImportProducers() {
   const selectedCampaign = campaigns.find((c) => c.id === campaignId);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <PageHeader
         icon={Upload}
         title="Importation du registre producteurs"

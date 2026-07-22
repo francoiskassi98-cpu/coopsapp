@@ -6,7 +6,7 @@ import ProducersList from "@/pages/ProducersList";
 
 export default function Producers() {
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       <Tabs defaultValue="analytics" className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="analytics" className="gap-2">
