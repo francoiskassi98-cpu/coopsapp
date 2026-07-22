@@ -262,7 +262,12 @@ export default function ImportShipments() {
   const shipmentGroups = rows.length > 0 ? Object.entries(groupByShipment(rows)) : [];
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
+      <PageHeader
+        icon={FileSpreadsheet}
+        title="Importer les anciens chargements"
+        description="Reprise historique des chargements existants dans le système."
+      />
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
