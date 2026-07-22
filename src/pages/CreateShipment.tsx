@@ -408,17 +408,33 @@ export default function CreateShipment() {
   };
 
   const addPartner = async () => {
-    if (!newPartnerName.trim()) return;
-    const { data, error } = await (supabase as any).from("partners").insert({ name: newPartnerName.trim() }).select().single();
-    if (error) {
-      console.error(error);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
-    } else {
-      setPartners([...partners, data]);
-      setPartnerId(data.id);
-      setNewPartnerName("");
-      setDialogOpen(false);
+    const name = newPartnerName.trim();
+    if (!name) {
+      toast({ title: "Nom requis", description: "Renseignez le nom du partenaire.", variant: "destructive" });
+      return;
     }
+    if (!selectedCoopId) {
+      toast({ title: "Registre requis", description: "Sélectionnez d'abord un registre.", variant: "destructive" });
+      return;
+    }
+    const { data, error } = await (supabase as any)
+      .from("partners")
+      .insert({ name, registre_id: selectedCoopId })
+      .select()
+      .single();
+    if (error) {
+      console.error("[CreateShipment] addPartner failed", error);
+      const desc = error.code === "23505"
+        ? `Un partenaire nommé « ${name} » existe déjà.`
+        : `${error.message || "Erreur inconnue"}${error.hint ? " — " + error.hint : ""}`;
+      toast({ title: "Création impossible", description: desc, variant: "destructive" });
+      return;
+    }
+    setPartners((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+    setPartnerId(data.id);
+    setNewPartnerName("");
+    setDialogOpen(false);
+    toast({ title: "Partenaire créé", description: `« ${data.name} » ajouté et sélectionné.` });
   };
 
   const createProject = async () => {
@@ -428,7 +444,6 @@ export default function CreateShipment() {
       toast({ title: "Nom requis", description: "Renseignez un nom de projet.", variant: "destructive" });
       return;
     }
-    // duplicate check (case-insensitive) within same registre
     const dup = projects.find((p) => (p.name || "").toLowerCase() === name.toLowerCase());
     if (dup) {
       toast({ title: "Projet existant", description: `« ${dup.name} » existe déjà — il a été sélectionné.` });
@@ -445,20 +460,19 @@ export default function CreateShipment() {
           registre_id: selectedCoopId,
           name,
           code,
-          partner_id: newProject.partner_id || null,
           description: newProject.description.trim() || null,
           is_active: newProject.is_active,
         })
-        .select("*, partners(name)")
+        .select("id, name, code, description, is_active, registre_id")
         .single();
       if (error) throw error;
       setProjects((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
       setProject(data.id);
       setProjectDialogOpen(false);
       toast({ title: "Projet créé", description: `« ${data.name} » ajouté et sélectionné.` });
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+      toast({ title: "Création impossible", description: e?.message || "Erreur inconnue.", variant: "destructive" });
     } finally {
       setCreatingProject(false);
     }
