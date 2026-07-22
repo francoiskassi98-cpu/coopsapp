@@ -360,6 +360,49 @@ export default function CreateShipment() {
     }
   };
 
+  const createProject = async () => {
+    if (!selectedCoopId) return;
+    const name = newProject.name.trim();
+    if (!name) {
+      toast({ title: "Nom requis", description: "Renseignez un nom de projet.", variant: "destructive" });
+      return;
+    }
+    // duplicate check (case-insensitive) within same registre
+    const dup = projects.find((p) => (p.name || "").toLowerCase() === name.toLowerCase());
+    if (dup) {
+      toast({ title: "Projet existant", description: `« ${dup.name} » existe déjà — il a été sélectionné.` });
+      setProject(dup.id);
+      setProjectDialogOpen(false);
+      return;
+    }
+    setCreatingProject(true);
+    try {
+      const code = newProject.code.trim() || `PRJ-${Date.now().toString(36).toUpperCase()}`;
+      const { data, error } = await (supabase as any)
+        .from("projects")
+        .insert({
+          registre_id: selectedCoopId,
+          name,
+          code,
+          partner_id: newProject.partner_id || null,
+          description: newProject.description.trim() || null,
+          is_active: newProject.is_active,
+        })
+        .select("*, partners(name)")
+        .single();
+      if (error) throw error;
+      setProjects((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      setProject(data.id);
+      setProjectDialogOpen(false);
+      toast({ title: "Projet créé", description: `« ${data.name} » ajouté et sélectionné.` });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+    } finally {
+      setCreatingProject(false);
+    }
+  };
+
   const handleStartEdit = (index: number) => {
     setEditingIndex(index);
     setEditWeight(String(preview[index].allocated_weight));
