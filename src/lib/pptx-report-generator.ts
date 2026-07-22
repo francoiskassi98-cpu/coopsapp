@@ -64,7 +64,7 @@ function coverSlide(pptx: PptxGenJS, title: string, payload: ReportPayload) {
   s.addText("COOPS APP", { x: 0.6, y: 0.5, w: 6, h: 0.5, fontSize: 14, bold: true, color: TH.accent, fontFace: "Calibri" });
   s.addText(title, { x: 0.6, y: 1.8, w: 12, h: 1.2, fontSize: 44, bold: true, color: "FFFFFF" });
   s.addText(`Campagne ${payload.campaign}`, { x: 0.6, y: 3.2, w: 12, h: 0.6, fontSize: 22, color: "DDDDDD" });
-  const coops = payload.cooperatives.length === 0 ? "Toutes registres" : payload.cooperatives.join(" · ");
+  const coops = payload.cooperatives.length === 0 ? "Tous les registres" : payload.cooperatives.join(" · ");
   s.addText(coops, { x: 0.6, y: 4.0, w: 12, h: 0.6, fontSize: 16, color: TH.accent });
   s.addText(`Généré le ${payload.generatedAt.toLocaleDateString("fr-FR")} à ${payload.generatedAt.toLocaleTimeString("fr-FR")}`, {
     x: 0.6, y: 6.4, w: 12, h: 0.4, fontSize: 12, color: "BBBBBB",
@@ -165,7 +165,7 @@ function coopSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total:
   const s = pptx.addSlide();
   header(s, pptx, "Performance par registre", `Campagne ${payload.campaign}`, page, total);
   if (payload.coopStats.length === 0) {
-    s.addText("Aucune registre.", { x: 0.6, y: 3, w: 12, h: 0.6, fontSize: 14, color: TH.muted, align: "center" });
+    s.addText("Aucun registre.", { x: 0.6, y: 3, w: 12, h: 0.6, fontSize: 14, color: TH.muted, align: "center" });
     return;
   }
   const rows: any[][] = [[

@@ -57,7 +57,7 @@ export default function ExportPage() {
   };
 
   const exportByCooperative = async () => {
-    if (!selectedCoop) { toast({ title: "Sélectionnez une registre", variant: "destructive" }); return; }
+    if (!selectedCoop) { toast({ title: "Sélectionnez un registre", variant: "destructive" }); return; }
     setLoading("coop");
     try {
       const coopShipments = await fetchAllRows(
@@ -71,7 +71,7 @@ export default function ExportPage() {
       );
 
       if (!coopShipments || coopShipments.length === 0) {
-        toast({ title: "Aucun chargement pour cette registre dans cette campagne", variant: "destructive" });
+        toast({ title: "Aucun chargement pour ce registre dans cette campagne", variant: "destructive" });
         setLoading(null);
         return;
       }
@@ -308,7 +308,7 @@ export default function ExportPage() {
               </div>
               <CardTitle className="text-base">Par registre</CardTitle>
             </div>
-            <CardDescription>Exporter tous les chargements d'une registre</CardDescription>
+            <CardDescription>Exporter tous les chargements d'un registre</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 flex-1">
             <div className="space-y-1.5">

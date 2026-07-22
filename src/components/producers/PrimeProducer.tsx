@@ -216,7 +216,7 @@ export default function PrimeProducer() {
   async function saveCalc() {
     if (!coopId || rows.length === 0) return;
     if (isAllCoops) {
-      toast({ title: "Non disponible", description: "L'enregistrement n'est pas disponible en mode « Toutes registres ». Sélectionnez une registre.", variant: "destructive" });
+      toast({ title: "Non disponible", description: "L'enregistrement n'est pas disponible en mode « Tous les registres ». Sélectionnez un registre.", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -260,7 +260,7 @@ export default function PrimeProducer() {
     if (rows.length === 0) return;
     try {
       await generatePrimeExcel({
-        cooperativeName: isAllCoops ? "Toutes les registres" : (coopSelected?.name ?? ""),
+        cooperativeName: isAllCoops ? "Tous les registres" : (coopSelected?.name ?? ""),
         logoUrl: isAllCoops ? null : (coopSelected?.logo_path ?? null),
         startDate, endDate,
         bonusType, amount,
@@ -291,7 +291,7 @@ export default function PrimeProducer() {
               <Select value={coopId} onValueChange={setCoopId} disabled={!isSuperAdmin && cooperativeRefs.length <= 1}>
                 <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                 <SelectContent>
-                  {isSuperAdmin && <SelectItem value="all">Toutes les registres</SelectItem>}
+                  {isSuperAdmin && <SelectItem value="all">Tous les registres</SelectItem>}
                   {coops.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>

@@ -312,7 +312,7 @@ export default function ShipmentDetails() {
             <div className="space-y-2">
               <Label>Registre</Label>
               <Select value={editCoopId} onValueChange={setEditCoopId}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner une registre" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Sélectionner un registre" /></SelectTrigger>
                 <SelectContent>
                   {cooperativesList.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>

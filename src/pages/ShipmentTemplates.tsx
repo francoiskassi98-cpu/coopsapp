@@ -152,9 +152,9 @@ export default function ShipmentTemplates() {
         </div>
         <div className="flex gap-2">
           <Select value={coopFilter} onValueChange={setCoopFilter}>
-            <SelectTrigger className="w-56"><SelectValue placeholder="Toutes les registres" /></SelectTrigger>
+            <SelectTrigger className="w-56"><SelectValue placeholder="Tous les registres" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Toutes les registres</SelectItem>
+              <SelectItem value="all">Tous les registres</SelectItem>
               {coops.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -227,7 +227,7 @@ export default function ShipmentTemplates() {
                   <Input value={editing.template_name || ""} onChange={e => setEditing({ ...editing, template_name: e.target.value })} />
                 </div>
                 <div className="col-span-2 flex items-center justify-between rounded-md border p-3">
-                  <Label>Modèle par défaut pour cette registre</Label>
+                  <Label>Modèle par défaut pour ce registre</Label>
                   <Switch checked={!!editing.is_default} onCheckedChange={(c) => setEditing({ ...editing, is_default: c })} />
                 </div>
               </div>

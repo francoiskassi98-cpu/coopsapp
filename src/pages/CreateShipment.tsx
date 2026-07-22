@@ -501,7 +501,7 @@ export default function CreateShipment() {
                 <div className="space-y-2">
                   <Label>Registre *</Label>
                   <Select value={selectedCoopId} onValueChange={handleZoneChange}>
-                    <SelectTrigger><SelectValue placeholder="Sélectionner une registre" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner un registre" /></SelectTrigger>
                     <SelectContent>
                       {cooperatives.map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>

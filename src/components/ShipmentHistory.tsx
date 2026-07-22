@@ -85,10 +85,10 @@ export default function ShipmentHistory() {
           <div className="flex items-center gap-2 flex-wrap">
             <Select value={selectedCoop} onValueChange={setSelectedCoop}>
               <SelectTrigger className="w-52">
-                <SelectValue placeholder="Toutes les registres" />
+                <SelectValue placeholder="Tous les registres" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Toutes les registres</SelectItem>
+                <SelectItem value="all">Tous les registres</SelectItem>
                 {cooperatives.map((c) => (
                   <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                 ))}

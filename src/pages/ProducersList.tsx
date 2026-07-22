@@ -446,10 +446,10 @@ export default function Producers() {
         <div className="w-60">
           <Select value={coopFilter} onValueChange={setCoopFilter}>
             <SelectTrigger>
-              <SelectValue placeholder="Toutes les registres" />
+              <SelectValue placeholder="Tous les registres" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Toutes les registres</SelectItem>
+              <SelectItem value="all">Tous les registres</SelectItem>
               {cooperatives.map((c) => (
                 <SelectItem key={c} value={c}>{c}</SelectItem>
               ))}
@@ -560,10 +560,10 @@ export default function Producers() {
               <div className="flex items-center gap-2 flex-wrap">
                 <Select value={exportCoopForUpdate} onValueChange={setExportCoopForUpdate}>
                   <SelectTrigger className="w-56">
-                    <SelectValue placeholder="Toutes les registres" />
+                    <SelectValue placeholder="Tous les registres" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Toutes les registres</SelectItem>
+                    <SelectItem value="all">Tous les registres</SelectItem>
                     {cooperatives.map((c) => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
