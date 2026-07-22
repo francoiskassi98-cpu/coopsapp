@@ -15,6 +15,7 @@ const Auth = lazy(() => import("@/pages/Auth"));
 const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Producers = lazy(() => import("@/pages/Producers"));
+const ProducerDetail = lazy(() => import("@/pages/ProducerDetail"));
 const CreateShipment = lazy(() => import("@/pages/CreateShipment"));
 const ExportPage = lazy(() => import("@/pages/ExportPage"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
@@ -64,6 +65,7 @@ const App = () => (
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/producteurs" element={<Producers />} />
+                    <Route path="/producteurs/:id" element={<ProducerDetail />} />
                     <Route path="/chargements" element={<CreateShipment />} />
                     <Route path="/export" element={<ExportPage />} />
                     <Route path="/partenaires" element={<Partners />} />

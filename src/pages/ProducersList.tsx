@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle, ShieldOff } from "lucide-react";
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
@@ -19,6 +20,7 @@ import { Users as UsersIcon } from "lucide-react";
 type ImportMode = "insert" | "update";
 
 export default function Producers() {
+  const navigate = useNavigate();
   const [producers, setProducers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [coopFilter, setCoopFilter] = useState("all");
@@ -524,7 +526,7 @@ export default function Producers() {
                         <TableCell>{p.cooperative}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => setDetailProducer(p)} title="Détails">
+                            <Button variant="ghost" size="icon" onClick={() => navigate(`/producteurs/${p.id}`)} title="Fiche complète">
                               <Eye className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title="Modifier">
