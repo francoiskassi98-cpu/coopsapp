@@ -258,11 +258,11 @@ export default function ExportPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <FileSpreadsheet className="h-6 w-6 text-primary" /> Export Excel
-        </h1>
-      </div>
+      <PageHeader
+        icon={FileSpreadsheet}
+        title="Export Excel"
+        description="Exportez vos données au format Excel selon la campagne sélectionnée."
+      />
 
       {/* Sélecteur global de campagne */}
       <Card>
