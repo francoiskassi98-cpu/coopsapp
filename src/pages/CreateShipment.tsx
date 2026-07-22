@@ -153,7 +153,7 @@ export default function CreateShipment() {
     // Appel RPC : MAX(receipt_number::bigint) filtré par cooperative_id
     // La fonction SQL fait le JOIN shipments→deliveries côté serveur en une seule requête.
     const { data, error } = await (supabase as any).rpc("get_max_receipt_number", {
-      p_cooperative_id: cooperativeId,
+      p_registre_id: cooperativeId,
     });
 
     if (error) {
