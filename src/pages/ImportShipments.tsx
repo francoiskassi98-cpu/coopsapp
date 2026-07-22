@@ -68,23 +68,22 @@ export default function ImportShipments() {
     if (result.rows.length > 0) {
       const codes = [...new Set(result.rows.map((r) => r.code_plantation))];
       const producers = await chunkedProducerLookup(
-        "plantation_code, full_name, section, cooperative, remaining_potential",
+        "plantation_code, full_name, section, registre_id, remaining_potential, registres(name)",
         codes
       );
 
       const producerMap = new Map(
-        (producers || []).map((p) => [p.plantation_code, p])
+        (producers || []).map((p: any) => [p.plantation_code, p])
       );
 
-      // Build matched producers list with registry data
       const matched: MatchedProducer[] = codes.map((code) => {
-        const dbProducer = producerMap.get(code);
+        const dbProducer: any = producerMap.get(code);
         const fileRow = result.rows.find((r) => r.code_plantation === code);
         return {
           code_plantation: code,
           db_full_name: dbProducer?.full_name || "",
           db_section: dbProducer?.section || "",
-          db_cooperative: dbProducer?.cooperative || "",
+          db_cooperative: dbProducer?.registres?.name || "",
           db_remaining_potential: Number(dbProducer?.remaining_potential || 0),
           file_nom_producteur: fileRow?.nom_producteur || "",
           matched: !!dbProducer,
