@@ -31,13 +31,19 @@ export default function CreateShipment() {
   const [departureDate, setDepartureDate] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [project, setProject] = useState("");
+  const [project, setProject] = useState(""); // project_id
   const [partnerId, setPartnerId] = useState("");
   const [zone, setZone] = useState("");
   const [destination, setDestination] = useState("");
   const [campaign, setCampaign] = useState("Principale");
   const [partners, setPartners] = useState<any[]>([]);
   const [newPartnerName, setNewPartnerName] = useState("");
+  const [projects, setProjects] = useState<any[]>([]);
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [newProject, setNewProject] = useState<{ name: string; code: string; partner_id: string; description: string; is_active: boolean }>({ name: "", code: "", partner_id: "", description: "", is_active: true });
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [templateId, setTemplateId] = useState<string>("");
   const [preview, setPreview] = useState<DistributionResult[]>([]);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -45,6 +51,8 @@ export default function CreateShipment() {
   const [editWeight, setEditWeight] = useState("");
   const [editBags, setEditBags] = useState("");
   const { sortConfig, toggleSort, sortData } = useSortableTable();
+  const { role } = useAuth();
+  const canCreateProject = role === "super_admin" || role === "coop_admin" || role === "agent";
 
   const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
   const [coopDelivered, setCoopDelivered] = useState<Record<string, number>>({});
@@ -52,7 +60,6 @@ export default function CreateShipment() {
   const [suggestedReceipt, setSuggestedReceipt] = useState<string>("");
   const [receiptNumber, setReceiptNumber] = useState<string>("");
   const [selectedCoopId, setSelectedCoopId] = useState<string>("");
-  const [template, setTemplate] = useState<any | null>(null);
 
   useEffect(() => {
     supabase.from("partners").select("*").order("name").then(({ data }) => setPartners(data || []));
