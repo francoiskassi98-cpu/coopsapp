@@ -650,7 +650,6 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
-          partner_id: string | null
           registre_id: string
           updated_at: string
         }
@@ -662,7 +661,6 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
-          partner_id?: string | null
           registre_id: string
           updated_at?: string
         }
@@ -674,18 +672,10 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
-          partner_id?: string | null
           registre_id?: string
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "projects_partner_id_fkey"
-            columns: ["partner_id"]
-            isOneToOne: false
-            referencedRelation: "partners"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "projects_registre_id_fkey"
             columns: ["registre_id"]
