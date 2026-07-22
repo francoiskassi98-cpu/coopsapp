@@ -662,33 +662,33 @@ export default function CreateShipment() {
                       </TabsList>
 
                       <TabsContent value="template">
-                        {!template ? (
+                        {!selectedTemplate ? (
                           <p className="text-sm text-muted-foreground py-6 text-center">
-                            Aucun modèle configuré. Définissez-en un dans « Modèles chargement ».
+                            Sélectionnez un modèle actif dans « Modèle de chargement » pour afficher l'aperçu.
                           </p>
                         ) : (
                           <div className="max-h-[60vh] overflow-auto">
                             <TemplatePreview
-                              title={template.title}
-                              subtitle={template.subtitle}
-                              slogan={template.slogan}
-                              coop_logo_path={template.coop_logo_path}
-                              partner_logo_path={template.partner_logo_path}
-                              logo_position={template.logo_position}
-                              custom_header={template.custom_header}
-                              custom_footer={template.custom_footer}
-                              show_driver={template.show_driver}
-                              show_truck={template.show_truck}
-                              show_trailer={template.show_trailer}
-                              show_bill_of_lading={template.show_bill_of_lading}
-                              show_destination={template.show_destination}
-                              show_project={template.show_project}
-                              show_partner={template.show_partner}
-                              show_departure_date={template.show_departure_date}
-                              show_num_bags={template.show_num_bags}
-                              show_total_weight={template.show_total_weight}
-                              show_num_producers={template.show_num_producers}
-                              show_partner_logo={template.show_partner_logo}
+                              title={selectedTemplate.title}
+                              subtitle={selectedTemplate.subtitle}
+                              slogan={selectedTemplate.slogan}
+                              coop_logo_path={selectedTemplate.coop_logo_path}
+                              partner_logo_path={selectedTemplate.partner_logo_path}
+                              logo_position={selectedTemplate.logo_position}
+                              custom_header={selectedTemplate.custom_header}
+                              custom_footer={selectedTemplate.custom_footer}
+                              show_driver={selectedTemplate.show_driver}
+                              show_truck={selectedTemplate.show_truck}
+                              show_trailer={selectedTemplate.show_trailer}
+                              show_bill_of_lading={selectedTemplate.show_bill_of_lading}
+                              show_destination={selectedTemplate.show_destination}
+                              show_project={selectedTemplate.show_project}
+                              show_partner={selectedTemplate.show_partner}
+                              show_departure_date={selectedTemplate.show_departure_date}
+                              show_num_bags={selectedTemplate.show_num_bags}
+                              show_total_weight={selectedTemplate.show_total_weight}
+                              show_num_producers={selectedTemplate.show_num_producers}
+                              show_partner_logo={selectedTemplate.show_partner_logo}
                               coopName={cooperatives.find((c) => c.id === selectedCoopId)?.name}
                               data={{
                                 driver: driverName || "—",
@@ -696,7 +696,7 @@ export default function CreateShipment() {
                                 trailer: trailerNumber || "—",
                                 bill_of_lading: connaissement || "—",
                                 destination: destination || "—",
-                                project: project || "—",
+                                project: projects.find((p) => p.id === project)?.name || "—",
                                 partner: partners.find((p) => p.id === partnerId)?.name || "—",
                                 departure_date: departureDate || "—",
                                 num_bags: preview.reduce((s, d) => s + d.num_bags, 0),
