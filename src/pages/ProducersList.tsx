@@ -13,6 +13,8 @@ import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadshe
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { parseExcelFile, downloadImportTemplate, exportToExcel, type ProducerRow, type ImportError } from "@/lib/excel-utils";
+import PageHeader from "@/components/PageHeader";
+import { Users as UsersIcon } from "lucide-react";
 
 type ImportMode = "insert" | "update";
 
