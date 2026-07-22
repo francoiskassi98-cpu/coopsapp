@@ -92,7 +92,7 @@ export default function CreateShipment() {
     if (!coopId) { setProjects([]); setProject(""); return; }
     const { data } = await (supabase as any)
       .from("projects")
-      .select("*, partners(name)")
+      .select("id, name, code, description, is_active, registre_id")
       .eq("registre_id", coopId)
       .eq("is_active", true)
       .order("name");
@@ -395,7 +395,7 @@ export default function CreateShipment() {
     try {
       const count = preview.length;
       const shipmentId = await persistShipment();
-      toast({ title: "Chargement créé", description: `${count} fiches de livraison générées. N° chargement : ${shipmentId?.slice(0, 8) || "créé"}.` });
+      toast({ title: "Chargement validé et enregistré avec succès.", description: `${count} fiches de livraison générées. N° chargement : ${shipmentId?.slice(0, 8) || "créé"}.` });
       resetForm();
     } catch (err: any) {
       const message = formatTechnicalError(err, "Validation impossible");
@@ -408,17 +408,33 @@ export default function CreateShipment() {
   };
 
   const addPartner = async () => {
-    if (!newPartnerName.trim()) return;
-    const { data, error } = await (supabase as any).from("partners").insert({ name: newPartnerName.trim() }).select().single();
-    if (error) {
-      console.error(error);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
-    } else {
-      setPartners([...partners, data]);
-      setPartnerId(data.id);
-      setNewPartnerName("");
-      setDialogOpen(false);
+    const name = newPartnerName.trim();
+    if (!name) {
+      toast({ title: "Nom requis", description: "Renseignez le nom du partenaire.", variant: "destructive" });
+      return;
     }
+    if (!selectedCoopId) {
+      toast({ title: "Registre requis", description: "Sélectionnez d'abord un registre.", variant: "destructive" });
+      return;
+    }
+    const { data, error } = await (supabase as any)
+      .from("partners")
+      .insert({ name, registre_id: selectedCoopId })
+      .select()
+      .single();
+    if (error) {
+      console.error("[CreateShipment] addPartner failed", error);
+      const desc = error.code === "23505"
+        ? `Un partenaire nommé « ${name} » existe déjà.`
+        : `${error.message || "Erreur inconnue"}${error.hint ? " — " + error.hint : ""}`;
+      toast({ title: "Création impossible", description: desc, variant: "destructive" });
+      return;
+    }
+    setPartners((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+    setPartnerId(data.id);
+    setNewPartnerName("");
+    setDialogOpen(false);
+    toast({ title: "Partenaire créé", description: `« ${data.name} » ajouté et sélectionné.` });
   };
 
   const createProject = async () => {
@@ -428,7 +444,6 @@ export default function CreateShipment() {
       toast({ title: "Nom requis", description: "Renseignez un nom de projet.", variant: "destructive" });
       return;
     }
-    // duplicate check (case-insensitive) within same registre
     const dup = projects.find((p) => (p.name || "").toLowerCase() === name.toLowerCase());
     if (dup) {
       toast({ title: "Projet existant", description: `« ${dup.name} » existe déjà — il a été sélectionné.` });
@@ -445,20 +460,19 @@ export default function CreateShipment() {
           registre_id: selectedCoopId,
           name,
           code,
-          partner_id: newProject.partner_id || null,
           description: newProject.description.trim() || null,
           is_active: newProject.is_active,
         })
-        .select("*, partners(name)")
+        .select("id, name, code, description, is_active, registre_id")
         .single();
       if (error) throw error;
       setProjects((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
       setProject(data.id);
       setProjectDialogOpen(false);
       toast({ title: "Projet créé", description: `« ${data.name} » ajouté et sélectionné.` });
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+      toast({ title: "Création impossible", description: e?.message || "Erreur inconnue.", variant: "destructive" });
     } finally {
       setCreatingProject(false);
     }
@@ -525,7 +539,7 @@ export default function CreateShipment() {
       const shipmentId = await persistShipment();
       if (!shipmentId) return;
       await generateShipmentFiche(shipmentId);
-      toast({ title: "Chargement créé", description: `${count} fiches générées et fiche Excel téléchargée. N° chargement : ${shipmentId.slice(0, 8)}.` });
+      toast({ title: "Chargement validé et enregistré avec succès.", description: `${count} fiches générées et fiche Excel téléchargée. N° chargement : ${shipmentId.slice(0, 8)}.` });
       resetForm();
     } catch (err: any) {
       const message = formatTechnicalError(err, "Enregistrement/téléchargement impossible");
@@ -563,162 +577,7 @@ export default function CreateShipment() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Poids total demandé (kg) *</Label>
-                    <Input type="number" value={totalWeight} onChange={(e) => setTotalWeight(e.target.value)} placeholder="43500" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Nombre de sacs *</Label>
-                    <Input type="number" value={totalBags} onChange={(e) => setTotalBags(e.target.value)} placeholder="670" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>N° Connaissement *</Label>
-                  <Input value={connaissement} onChange={(e) => setConnaissement(e.target.value)} placeholder="SC101410-..." />
-                </div>
-
-                <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase">Informations transport (obligatoires)</p>
-                  <div className="space-y-2">
-                    <Label>Nom du chauffeur *</Label>
-                    <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="KONATÉ SEYDOU" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label>N° Camion *</Label>
-                      <Input value={truckNumber} onChange={(e) => setTruckNumber(e.target.value)} placeholder="AA886EA04" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>N° Remorque *</Label>
-                      <Input value={trailerNumber} onChange={(e) => setTrailerNumber(e.target.value)} placeholder="8142KT03" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Date départ *</Label>
-                    <Input type="date" value={departureDate} onChange={(e) => setDepartureDate(e.target.value)} />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Date début livraison *</Label>
-                    <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Date fin livraison *</Label>
-                    <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Projet *</Label>
-                  <div className="flex gap-2">
-                    <Select value={project} onValueChange={setProject} disabled={!selectedCoopId}>
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder={selectedCoopId ? "Sélectionner un projet" : "Sélectionnez d'abord un registre"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {projects.length === 0 ? (
-                          <div className="px-2 py-1.5 text-xs text-muted-foreground">Aucun projet</div>
-                        ) : projects.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}{p.partners?.name ? ` — ${p.partners.name}` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {canCreateProject && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          if (!selectedCoopId) {
-                            toast({ title: "Registre requis", description: "Sélectionnez d'abord un registre.", variant: "destructive" });
-                            return;
-                          }
-                          setNewProject({ name: "", code: "", partner_id: partnerId || "", description: "", is_active: true });
-                          setProjectDialogOpen(true);
-                        }}
-                      >
-                        <FolderPlus className="h-4 w-4 mr-1" /> Nouveau projet
-                      </Button>
-                    )}
-                  </div>
-                  {project && (() => {
-                    const p = projects.find((x) => x.id === project);
-                    if (!p) return null;
-                    return (
-                      <div className="rounded-md border bg-muted/30 p-2 text-xs space-y-0.5">
-                        <div><span className="text-muted-foreground">Nom :</span> <span className="font-medium">{p.name}</span>{p.code ? <span className="font-mono ml-2">[{p.code}]</span> : null}</div>
-                        {p.partners?.name && <div><span className="text-muted-foreground">Partenaire :</span> {p.partners.name}</div>}
-                        <div><span className="text-muted-foreground">Créé le :</span> {new Date(p.created_at).toLocaleDateString("fr-FR")}</div>
-                        {p.description && <div className="text-muted-foreground italic">{p.description}</div>}
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Modèle de chargement *</Label>
-                  <Select value={templateId} onValueChange={setTemplateId} disabled={!selectedCoopId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={selectedCoopId ? "Sélectionner un modèle" : "Sélectionnez d'abord un registre"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {templates.length === 0 ? (
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground">Aucun modèle actif</div>
-                      ) : templates.map((t) => {
-                        const partnerName = partners.find((p) => p.id === t.partner_id)?.name;
-                        return (
-                          <SelectItem key={t.id} value={t.id}>
-                            <span className="flex items-center gap-2">
-                              <FileSpreadsheet className="h-3.5 w-3.5" />
-                              {t.template_name}{partnerName ? ` — ${partnerName}` : ""}{t.is_default ? " ★" : ""}
-                            </span>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                  {selectedTemplate && (
-                    <div className="rounded-md border bg-muted/30 p-2 text-xs space-y-0.5">
-                      <div><span className="text-muted-foreground">Modèle :</span> <span className="font-medium">{selectedTemplate.template_name}</span></div>
-                      {selectedTemplate.partner_id && <div><span className="text-muted-foreground">Partenaire :</span> {partners.find((p) => p.id === selectedTemplate.partner_id)?.name || "—"}</div>}
-                      <div><span className="text-muted-foreground">Créé le :</span> {new Date(selectedTemplate.created_at).toLocaleDateString("fr-FR")}</div>
-                      {selectedTemplate.description && <div className="text-muted-foreground italic">{selectedTemplate.description}</div>}
-                    </div>
-                  )}
-                </div>
-
-
-                <div className="space-y-2">
-                  <Label>Partenaire</Label>
-                  <div className="flex gap-2">
-                    <Select value={partnerId} onValueChange={setPartnerId}>
-                      <SelectTrigger className="flex-1"><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-                      <SelectContent>
-                        {partners.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="icon"><Plus className="h-4 w-4" /></Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader><DialogTitle>Ajouter un partenaire</DialogTitle></DialogHeader>
-                        <div className="space-y-4">
-                          <Input value={newPartnerName} onChange={(e) => setNewPartnerName(e.target.value)} placeholder="Nom du partenaire" />
-                          <Button onClick={addPartner} className="w-full">Ajouter</Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                </div>
-
+                {/* 1. Registre */}
                 <div className="space-y-2">
                   <Label>Registre *</Label>
                   <Select value={selectedCoopId} onValueChange={handleZoneChange}>
@@ -772,6 +631,122 @@ export default function CreateShipment() {
                   </div>
                 )}
 
+                {/* 2. Projet */}
+                <div className="space-y-2">
+                  <Label>Projet *</Label>
+                  <div className="flex gap-2">
+                    <Select value={project} onValueChange={setProject} disabled={!selectedCoopId}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder={selectedCoopId ? "Sélectionner un projet" : "Sélectionnez d'abord un registre"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projects.length === 0 ? (
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground">Aucun projet</div>
+                        ) : projects.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {canCreateProject && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          if (!selectedCoopId) {
+                            toast({ title: "Registre requis", description: "Sélectionnez d'abord un registre.", variant: "destructive" });
+                            return;
+                          }
+                          setNewProject({ name: "", code: "", partner_id: "", description: "", is_active: true });
+                          setProjectDialogOpen(true);
+                        }}
+                      >
+                        <FolderPlus className="h-4 w-4 mr-1" /> Nouveau projet
+                      </Button>
+                    )}
+                  </div>
+                  {project && (() => {
+                    const p = projects.find((x) => x.id === project);
+                    if (!p) return null;
+                    return (
+                      <div className="rounded-md border bg-muted/30 p-2 text-xs space-y-0.5">
+                        <div><span className="text-muted-foreground">Nom :</span> <span className="font-medium">{p.name}</span>{p.code ? <span className="font-mono ml-2">[{p.code}]</span> : null}</div>
+                        {p.description && <div className="text-muted-foreground italic">{p.description}</div>}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* 3. Partenaire */}
+                <div className="space-y-2">
+                  <Label>Partenaire *</Label>
+                  <div className="flex gap-2">
+                    <Select value={partnerId} onValueChange={setPartnerId}>
+                      <SelectTrigger className="flex-1"><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                      <SelectContent>
+                        {partners.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={(e) => {
+                            if (!selectedCoopId) {
+                              e.preventDefault();
+                              toast({ title: "Registre requis", description: "Sélectionnez d'abord un registre pour créer un partenaire.", variant: "destructive" });
+                            }
+                          }}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader><DialogTitle>Ajouter un partenaire</DialogTitle></DialogHeader>
+                        <div className="space-y-4">
+                          <Input value={newPartnerName} onChange={(e) => setNewPartnerName(e.target.value)} placeholder="Nom du partenaire" />
+                          <Button onClick={addPartner} className="w-full">Ajouter</Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+
+                {/* 4. Modèle de chargement */}
+                <div className="space-y-2">
+                  <Label>Modèle de chargement *</Label>
+                  <Select value={templateId} onValueChange={setTemplateId} disabled={!selectedCoopId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={selectedCoopId ? "Sélectionner un modèle" : "Sélectionnez d'abord un registre"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.length === 0 ? (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">Aucun modèle actif</div>
+                      ) : templates.map((t) => {
+                        const partnerName = partners.find((p) => p.id === t.partner_id)?.name;
+                        return (
+                          <SelectItem key={t.id} value={t.id}>
+                            <span className="flex items-center gap-2">
+                              <FileSpreadsheet className="h-3.5 w-3.5" />
+                              {t.template_name}{partnerName ? ` — ${partnerName}` : ""}{t.is_default ? " ★" : ""}
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  {selectedTemplate && (
+                    <div className="rounded-md border bg-muted/30 p-2 text-xs space-y-0.5">
+                      <div><span className="text-muted-foreground">Modèle :</span> <span className="font-medium">{selectedTemplate.template_name}</span></div>
+                      {selectedTemplate.partner_id && <div><span className="text-muted-foreground">Partenaire :</span> {partners.find((p) => p.id === selectedTemplate.partner_id)?.name || "—"}</div>}
+                      {selectedTemplate.description && <div className="text-muted-foreground italic">{selectedTemplate.description}</div>}
+                    </div>
+                  )}
+                </div>
+
+                {/* 5. Destination & Campagne */}
                 <div className="space-y-2">
                   <Label>Destination *</Label>
                   <Select value={destination} onValueChange={setDestination}>
@@ -794,6 +769,58 @@ export default function CreateShipment() {
                   </Select>
                   <p className="text-xs text-muted-foreground">Campagne actuelle : {getCurrentCampaign()}</p>
                 </div>
+
+                {/* 6. Quantité */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Poids total demandé (kg) *</Label>
+                    <Input type="number" value={totalWeight} onChange={(e) => setTotalWeight(e.target.value)} placeholder="43500" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nombre de sacs *</Label>
+                    <Input type="number" value={totalBags} onChange={(e) => setTotalBags(e.target.value)} placeholder="670" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>N° Connaissement *</Label>
+                  <Input value={connaissement} onChange={(e) => setConnaissement(e.target.value)} placeholder="SC101410-..." />
+                </div>
+
+                {/* 7. Distribution (transport + dates) */}
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase">Informations transport (obligatoires)</p>
+                  <div className="space-y-2">
+                    <Label>Nom du chauffeur *</Label>
+                    <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="KONATÉ SEYDOU" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>N° Camion *</Label>
+                      <Input value={truckNumber} onChange={(e) => setTruckNumber(e.target.value)} placeholder="AA886EA04" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>N° Remorque *</Label>
+                      <Input value={trailerNumber} onChange={(e) => setTrailerNumber(e.target.value)} placeholder="8142KT03" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Date départ *</Label>
+                    <Input type="date" value={departureDate} onChange={(e) => setDepartureDate(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Date début livraison *</Label>
+                    <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Date fin livraison *</Label>
+                    <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                  </div>
+                </div>
+
 
                 {missingFields.length > 0 && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -1015,16 +1042,6 @@ export default function CreateShipment() {
             <div className="space-y-1.5">
               <Label>Code du projet</Label>
               <Input value={newProject.code} onChange={(e) => setNewProject({ ...newProject, code: e.target.value })} placeholder="Auto si vide" className="font-mono" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Partenaire</Label>
-              <Select value={newProject.partner_id || "none"} onValueChange={(v) => setNewProject({ ...newProject, partner_id: v === "none" ? "" : v })}>
-                <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Aucun</SelectItem>
-                  {partners.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Description</Label>
