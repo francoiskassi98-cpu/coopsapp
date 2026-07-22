@@ -12,9 +12,9 @@ function Segment({ label, value, tone }: { label: string; value: React.ReactNode
     danger:  "text-rose-600",
   };
   return (
-    <div className="flex flex-col min-w-0 px-4 border-l border-border/60 first:border-l-0 first:pl-0">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground leading-tight">{label}</span>
-      <span className={`text-sm font-semibold truncate ${toneCls[tone ?? "muted"]}`}>{value}</span>
+    <div className="flex flex-col shrink-0 px-3 sm:px-4 border-l border-border/60 first:border-l-0 first:pl-0">
+      <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-muted-foreground leading-tight whitespace-nowrap">{label}</span>
+      <span className={`text-xs sm:text-sm font-semibold whitespace-nowrap ${toneCls[tone ?? "muted"]}`}>{value}</span>
     </div>
   );
 }
