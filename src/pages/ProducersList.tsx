@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { parseExcelFile, downloadImportTemplate, exportToExcel, downloadErrorReport, type ProducerRow, type ImportError, type ImportReport } from "@/lib/excel-utils";
 import PageHeader from "@/components/PageHeader";
 import { Users as UsersIcon } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 type ImportMode = "insert" | "update";
 
