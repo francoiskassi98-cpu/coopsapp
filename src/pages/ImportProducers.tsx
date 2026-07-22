@@ -10,6 +10,7 @@ import { Upload, CheckCircle, AlertCircle, FileSpreadsheet, Download, Calendar }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
+import PageHeader from "@/components/PageHeader";
 
 export default function ImportProducers() {
   const { campaigns } = useCampaigns();
