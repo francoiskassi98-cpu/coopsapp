@@ -75,7 +75,7 @@ export default function ShipmentDetails() {
       while (true) {
         const { data, error } = await supabase
           .from("shipments")
-          .select("*, cooperatives(name)")
+          .select("*, registres(id, name, cooperative_id, cooperatives(name))")
           .order("created_at", { ascending: false })
           .range(from, from + pageSize - 1);
         if (error) throw error;
