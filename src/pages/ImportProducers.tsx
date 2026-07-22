@@ -117,13 +117,16 @@ export default function ImportProducers() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Importation du registre producteurs</h1>
-        <Button variant="outline" onClick={downloadImportTemplate}>
-          <Download className="h-4 w-4 mr-2" />
-          Télécharger le modèle Excel
-        </Button>
-      </div>
+      <PageHeader
+        icon={Upload}
+        title="Importation du registre producteurs"
+        actions={
+          <Button variant="outline" onClick={downloadImportTemplate}>
+            <Download className="h-4 w-4 mr-2" />
+            Télécharger le modèle Excel
+          </Button>
+        }
+      />
 
       {/* Campaign selector */}
       <Card>
