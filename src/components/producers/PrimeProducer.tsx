@@ -373,10 +373,28 @@ export default function PrimeProducer() {
       )}
 
       {!loading && rows.length > 0 && (
-        <Card>
+        <>
+          {/* Cartes résumé tonales */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-[20px] p-4 ring-1 ring-blue-100 bg-blue-50/70 shadow-glass">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Producteurs éligibles</div>
+              <div className="text-2xl font-bold tracking-tight mt-1">{rows.length.toLocaleString("fr-FR")}</div>
+            </div>
+            <div className="rounded-[20px] p-4 ring-1 ring-emerald-100 bg-emerald-50/70 shadow-glass">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Volume total</div>
+              <div className="text-2xl font-bold tracking-tight mt-1">{totalVolume.toLocaleString("fr-FR")} <span className="text-sm font-medium text-muted-foreground">kg</span></div>
+            </div>
+            <div className="rounded-[20px] p-4 ring-1 ring-amber-100 bg-amber-50/70 shadow-glass">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Prime totale</div>
+              <div className="text-2xl font-bold tracking-tight mt-1">{Math.round(totalBonus).toLocaleString("fr-FR")} <span className="text-sm font-medium text-muted-foreground">FCFA</span></div>
+            </div>
+          </div>
+
+        <Card className="shadow-glass">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">
-              {rows.length} producteur(s) — Volume {totalVolume.toLocaleString("fr-FR")} kg — Prime {Math.round(totalBonus).toLocaleString("fr-FR")} FCFA
+            <CardTitle className="text-base flex items-center gap-2">
+              <span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><Coins className="h-4 w-4" /></span>
+              Détail des primes
             </CardTitle>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={saveCalc} disabled={saving}><Save className="h-4 w-4 mr-2" />Enregistrer</Button>
