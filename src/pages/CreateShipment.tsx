@@ -76,7 +76,7 @@ export default function CreateShipment() {
     const { data } = await (supabase as any)
       .from("shipment_excel_templates")
       .select("*")
-      .eq("cooperative_id", coopId)
+      .eq("registre_id", coopId)
       .eq("is_active", true)
       .order("is_default", { ascending: false })
       .order("updated_at", { ascending: false });
