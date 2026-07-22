@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, FileDown, Search, RefreshCw } from "lucide-react";
+import { Loader2, FileDown, Search, RefreshCw, ScrollText } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
 import { toast } from "sonner";
 import { fetchAllRows } from "@/lib/database-utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -140,22 +141,23 @@ export default function AuditLog() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Journal d'audit</h1>
-          <p className="text-sm text-muted-foreground">Traçabilité complète des modifications.</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={load} disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            Actualiser
-          </Button>
-          <Button onClick={handleExport} disabled={!rows.length}>
-            <FileDown className="h-4 w-4 mr-2" />
-            Exporter Excel
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        icon={ScrollText}
+        title="Journal d'audit"
+        description="Traçabilité complète des modifications."
+        actions={
+          <>
+            <Button variant="outline" onClick={load} disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Actualiser
+            </Button>
+            <Button onClick={handleExport} disabled={!rows.length}>
+              <FileDown className="h-4 w-4 mr-2" />
+              Exporter Excel
+            </Button>
+          </>
+        }
+      />
 
       <Card>
         <CardHeader>

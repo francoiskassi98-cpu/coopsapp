@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
-import { AlertTriangle, RefreshCw, Mail } from "lucide-react";
+import { AlertTriangle, RefreshCw, Mail, LayoutDashboard } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
 import { isCampaignStart, getCurrentCampaign, normalizeCampaign } from "@/lib/shipment-utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -169,22 +170,24 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">COOPS APP — Gestion des chargements de registres</h1>
-          <p className="text-sm text-muted-foreground">Campagne {getCurrentCampaign()}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setShowReportDialog(true)} variant="outline">
-            <Mail className="h-4 w-4" />
-            Envoyer un rapport
-          </Button>
-          <Button onClick={() => { loadData(); }} disabled={loading} variant="outline">
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Actualiser
-          </Button>
-        </div>
-      </div>
+      
+      <PageHeader
+        icon={LayoutDashboard}
+        title="COOPS APP — Gestion des chargements de registres"
+        description={`Campagne ${getCurrentCampaign()}`}
+        actions={
+          <>
+            <Button onClick={() => setShowReportDialog(true)} variant="outline">
+              <Mail className="h-4 w-4" />
+              Envoyer un rapport
+            </Button>
+            <Button onClick={() => { loadData(); }} disabled={loading} variant="outline">
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Actualiser
+            </Button>
+          </>
+        }
+      />
 
       <Tabs defaultValue="apercu" className="space-y-6">
         <TabsList>

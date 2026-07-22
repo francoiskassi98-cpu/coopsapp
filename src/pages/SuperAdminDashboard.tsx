@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Building2, CheckCircle2, Clock, AlertCircle, Ban, Users, Layers, Sprout } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import PageHeader from "@/components/PageHeader";
 
 interface Stats {
   total_coops: number;
@@ -53,16 +54,17 @@ export default function SuperAdminDashboard() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Tableau de bord Super Administrateur</h1>
-          <p className="text-sm text-muted-foreground">Vision globale de toutes les coopératives de la plateforme.</p>
-        </div>
-        <div className="flex gap-2">
-          <Button asChild variant="outline"><Link to="/gestion/cooperatives">Gérer les coopératives</Link></Button>
-          <Button asChild><Link to="/gestion/cooperatives/nouvelle">+ Nouvelle coopérative</Link></Button>
-        </div>
-      </div>
+      <PageHeader
+        icon={Building2}
+        title="Tableau de bord Super Administrateur"
+        description="Vision globale de toutes les coopératives de la plateforme."
+        actions={
+          <>
+            <Button asChild variant="outline"><Link to="/gestion/cooperatives">Gérer les coopératives</Link></Button>
+            <Button asChild><Link to="/gestion/cooperatives/nouvelle">+ Nouvelle coopérative</Link></Button>
+          </>
+        }
+      />
 
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>

@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2, RotateCcw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import PageHeader from "@/components/PageHeader";
 
 type TableKey = "cooperatives" | "producers" | "shipments" | "partners";
 
@@ -58,10 +59,11 @@ export default function Trash() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Trash2 className="h-6 w-6" /> Corbeille</h1>
-        <p className="text-sm text-muted-foreground">Restaurer ou supprimer définitivement les éléments archivés.</p>
-      </div>
+      <PageHeader
+        icon={Trash2}
+        title="Corbeille"
+        description="Restaurer ou supprimer définitivement les éléments archivés."
+      />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TableKey)}>
         <TabsList>

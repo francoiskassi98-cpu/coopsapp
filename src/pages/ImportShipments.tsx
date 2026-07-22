@@ -15,6 +15,7 @@ import {
   type MatchedProducer,
 } from "@/lib/shipment-excel-utils";
 import { Upload, Download, FileSpreadsheet, CheckCircle2, AlertCircle, User } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
 
 export default function ImportShipments() {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -261,7 +262,12 @@ export default function ImportShipments() {
   const shipmentGroups = rows.length > 0 ? Object.entries(groupByShipment(rows)) : [];
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
+      <PageHeader
+        icon={FileSpreadsheet}
+        title="Importer les anciens chargements"
+        description="Reprise historique des chargements existants dans le système."
+      />
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">

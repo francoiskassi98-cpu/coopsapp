@@ -17,6 +17,7 @@ import ImportShipments from "@/pages/ImportShipments";
 import ShipmentDetails from "@/components/ShipmentDetails";
 import ShipmentHistory from "@/components/ShipmentHistory";
 import { TemplatePreview, type TemplatePreviewData } from "@/components/shipments/TemplatePreview";
+import PageHeader from "@/components/PageHeader";
 
 export default function CreateShipment() {
   const [totalWeight, setTotalWeight] = useState("");
@@ -395,9 +396,11 @@ export default function CreateShipment() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold flex items-center gap-2">
-        <Truck className="h-6 w-6" /> Chargements
-      </h1>
+      <PageHeader
+        icon={Truck}
+        title="Chargements"
+        description="Créer, suivre et distribuer les chargements de la campagne en cours."
+      />
 
       <Tabs defaultValue="create">
         <TabsList>

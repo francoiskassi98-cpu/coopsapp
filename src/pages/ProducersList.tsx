@@ -13,6 +13,8 @@ import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadshe
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { parseExcelFile, downloadImportTemplate, exportToExcel, type ProducerRow, type ImportError } from "@/lib/excel-utils";
+import PageHeader from "@/components/PageHeader";
+import { Users as UsersIcon } from "lucide-react";
 
 type ImportMode = "insert" | "update";
 
@@ -384,8 +386,12 @@ export default function Producers() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold">Registre des producteurs</h1>
+      <PageHeader
+        icon={UsersIcon}
+        title="Registre des producteurs"
+        description="Consulter, filtrer, importer et exporter les producteurs."
+      />
+      <div className="flex items-center justify-end flex-wrap gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={downloadImportTemplate}>
             <Download className="h-4 w-4 mr-2" />
