@@ -171,21 +171,23 @@ export default function Dashboard() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">COOPS APP — Gestion des chargements de registres</h1>
-          <p className="text-sm text-muted-foreground">Campagne {getCurrentCampaign()}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setShowReportDialog(true)} variant="outline">
-            <Mail className="h-4 w-4" />
-            Envoyer un rapport
-          </Button>
-          <Button onClick={() => { loadData(); }} disabled={loading} variant="outline">
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Actualiser
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        icon={LayoutDashboard}
+        title="COOPS APP — Gestion des chargements de registres"
+        description={`Campagne ${getCurrentCampaign()}`}
+        actions={
+          <>
+            <Button onClick={() => setShowReportDialog(true)} variant="outline">
+              <Mail className="h-4 w-4" />
+              Envoyer un rapport
+            </Button>
+            <Button onClick={() => { loadData(); }} disabled={loading} variant="outline">
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Actualiser
+            </Button>
+          </>
+        }
+      />
 
       <Tabs defaultValue="apercu" className="space-y-6">
         <TabsList>
