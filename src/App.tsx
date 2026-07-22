@@ -27,6 +27,7 @@ const LoginEvents = lazy(() => import("@/pages/LoginEvents"));
 const Partners = lazy(() => import("@/pages/Partners"));
 const ShipmentTemplates = lazy(() => import("@/pages/ShipmentTemplates"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
+const OAuthConsent = lazy(() => import("@/pages/OAuthConsent"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +59,7 @@ const App = () => (
               <Routes>
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                 <Route element={<ProtectedRoute />}>
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<Dashboard />} />

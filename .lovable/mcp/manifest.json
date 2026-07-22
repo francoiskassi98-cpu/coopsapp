@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "sdk_version": "0.24.0",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://qkzyllbdceteeoixoxke.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "coops-app-mcp",
+      "version": "0.1.0",
+      "title": "COOPS APP MCP"
+    },
+    "tools": [
+      {
+        "name": "list_producers",
+        "title": "Lister les producteurs",
+        "description": "Liste les producteurs accessibles à l'utilisateur (filtré par RLS/registres). Retourne au plus 200 lignes.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "search": {
+              "type": "string",
+              "description": "Filtre optionnel sur le nom du producteur."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Nombre max de lignes (défaut 50)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_shipments",
+        "title": "Lister les chargements",
+        "description": "Liste les chargements récents accessibles à l'utilisateur (filtré par RLS). Optionnellement filtré par campagne.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "campaign_label": {
+              "type": "string",
+              "description": "Ex: '2025-2026'."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Nombre max de lignes (défaut 50)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_dashboard_stats",
+        "title": "Statistiques du tableau de bord",
+        "description": "Retourne les KPI (potentiel total, poids livré, potentiel restant, nombre de chargements et producteurs) pour un registre donné.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "registre_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "UUID du registre."
+            },
+            "campaign_label": {
+              "type": "string",
+              "description": "Optionnel: campagne, ex '2025-2026'."
+            }
+          },
+          "required": [
+            "registre_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

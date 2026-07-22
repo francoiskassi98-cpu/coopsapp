@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +19,9 @@ const STATS = [
 
 export default function Auth() {
   const { session, loading: authLoading, isSuperAdmin } = useAuth();
+  const [searchParams] = useSearchParams();
+  const rawNext = searchParams.get("next");
+  const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,6 +40,7 @@ export default function Auth() {
   }
 
   if (session) {
+    if (nextPath) return <Navigate to={nextPath} replace />;
     if (isSuperAdmin) return <Navigate to="/gestion/dashboard" replace />;
     return <Navigate to="/" replace />;
   }
