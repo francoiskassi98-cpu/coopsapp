@@ -70,11 +70,11 @@ export default function ImportProducers() {
 
       // Optionally replace registry of this campaign
       if (replaceExisting) {
-        await (supabase.from as any)("producer_registry").delete().eq("campaign_id", campaignId);
+        await (supabase.from as any)("producer_registry").delete().eq("campaign_label", campaignId);
       }
 
       const toInsert = parsedRows.map((r) => ({
-        campaign_id: campaignId,
+        campaign_label: campaignId,
         cooperative: r.cooperative,
         nom_complet: r.full_name,
         numero_producteur: r.producer_number || null,

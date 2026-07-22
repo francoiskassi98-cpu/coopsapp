@@ -34,11 +34,11 @@ export default function ExportPage() {
   useEffect(() => {
     let q: any = (supabase as any)
       .from("shipments")
-      .select("id, connaissement, zone, cooperative_id, campaign_id")
+      .select("id, connaissement, zone, cooperative_id, campaign_label")
       .eq("status", "active")
       .order("created_at", { ascending: false });
     if (selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS) {
-      q = q.eq("campaign_id", selectedCampaign);
+      q = q.eq("campaign_label", selectedCampaign);
     }
     q.then(({ data }) => setShipments(data || []));
     supabase.from("cooperatives").select("id, name").order("name").then(({ data }) => setCooperatives(data || []));
@@ -49,7 +49,7 @@ export default function ExportPage() {
     return campaigns.find((c) => c.id === selectedCampaign)?.nom || "Campagne";
   };
 
-  const applyCampaignFilter = (q: any, column = "campaign_id") => {
+  const applyCampaignFilter = (q: any, column = "campaign_label") => {
     if (selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS) {
       return q.eq(column, selectedCampaign);
     }
@@ -62,7 +62,7 @@ export default function ExportPage() {
     try {
       const coopShipments = await fetchAllRows(
         "shipments",
-        "id, connaissement, project, destination, campaign, zone, total_weight, total_bags, partner_id, campaign_id, partners(name), cooperatives(name)",
+        "id, connaissement, project, destination, campaign, zone, total_weight, total_bags, partner_id, campaign_label, partners(name), cooperatives(name)",
         {
           filters: (q) => applyCampaignFilter(q.eq("cooperative_id", selectedCoop).eq("status", "active")),
           order: { column: "created_at", ascending: false },
@@ -136,7 +136,7 @@ export default function ExportPage() {
       } else if (selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS) {
         // Restrict to shipments of the selected campaign
         const campaignShipments = await fetchAllRows("shipments", "id", {
-          filters: (q) => q.eq("campaign_id", selectedCampaign).eq("status", "active"),
+          filters: (q) => q.eq("campaign_label", selectedCampaign).eq("status", "active"),
           pageSize: 500,
         });
         shipmentIdFilter = campaignShipments.map((s: any) => s.id);
@@ -215,7 +215,7 @@ export default function ExportPage() {
           "producer_registry",
           "nom_complet, section, code_plantation, potentiel_livraison, potentiel_restant, cooperative",
           {
-            filters: (q) => q.eq("campaign_id", selectedCampaign),
+            filters: (q) => q.eq("campaign_label", selectedCampaign),
             order: { column: "cooperative", ascending: true },
             pageSize: 500,
           }

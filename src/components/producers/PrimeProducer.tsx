@@ -108,13 +108,13 @@ export default function PrimeProducer() {
       let from = 0;
       while (true) {
         let dq = supabase.from("deliveries")
-          .select("id,producer_id,net_weight,delivery_date,shipments!inner(cooperative_id,campaign_id,is_cancelled)")
+          .select("id,producer_id,net_weight,delivery_date,shipments!inner(cooperative_id,campaign_label,is_cancelled)")
           .gte("delivery_date", startDate)
           .lte("delivery_date", endDate)
           .eq("shipments.is_cancelled", false)
           .order("id", { ascending: true });
         if (!isAllCoops) dq = dq.eq("shipments.cooperative_id", coopId);
-        if (campaignId !== "all") dq = dq.eq("shipments.campaign_id", campaignId);
+        if (campaignId !== "all") dq = dq.eq("shipments.campaign_label", campaignId);
         if (producerId !== "all") dq = dq.eq("producer_id", producerId);
         const { data, error } = await dq.range(from, from + 999);
         if (error) throw error;
@@ -222,7 +222,7 @@ export default function PrimeProducer() {
     try {
       const { data: setting, error } = await (supabase.from("producer_bonus_settings") as any).insert({
         cooperative_id: coopId,
-        campaign_id: campaignId !== "all" ? campaignId : null,
+        campaign_label: campaignId !== "all" ? campaignId : null,
         section: section !== "all" ? section : null,
         start_date: startDate,
         end_date: endDate,
