@@ -141,15 +141,16 @@ export default function PrimeProducer() {
 
       // 3) Charger les infos plantations (avec producer_code) — filtrer par section si demandé
       const plantMap = new Map<string, { id: string; producer_code: string; full_name: string; section: string; cooperative: string }>();
+      const coopNameById = new Map(coops.map(c => [c.id, c.name]));
       for (let i = 0; i < plantationIds.length; i += 500) {
         const chunk = plantationIds.slice(i, i + 500);
-        let pq = supabase.from("producers")
-          .select("id,producer_code,full_name,section,cooperative")
+        let pq = (supabase as any).from("producers")
+          .select("id,producer_code,full_name,section,registre_id")
           .in("id", chunk);
         if (section !== "all") pq = pq.eq("section", section);
         const { data, error } = await pq;
         if (error) throw error;
-        (data || []).forEach((p: any) => plantMap.set(p.id, p));
+        (data || []).forEach((p: any) => plantMap.set(p.id, { ...p, cooperative: coopNameById.get(p.registre_id) || "" }));
       }
 
       // 4) Regrouper par producer_code
