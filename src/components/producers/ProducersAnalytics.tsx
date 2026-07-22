@@ -135,15 +135,15 @@ export default function ProducersAnalytics() {
   const producerCoop = (p: Producer) => (p.registre_id ? registreName[p.registre_id] || "" : "");
   const campaignsList = useMemo(() => Array.from(new Set(shipments.map(s => s.campaign_label).filter(Boolean))).sort() as string[], [shipments]);
 
-  const coopList = useMemo(() => [...new Set(producers.map(p => p.cooperative).filter(Boolean))].sort(), [producers]);
+  const coopList = useMemo(() => [...new Set(producers.map(p => producerCoop(p)).filter(Boolean))].sort(), [producers, registreName]);
   const sectionList = useMemo(() => [...new Set(producers.map(p => p.section).filter(Boolean))].sort(), [producers]);
 
   // Filtered producers
   const filtered = useMemo(() => producers.filter(p => {
-    if (coopFilter !== "all" && p.cooperative !== coopFilter) return false;
+    if (coopFilter !== "all" && producerCoop(p) !== coopFilter) return false;
     if (sectionFilter !== "all" && p.section !== sectionFilter) return false;
     return true;
-  }), [producers, coopFilter, sectionFilter]);
+  }), [producers, coopFilter, sectionFilter, registreName]);
 
   // Filtered deliveries (by period + campaign coop)
   const filteredDeliveries = useMemo(() => {
