@@ -160,15 +160,16 @@ export default function CooperativesManagement() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Building2 className="h-6 w-6 text-primary" /> Gestion des coopératives
-          </h1>
-          <p className="text-sm text-muted-foreground">Créer, modifier, suspendre ou supprimer les coopératives clientes.</p>
-        </div>
-        <Button asChild><Link to="/gestion/cooperatives/nouvelle"><Plus className="h-4 w-4 mr-2" /> Nouvelle coopérative</Link></Button>
-      </div>
+      <PageHeader
+        icon={Building2}
+        title="Gestion des coopératives"
+        description="Créer, modifier, suspendre ou supprimer les coopératives clientes."
+        actions={
+          <Button asChild>
+            <Link to="/gestion/cooperatives/nouvelle"><Plus className="h-4 w-4 mr-2" /> Nouvelle coopérative</Link>
+          </Button>
+        }
+      />
 
       <Card>
         <CardHeader><CardTitle className="text-base">{rows.length} coopérative{rows.length > 1 ? "s" : ""}</CardTitle></CardHeader>
