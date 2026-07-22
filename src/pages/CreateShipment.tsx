@@ -70,17 +70,19 @@ export default function CreateShipment() {
 
 
   async function loadCooperatives() {
-    // Load cooperatives from cooperatives table
-    const { data: coopData } = await supabase.from("cooperatives").select("id, name").order("name");
-    const coopList = coopData || [];
+    // Load registres (business entity) — id + name
+    const { data: coopData } = await (supabase as any).from("registres").select("id, name").order("name");
+    const coopList = (coopData || []) as { id: string; name: string }[];
     setCooperatives(coopList);
+    const nameById: Record<string, string> = {};
+    coopList.forEach((c) => { nameById[c.id] = c.name; });
 
-    // Get producer stats by cooperative name
+    // Get producer stats by registre
     let allProducers: any[] = [];
     let from = 0;
     const PAGE = 1000;
     while (true) {
-      const { data } = await supabase.from("producers").select("cooperative, delivery_potential, remaining_potential").range(from, from + PAGE - 1);
+      const { data } = await (supabase as any).from("producers").select("registre_id, delivery_potential, remaining_potential").range(from, from + PAGE - 1);
       if (!data || data.length === 0) break;
       allProducers = allProducers.concat(data);
       if (data.length < PAGE) break;
@@ -88,10 +90,11 @@ export default function CreateShipment() {
     }
     const potMap: Record<string, { potentiel: number; remaining: number }> = {};
     allProducers.forEach((p) => {
-      if (p.cooperative) {
-        if (!potMap[p.cooperative]) potMap[p.cooperative] = { potentiel: 0, remaining: 0 };
-        potMap[p.cooperative].potentiel += Number(p.delivery_potential);
-        potMap[p.cooperative].remaining += Number(p.remaining_potential);
+      const key = nameById[p.registre_id];
+      if (key) {
+        if (!potMap[key]) potMap[key] = { potentiel: 0, remaining: 0 };
+        potMap[key].potentiel += Number(p.delivery_potential);
+        potMap[key].remaining += Number(p.remaining_potential);
       }
     });
     setCoopPotential(potMap);
