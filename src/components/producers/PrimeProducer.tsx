@@ -435,6 +435,7 @@ export default function PrimeProducer() {
             </div>
           </CardContent>
         </Card>
+        </>
       )}
     </div>
   );
