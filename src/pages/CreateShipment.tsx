@@ -1044,16 +1044,6 @@ export default function CreateShipment() {
               <Input value={newProject.code} onChange={(e) => setNewProject({ ...newProject, code: e.target.value })} placeholder="Auto si vide" className="font-mono" />
             </div>
             <div className="space-y-1.5">
-              <Label>Partenaire</Label>
-              <Select value={newProject.partner_id || "none"} onValueChange={(v) => setNewProject({ ...newProject, partner_id: v === "none" ? "" : v })}>
-                <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Aucun</SelectItem>
-                  {partners.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
               <Label>Description</Label>
               <Textarea rows={2} value={newProject.description} onChange={(e) => setNewProject({ ...newProject, description: e.target.value })} />
             </div>
