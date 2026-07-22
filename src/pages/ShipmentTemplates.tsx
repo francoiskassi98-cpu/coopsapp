@@ -16,13 +16,17 @@ import { TemplatePreview } from "@/components/shipments/TemplatePreview";
 import { ImageUploader } from "@/components/ui/ImageUploader";
 import PageHeader from "@/components/PageHeader";
 
-interface Coop { id: string; name: string }
+interface Registre { id: string; name: string }
+interface Partner { id: string; name: string }
 
 interface Template {
   id: string;
-  cooperative_id: string;
+  registre_id: string;
   template_name: string;
   is_default: boolean;
+  is_active: boolean;
+  partner_id: string | null;
+  description: string | null;
   title: string | null;
   subtitle: string | null;
   slogan: string | null;
@@ -48,6 +52,9 @@ interface Template {
 const defaults: Partial<Template> = {
   template_name: "Modèle par défaut",
   is_default: false,
+  is_active: true,
+  partner_id: null,
+  description: "",
   title: "FICHE DE CHARGEMENT",
   subtitle: "",
   slogan: "",
@@ -61,9 +68,20 @@ const defaults: Partial<Template> = {
   show_num_bags: true, show_total_weight: true, show_num_producers: true, show_partner_logo: true,
 };
 
+// Champs autorisés côté DB pour la persistance (whitelist)
+const PERSIST_FIELDS: (keyof Template)[] = [
+  "registre_id", "template_name", "is_default", "is_active", "partner_id", "description",
+  "title", "subtitle", "slogan", "coop_logo_path", "partner_logo_path", "logo_position",
+  "custom_header", "custom_footer",
+  "show_driver", "show_truck", "show_trailer", "show_bill_of_lading",
+  "show_destination", "show_project", "show_partner", "show_departure_date",
+  "show_num_bags", "show_total_weight", "show_num_producers", "show_partner_logo",
+];
+
 export default function ShipmentTemplates() {
-  const [coops, setCoops] = useState<Coop[]>([]);
-  const [coopFilter, setCoopFilter] = useState<string>("all");
+  const [registres, setRegistres] = useState<Registre[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [registreFilter, setRegistreFilter] = useState<string>("all");
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Partial<Template> | null>(null);
@@ -74,43 +92,75 @@ export default function ShipmentTemplates() {
 
   async function load() {
     setLoading(true);
-    const [{ data: cs }, { data: ts }] = await Promise.all([
-      supabase.from("cooperatives").select("id,name").order("name"),
+    const [{ data: rs }, { data: ps }, { data: ts }] = await Promise.all([
+      (supabase.from("registres") as any).select("id,name").order("name"),
+      (supabase.from("partners") as any).select("id,name").order("name"),
       (supabase.from("shipment_excel_templates") as any).select("*").order("created_at", { ascending: false }),
     ]);
-    setCoops((cs || []) as Coop[]);
+    setRegistres((rs || []) as Registre[]);
+    setPartners((ps || []) as Partner[]);
     setTemplates((ts || []) as Template[]);
     setLoading(false);
   }
 
-  const filtered = useMemo(() => coopFilter === "all" ? templates : templates.filter(t => t.cooperative_id === coopFilter), [templates, coopFilter]);
+  const filtered = useMemo(
+    () => registreFilter === "all" ? templates : templates.filter(t => t.registre_id === registreFilter),
+    [templates, registreFilter]
+  );
 
   function openNew() {
-    setEditing({ ...defaults, cooperative_id: coopFilter !== "all" ? coopFilter : (coops[0]?.id ?? "") });
+    setEditing({
+      ...defaults,
+      registre_id: registreFilter !== "all" ? registreFilter : (registres[0]?.id ?? ""),
+    });
   }
 
   async function save() {
-    if (!editing || !editing.cooperative_id || !editing.template_name) {
-      toast({ title: "Champs requis", description: "Registre et nom du modèle requis.", variant: "destructive" });
+    if (!editing || !editing.registre_id || !editing.template_name?.trim()) {
+      toast({
+        title: "Champs requis",
+        description: !editing?.registre_id ? "Veuillez sélectionner un registre." : "Veuillez saisir un nom de modèle.",
+        variant: "destructive",
+      });
       return;
     }
     setSaving(true);
     try {
-      const payload = { ...editing };
-      delete (payload as any).id;
-      let error;
+      // Whitelist stricte pour éviter d'envoyer des colonnes inexistantes
+      const payload: Record<string, any> = {};
+      for (const k of PERSIST_FIELDS) {
+        if ((editing as any)[k] !== undefined) payload[k] = (editing as any)[k];
+      }
+      // Normalisations
+      if (payload.partner_id === "") payload.partner_id = null;
+      if (payload.coop_logo_path === "") payload.coop_logo_path = null;
+      if (payload.partner_logo_path === "") payload.partner_logo_path = null;
+
+      let error: any;
       if ((editing as any).id) {
-        ({ error } = await (supabase.from("shipment_excel_templates") as any).update(payload).eq("id", (editing as any).id));
+        ({ error } = await (supabase.from("shipment_excel_templates") as any)
+          .update(payload).eq("id", (editing as any).id));
       } else {
+        const { data: userRes } = await supabase.auth.getUser();
+        payload.created_by = userRes.user?.id ?? null;
         ({ error } = await (supabase.from("shipment_excel_templates") as any).insert(payload));
       }
-      if (error) throw error;
-      toast({ title: "Modèle enregistré" });
+      if (error) {
+        console.error("[shipment_excel_templates] save error", { error, payload });
+        const msg = [error.message, error.details, error.hint].filter(Boolean).join(" — ");
+        toast({
+          title: (editing as any).id ? "Échec de la modification" : "Échec de la création",
+          description: msg || "Vérifiez les champs obligatoires (registre, nom) et vos permissions.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({ title: (editing as any).id ? "Modèle modifié" : "Modèle créé" });
       setEditing(null);
       load();
-    } catch (e) {
-      console.error(e);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+    } catch (e: any) {
+      console.error("[shipment_excel_templates] save exception", e);
+      toast({ title: "Erreur inattendue", description: e?.message ?? "Réessayez.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -120,8 +170,12 @@ export default function ShipmentTemplates() {
     if (!deleteId) return;
     const { error } = await (supabase.from("shipment_excel_templates") as any).delete().eq("id", deleteId);
     if (error) {
-      console.error(error);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+      console.error("[shipment_excel_templates] delete error", error);
+      toast({
+        title: "Suppression impossible",
+        description: [error.message, error.hint].filter(Boolean).join(" — ") || "Une erreur est survenue.",
+        variant: "destructive",
+      });
     } else {
       toast({ title: "Modèle supprimé" });
       load();
@@ -152,20 +206,26 @@ export default function ShipmentTemplates() {
         description="Personnalisez l'apparence et le contenu des fiches de chargement exportées."
         actions={
           <>
-            <Select value={coopFilter} onValueChange={setCoopFilter}>
+            <Select value={registreFilter} onValueChange={setRegistreFilter}>
               <SelectTrigger className="w-56"><SelectValue placeholder="Tous les registres" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les registres</SelectItem>
-                {coops.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                {registres.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Nouveau modèle</Button>
+            <Button onClick={openNew} disabled={registres.length === 0}>
+              <Plus className="h-4 w-4 mr-2" />Nouveau modèle
+            </Button>
           </>
         }
       />
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Chargement...</p>
+      ) : registres.length === 0 ? (
+        <Card><CardContent className="py-12 text-center text-muted-foreground">
+          Aucun registre disponible. Créez d'abord un registre pour rattacher vos modèles.
+        </CardContent></Card>
       ) : filtered.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">
           <FileSpreadsheet className="h-10 w-10 mx-auto mb-3 opacity-50" />
@@ -174,7 +234,7 @@ export default function ShipmentTemplates() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(t => {
-            const coop = coops.find(c => c.id === t.cooperative_id);
+            const reg = registres.find(r => r.id === t.registre_id);
             return (
               <Card key={t.id} className="shadow-glass hover:shadow-float transition-all overflow-hidden">
                 <div className={`h-1 w-full ${t.is_default ? "bg-primary" : "bg-muted"}`} />
@@ -186,9 +246,12 @@ export default function ShipmentTemplates() {
                       </span>
                       <span className="truncate">{t.template_name}</span>
                     </span>
-                    {t.is_default && <Badge variant="default" className="gap-1 shrink-0"><Star className="h-3 w-3" />Défaut</Badge>}
+                    <span className="flex items-center gap-1 shrink-0">
+                      {!t.is_active && <Badge variant="outline">Inactif</Badge>}
+                      {t.is_default && <Badge variant="default" className="gap-1"><Star className="h-3 w-3" />Défaut</Badge>}
+                    </span>
                   </CardTitle>
-                  <p className="text-xs text-muted-foreground pl-10">{coop?.name ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground pl-10">{reg?.name ?? "—"}</p>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="text-xs text-muted-foreground line-clamp-2">{t.title || "—"}</div>
@@ -225,17 +288,38 @@ export default function ShipmentTemplates() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Registre *</Label>
-                  <Select value={editing.cooperative_id || ""} onValueChange={(v) => setEditing({ ...editing, cooperative_id: v })}>
+                  <Select value={editing.registre_id || ""} onValueChange={(v) => setEditing({ ...editing, registre_id: v })}>
                     <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-                    <SelectContent>{coops.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                    <SelectContent>{registres.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label>Nom du modèle *</Label>
                   <Input value={editing.template_name || ""} onChange={e => setEditing({ ...editing, template_name: e.target.value })} />
                 </div>
-                <div className="col-span-2 flex items-center justify-between rounded-md border p-3">
-                  <Label>Modèle par défaut pour ce registre</Label>
+                <div>
+                  <Label>Partenaire</Label>
+                  <Select
+                    value={editing.partner_id ?? "none"}
+                    onValueChange={(v) => setEditing({ ...editing, partner_id: v === "none" ? null : v })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Aucun</SelectItem>
+                      {partners.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <Label>Description</Label>
+                  <Textarea rows={2} value={editing.description || ""} onChange={e => setEditing({ ...editing, description: e.target.value })} />
+                </div>
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <Label>Actif</Label>
+                  <Switch checked={editing.is_active !== false} onCheckedChange={(c) => setEditing({ ...editing, is_active: c })} />
+                </div>
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <Label>Modèle par défaut</Label>
                   <Switch checked={!!editing.is_default} onCheckedChange={(c) => setEditing({ ...editing, is_default: c })} />
                 </div>
               </div>
@@ -256,7 +340,7 @@ export default function ShipmentTemplates() {
                 <div>
                   <ImageUploader
                     bucket="shipment-assets"
-                    pathPrefix={`${editing.cooperative_id || "shared"}/templates`}
+                    pathPrefix={`${editing.registre_id || "shared"}/templates`}
                     value={editing.coop_logo_path || null}
                     onChange={(p) => setEditing({ ...editing, coop_logo_path: p })}
                     label="Logo registre"
@@ -265,7 +349,7 @@ export default function ShipmentTemplates() {
                 <div>
                   <ImageUploader
                     bucket="shipment-assets"
-                    pathPrefix={`${editing.cooperative_id || "shared"}/templates`}
+                    pathPrefix={`${editing.registre_id || "shared"}/templates`}
                     value={editing.partner_logo_path || null}
                     onChange={(p) => setEditing({ ...editing, partner_logo_path: p })}
                     label="Logo partenaire"
@@ -315,7 +399,7 @@ export default function ShipmentTemplates() {
                 </p>
                 <TemplatePreview
                   {...(editing as any)}
-                  coopName={coops.find(c => c.id === editing.cooperative_id)?.name}
+                  coopName={registres.find(r => r.id === editing.registre_id)?.name}
                 />
               </TabsContent>
             </Tabs>
