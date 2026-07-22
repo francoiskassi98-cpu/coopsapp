@@ -10,7 +10,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { distributeShipment, getCurrentCampaign, normalizeCampaign, type DistributionResult } from "@/lib/shipment-utils";
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
-import { Truck, Plus, Download, Pencil, Check, X } from "lucide-react";
+import { Truck, Plus, Download, Pencil, Check, X, FileSpreadsheet, FolderPlus } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/hooks/useAuth";
 import { generateShipmentFiche } from "@/services/excel/shipment-fiche-excel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ImportShipments from "@/pages/ImportShipments";
@@ -29,13 +31,19 @@ export default function CreateShipment() {
   const [departureDate, setDepartureDate] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [project, setProject] = useState("");
+  const [project, setProject] = useState(""); // project_id
   const [partnerId, setPartnerId] = useState("");
   const [zone, setZone] = useState("");
   const [destination, setDestination] = useState("");
   const [campaign, setCampaign] = useState("Principale");
   const [partners, setPartners] = useState<any[]>([]);
   const [newPartnerName, setNewPartnerName] = useState("");
+  const [projects, setProjects] = useState<any[]>([]);
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [newProject, setNewProject] = useState<{ name: string; code: string; partner_id: string; description: string; is_active: boolean }>({ name: "", code: "", partner_id: "", description: "", is_active: true });
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [templateId, setTemplateId] = useState<string>("");
   const [preview, setPreview] = useState<DistributionResult[]>([]);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -43,6 +51,8 @@ export default function CreateShipment() {
   const [editWeight, setEditWeight] = useState("");
   const [editBags, setEditBags] = useState("");
   const { sortConfig, toggleSort, sortData } = useSortableTable();
+  const { role } = useAuth();
+  const canCreateProject = role === "super_admin" || role === "coop_admin" || role === "agent";
 
   const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
   const [coopDelivered, setCoopDelivered] = useState<Record<string, number>>({});
@@ -50,24 +60,44 @@ export default function CreateShipment() {
   const [suggestedReceipt, setSuggestedReceipt] = useState<string>("");
   const [receiptNumber, setReceiptNumber] = useState<string>("");
   const [selectedCoopId, setSelectedCoopId] = useState<string>("");
-  const [template, setTemplate] = useState<any | null>(null);
 
   useEffect(() => {
     supabase.from("partners").select("*").order("name").then(({ data }) => setPartners(data || []));
     loadCooperatives();
-    loadTemplate();
   }, []);
 
-  async function loadTemplate() {
-    const { data } = await supabase
+  const selectedTemplate = useMemo(
+    () => templates.find((t) => t.id === templateId) || null,
+    [templates, templateId]
+  );
+
+  async function loadTemplatesForCoop(coopId: string) {
+    if (!coopId) { setTemplates([]); setTemplateId(""); return; }
+    const { data } = await (supabase as any)
       .from("shipment_excel_templates")
       .select("*")
+      .eq("cooperative_id", coopId)
+      .eq("is_active", true)
       .order("is_default", { ascending: false })
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    setTemplate(data);
+      .order("updated_at", { ascending: false });
+    const list = (data || []) as any[];
+    setTemplates(list);
+    // auto-select default
+    const def = list.find((t) => t.is_default) || list[0];
+    setTemplateId(def?.id || "");
   }
+
+  async function loadProjectsForCoop(coopId: string) {
+    if (!coopId) { setProjects([]); setProject(""); return; }
+    const { data } = await (supabase as any)
+      .from("projects")
+      .select("*, partners(name)")
+      .eq("registre_id", coopId)
+      .eq("is_active", true)
+      .order("name");
+    setProjects((data || []) as any[]);
+  }
+
 
 
   async function loadCooperatives() {
@@ -145,6 +175,9 @@ export default function CreateShipment() {
     const coop = cooperatives.find(c => c.id === coopId);
     setZone(coop?.name || "");
     loadNextReceiptForCooperative(coopId);
+    loadTemplatesForCoop(coopId);
+    loadProjectsForCoop(coopId);
+    setProject("");
   };
 
   const selectedCoopStats = useMemo(() => {
@@ -169,8 +202,9 @@ export default function CreateShipment() {
     if (!truckNumber.trim()) m.push("N° Camion");
     if (!trailerNumber.trim()) m.push("N° Remorque");
     if (!departureDate) m.push("Date départ");
+    if (!templateId) m.push("Modèle de chargement");
     return m;
-  }, [totalWeight, totalBags, connaissement, startDate, endDate, project, partnerId, selectedCoopId, destination, driverName, truckNumber, trailerNumber, departureDate]);
+  }, [totalWeight, totalBags, connaissement, startDate, endDate, project, partnerId, selectedCoopId, destination, driverName, truckNumber, trailerNumber, departureDate, templateId]);
 
   const handleCalculate = async () => {
     if (missingFields.length > 0) {
@@ -240,7 +274,9 @@ export default function CreateShipment() {
         total_weight: Number(totalWeight),
         total_bags: Number(totalBags),
         avg_bag_weight: Number(totalWeight) / Number(totalBags),
-        project,
+        project: projects.find((p) => p.id === project)?.name || null,
+        project_id: project || null,
+        template_id: templateId || null,
         partner_id: partnerId || null,
         zone: zone || null,
         cooperative_id: selectedCoopId || null,
@@ -321,6 +357,49 @@ export default function CreateShipment() {
       setPartnerId(data.id);
       setNewPartnerName("");
       setDialogOpen(false);
+    }
+  };
+
+  const createProject = async () => {
+    if (!selectedCoopId) return;
+    const name = newProject.name.trim();
+    if (!name) {
+      toast({ title: "Nom requis", description: "Renseignez un nom de projet.", variant: "destructive" });
+      return;
+    }
+    // duplicate check (case-insensitive) within same registre
+    const dup = projects.find((p) => (p.name || "").toLowerCase() === name.toLowerCase());
+    if (dup) {
+      toast({ title: "Projet existant", description: `« ${dup.name} » existe déjà — il a été sélectionné.` });
+      setProject(dup.id);
+      setProjectDialogOpen(false);
+      return;
+    }
+    setCreatingProject(true);
+    try {
+      const code = newProject.code.trim() || `PRJ-${Date.now().toString(36).toUpperCase()}`;
+      const { data, error } = await (supabase as any)
+        .from("projects")
+        .insert({
+          registre_id: selectedCoopId,
+          name,
+          code,
+          partner_id: newProject.partner_id || null,
+          description: newProject.description.trim() || null,
+          is_active: newProject.is_active,
+        })
+        .select("*, partners(name)")
+        .single();
+      if (error) throw error;
+      setProjects((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      setProject(data.id);
+      setProjectDialogOpen(false);
+      toast({ title: "Projet créé", description: `« ${data.name} » ajouté et sélectionné.` });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+    } finally {
+      setCreatingProject(false);
     }
   };
 
@@ -471,15 +550,84 @@ export default function CreateShipment() {
 
                 <div className="space-y-2">
                   <Label>Projet *</Label>
-                  <Select value={project} onValueChange={setProject}>
-                    <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                  <div className="flex gap-2">
+                    <Select value={project} onValueChange={setProject} disabled={!selectedCoopId}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder={selectedCoopId ? "Sélectionner un projet" : "Sélectionnez d'abord un registre"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projects.length === 0 ? (
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground">Aucun projet</div>
+                        ) : projects.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}{p.partners?.name ? ` — ${p.partners.name}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {canCreateProject && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          if (!selectedCoopId) {
+                            toast({ title: "Registre requis", description: "Sélectionnez d'abord un registre.", variant: "destructive" });
+                            return;
+                          }
+                          setNewProject({ name: "", code: "", partner_id: partnerId || "", description: "", is_active: true });
+                          setProjectDialogOpen(true);
+                        }}
+                      >
+                        <FolderPlus className="h-4 w-4 mr-1" /> Nouveau projet
+                      </Button>
+                    )}
+                  </div>
+                  {project && (() => {
+                    const p = projects.find((x) => x.id === project);
+                    if (!p) return null;
+                    return (
+                      <div className="rounded-md border bg-muted/30 p-2 text-xs space-y-0.5">
+                        <div><span className="text-muted-foreground">Nom :</span> <span className="font-medium">{p.name}</span>{p.code ? <span className="font-mono ml-2">[{p.code}]</span> : null}</div>
+                        {p.partners?.name && <div><span className="text-muted-foreground">Partenaire :</span> {p.partners.name}</div>}
+                        <div><span className="text-muted-foreground">Créé le :</span> {new Date(p.created_at).toLocaleDateString("fr-FR")}</div>
+                        {p.description && <div className="text-muted-foreground italic">{p.description}</div>}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Modèle de chargement *</Label>
+                  <Select value={templateId} onValueChange={setTemplateId} disabled={!selectedCoopId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={selectedCoopId ? "Sélectionner un modèle" : "Sélectionnez d'abord un registre"} />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Fairtrade">Fairtrade</SelectItem>
-                      <SelectItem value="Rainforest Alliance">Rainforest Alliance</SelectItem>
-                      <SelectItem value="Ordinaire">Ordinaire</SelectItem>
+                      {templates.length === 0 ? (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">Aucun modèle actif</div>
+                      ) : templates.map((t) => {
+                        const partnerName = partners.find((p) => p.id === t.partner_id)?.name;
+                        return (
+                          <SelectItem key={t.id} value={t.id}>
+                            <span className="flex items-center gap-2">
+                              <FileSpreadsheet className="h-3.5 w-3.5" />
+                              {t.template_name}{partnerName ? ` — ${partnerName}` : ""}{t.is_default ? " ★" : ""}
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
+                  {selectedTemplate && (
+                    <div className="rounded-md border bg-muted/30 p-2 text-xs space-y-0.5">
+                      <div><span className="text-muted-foreground">Modèle :</span> <span className="font-medium">{selectedTemplate.template_name}</span></div>
+                      {selectedTemplate.partner_id && <div><span className="text-muted-foreground">Partenaire :</span> {partners.find((p) => p.id === selectedTemplate.partner_id)?.name || "—"}</div>}
+                      <div><span className="text-muted-foreground">Créé le :</span> {new Date(selectedTemplate.created_at).toLocaleDateString("fr-FR")}</div>
+                      {selectedTemplate.description && <div className="text-muted-foreground italic">{selectedTemplate.description}</div>}
+                    </div>
+                  )}
                 </div>
+
 
                 <div className="space-y-2">
                   <Label>Partenaire</Label>
@@ -632,33 +780,33 @@ export default function CreateShipment() {
                       </TabsList>
 
                       <TabsContent value="template">
-                        {!template ? (
+                        {!selectedTemplate ? (
                           <p className="text-sm text-muted-foreground py-6 text-center">
-                            Aucun modèle configuré. Définissez-en un dans « Modèles chargement ».
+                            Sélectionnez un modèle actif dans « Modèle de chargement » pour afficher l'aperçu.
                           </p>
                         ) : (
                           <div className="max-h-[60vh] overflow-auto">
                             <TemplatePreview
-                              title={template.title}
-                              subtitle={template.subtitle}
-                              slogan={template.slogan}
-                              coop_logo_path={template.coop_logo_path}
-                              partner_logo_path={template.partner_logo_path}
-                              logo_position={template.logo_position}
-                              custom_header={template.custom_header}
-                              custom_footer={template.custom_footer}
-                              show_driver={template.show_driver}
-                              show_truck={template.show_truck}
-                              show_trailer={template.show_trailer}
-                              show_bill_of_lading={template.show_bill_of_lading}
-                              show_destination={template.show_destination}
-                              show_project={template.show_project}
-                              show_partner={template.show_partner}
-                              show_departure_date={template.show_departure_date}
-                              show_num_bags={template.show_num_bags}
-                              show_total_weight={template.show_total_weight}
-                              show_num_producers={template.show_num_producers}
-                              show_partner_logo={template.show_partner_logo}
+                              title={selectedTemplate.title}
+                              subtitle={selectedTemplate.subtitle}
+                              slogan={selectedTemplate.slogan}
+                              coop_logo_path={selectedTemplate.coop_logo_path}
+                              partner_logo_path={selectedTemplate.partner_logo_path}
+                              logo_position={selectedTemplate.logo_position}
+                              custom_header={selectedTemplate.custom_header}
+                              custom_footer={selectedTemplate.custom_footer}
+                              show_driver={selectedTemplate.show_driver}
+                              show_truck={selectedTemplate.show_truck}
+                              show_trailer={selectedTemplate.show_trailer}
+                              show_bill_of_lading={selectedTemplate.show_bill_of_lading}
+                              show_destination={selectedTemplate.show_destination}
+                              show_project={selectedTemplate.show_project}
+                              show_partner={selectedTemplate.show_partner}
+                              show_departure_date={selectedTemplate.show_departure_date}
+                              show_num_bags={selectedTemplate.show_num_bags}
+                              show_total_weight={selectedTemplate.show_total_weight}
+                              show_num_producers={selectedTemplate.show_num_producers}
+                              show_partner_logo={selectedTemplate.show_partner_logo}
                               coopName={cooperatives.find((c) => c.id === selectedCoopId)?.name}
                               data={{
                                 driver: driverName || "—",
@@ -666,7 +814,7 @@ export default function CreateShipment() {
                                 trailer: trailerNumber || "—",
                                 bill_of_lading: connaissement || "—",
                                 destination: destination || "—",
-                                project: project || "—",
+                                project: projects.find((p) => p.id === project)?.name || "—",
                                 partner: partners.find((p) => p.id === partnerId)?.name || "—",
                                 departure_date: departureDate || "—",
                                 num_bags: preview.reduce((s, d) => s + d.num_bags, 0),
@@ -784,6 +932,45 @@ export default function CreateShipment() {
           <ImportShipments />
         </TabsContent>
       </Tabs>
+
+      <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Nouveau projet</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Nom du projet *</Label>
+              <Input value={newProject.name} onChange={(e) => setNewProject({ ...newProject, name: e.target.value })} placeholder="Ex. Fairtrade 2025" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Code du projet</Label>
+              <Input value={newProject.code} onChange={(e) => setNewProject({ ...newProject, code: e.target.value })} placeholder="Auto si vide" className="font-mono" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Partenaire</Label>
+              <Select value={newProject.partner_id || "none"} onValueChange={(v) => setNewProject({ ...newProject, partner_id: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucun</SelectItem>
+                  {partners.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description</Label>
+              <Textarea rows={2} value={newProject.description} onChange={(e) => setNewProject({ ...newProject, description: e.target.value })} />
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-2">
+              <Label className="text-sm">Statut actif</Label>
+              <input type="checkbox" checked={newProject.is_active} onChange={(e) => setNewProject({ ...newProject, is_active: e.target.checked })} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setProjectDialogOpen(false)}>Annuler</Button>
+              <Button onClick={createProject} disabled={creatingProject}>{creatingProject ? "Création..." : "Créer le projet"}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
