@@ -96,7 +96,7 @@ export default function ProducersAnalytics() {
   const [producers, setProducers] = useState<Producer[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [registres, setRegistres] = useState<Registre[]>([]);
 
   // Filters
   const [coopFilter, setCoopFilter] = useState("all");
@@ -109,16 +109,16 @@ export default function ProducersAnalytics() {
     (async () => {
       setLoading(true);
       try {
-        const [p, s, d, c] = await Promise.all([
-          fetchAll<Producer>("producers", "id,full_name,cooperative,section,sexe,delivery_potential,remaining_potential,is_active"),
-          fetchAll<Shipment>("shipments", "id,cooperative_id,campaign_label,total_weight,departure_date,is_cancelled"),
+        const [p, s, d, r] = await Promise.all([
+          fetchAll<Producer>("producers", "id,full_name,registre_id,section,sexe,delivery_potential,remaining_potential,is_active"),
+          fetchAll<Shipment>("shipments", "id,registre_id,campaign_label,total_weight,departure_date,is_cancelled"),
           fetchAll<Delivery>("deliveries", "id,shipment_id,net_weight,delivery_date"),
-          fetchAll<Campaign>("campaigns", "id,nom"),
+          fetchAll<Registre>("registres", "id,name"),
         ]);
         setProducers(p);
         setShipments(s);
         setDeliveries(d);
-        setCampaigns(c);
+        setRegistres(r);
       } catch (e) {
         console.error("[ProducersAnalytics]", e);
       } finally {
@@ -126,6 +126,14 @@ export default function ProducersAnalytics() {
       }
     })();
   }, []);
+
+  const registreName = useMemo(() => {
+    const m: Record<string, string> = {};
+    registres.forEach(r => { m[r.id] = r.name; });
+    return m;
+  }, [registres]);
+  const producerCoop = (p: Producer) => (p.registre_id ? registreName[p.registre_id] || "" : "");
+  const campaignsList = useMemo(() => Array.from(new Set(shipments.map(s => s.campaign_label).filter(Boolean))).sort() as string[], [shipments]);
 
   const coopList = useMemo(() => [...new Set(producers.map(p => p.cooperative).filter(Boolean))].sort(), [producers]);
   const sectionList = useMemo(() => [...new Set(producers.map(p => p.section).filter(Boolean))].sort(), [producers]);
