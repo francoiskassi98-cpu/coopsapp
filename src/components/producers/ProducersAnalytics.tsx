@@ -299,91 +299,91 @@ export default function ProducersAnalytics() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-        <KpiCard label="Producteurs" value={fmt(total)} icon={Users} />
-        <KpiCard label="Hommes" value={fmt(males)} icon={UserCog} />
-        <KpiCard label="Femmes" value={fmt(females)} icon={UserCheck} />
-        <KpiCard label="% Femmes" value={`${pctF}%`} icon={PieIcon} />
-        <KpiCard label="Actifs" value={fmt(actives)} icon={Activity} />
-        <KpiCard label="Potentiel total" value={fmtKg(potentielTotal)} icon={TrendingUp} />
-        <KpiCard label="Volume livré" value={fmtKg(livre)} icon={Weight} />
-        <KpiCard label="Volume restant" value={fmtKg(restant)} icon={Package} />
-        <KpiCard label="Sections" value={fmt(sectionList.length)} icon={Layers} />
-        {isSuperAdmin && <KpiCard label="Registres" value={fmt(coopList.length)} icon={Building2} />}
+        <KpiCard label="Producteurs" value={fmt(total)} icon={Users} tone="blue" />
+        <KpiCard label="Hommes" value={fmt(males)} icon={UserCog} tone="teal" />
+        <KpiCard label="Femmes" value={fmt(females)} icon={UserCheck} tone="rose" />
+        <KpiCard label="% Femmes" value={`${pctF}%`} icon={PieIcon} tone="violet" sub={`${fmt(females)} / ${fmt(total)}`} />
+        <KpiCard label="Actifs" value={fmt(actives)} icon={Activity} tone="green" />
+        <KpiCard label="Potentiel total" value={fmtKg(potentielTotal)} icon={TrendingUp} tone="blue" />
+        <KpiCard label="Volume livré" value={fmtKg(livre)} icon={Weight} tone="green" sub={potentielTotal ? `${Math.round((livre / potentielTotal) * 100)}% du potentiel` : undefined} />
+        <KpiCard label="Volume restant" value={fmtKg(restant)} icon={Package} tone="orange" />
+        <KpiCard label="Sections" value={fmt(sectionList.length)} icon={Layers} tone="violet" />
+        {isSuperAdmin && <KpiCard label="Registres" value={fmt(coopList.length)} icon={Building2} tone="teal" />}
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="animate-fade-in">
-          <CardHeader><CardTitle className="text-base">Répartition Hommes / Femmes</CardTitle></CardHeader>
+        <Card className="animate-fade-in shadow-glass">
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><PieIcon className="h-4 w-4" /></span>Répartition Hommes / Femmes</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
                 <Pie data={sexData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={50} paddingAngle={4}>
                   {sexData.map((e, i) => <Cell key={i} fill={e.color} />)}
                 </Pie>
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, boxShadow: "var(--shadow-float)" }} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="animate-fade-in">
-          <CardHeader><CardTitle className="text-base">Évolution des livraisons</CardTitle></CardHeader>
+        <Card className="animate-fade-in shadow-glass">
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><TrendingUp className="h-4 w-4" /></span>Évolution des livraisons</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={deliveriesByMonth}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, boxShadow: "var(--shadow-float)" }} />
                 <Line type="monotone" dataKey="kg" stroke={COLORS.primary} strokeWidth={2.5} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="animate-fade-in">
-          <CardHeader><CardTitle className="text-base">Top sections (nombre de producteurs)</CardTitle></CardHeader>
+        <Card className="animate-fade-in shadow-glass">
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><span className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center"><Layers className="h-4 w-4" /></span>Top sections (nombre de producteurs)</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={topSections}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="section" tick={{ fontSize: 10 }} interval={0} angle={-25} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                <Bar dataKey="count" fill={COLORS.accent2} radius={[6, 6, 0, 0]} />
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, boxShadow: "var(--shadow-float)" }} />
+                <Bar dataKey="count" fill={COLORS.success} radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="animate-fade-in">
-          <CardHeader><CardTitle className="text-base">Volume livré par campagne</CardTitle></CardHeader>
+        <Card className="animate-fade-in shadow-glass">
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><span className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center"><Weight className="h-4 w-4" /></span>Volume livré par campagne</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={byCampaign}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="campagne" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                <Bar dataKey="kg" fill={COLORS.accent1} radius={[6, 6, 0, 0]} />
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, boxShadow: "var(--shadow-float)" }} />
+                <Bar dataKey="kg" fill={COLORS.warning} radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
         {isSuperAdmin && (
-          <Card className="lg:col-span-2 animate-fade-in">
-            <CardHeader><CardTitle className="text-base">Producteurs par registre</CardTitle></CardHeader>
+          <Card className="lg:col-span-2 animate-fade-in shadow-glass">
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><span className="h-8 w-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center"><Building2 className="h-4 w-4" /></span>Producteurs par registre</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={byCoop}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="cooperative" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                  <Bar dataKey="count" fill={COLORS.accent3} radius={[6, 6, 0, 0]} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, boxShadow: "var(--shadow-float)" }} />
+                  <Bar dataKey="count" fill={COLORS.violet} radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
