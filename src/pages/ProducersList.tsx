@@ -22,6 +22,7 @@ type ImportMode = "insert" | "update";
 
 export default function Producers() {
   const navigate = useNavigate();
+  const { cooperativeRefs, isSuperAdmin } = useAuth();
   const [producers, setProducers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [coopFilter, setCoopFilter] = useState("all");
