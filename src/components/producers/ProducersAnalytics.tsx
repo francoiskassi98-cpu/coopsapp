@@ -35,7 +35,7 @@ interface Delivery {
 interface Shipment {
   id: string;
   cooperative_id: string | null;
-  campaign_id: string | null;
+  campaign_label: string | null;
   total_weight: number;
   departure_date: string | null;
   is_cancelled: boolean | null;
@@ -111,7 +111,7 @@ export default function ProducersAnalytics() {
       try {
         const [p, s, d, c] = await Promise.all([
           fetchAll<Producer>("producers", "id,full_name,cooperative,section,sexe,delivery_potential,remaining_potential,is_active"),
-          fetchAll<Shipment>("shipments", "id,cooperative_id,campaign_id,total_weight,departure_date,is_cancelled"),
+          fetchAll<Shipment>("shipments", "id,cooperative_id,campaign_label,total_weight,departure_date,is_cancelled"),
           fetchAll<Delivery>("deliveries", "id,shipment_id,net_weight,delivery_date"),
           fetchAll<Campaign>("campaigns", "id,nom"),
         ]);
@@ -143,7 +143,7 @@ export default function ProducersAnalytics() {
     return deliveries.filter(d => {
       const ship = shipmentsByCoop.get(d.shipment_id);
       if (!ship || ship.is_cancelled) return false;
-      if (campaignFilter !== "all" && ship.campaign_id !== campaignFilter) return false;
+      if (campaignFilter !== "all" && ship.campaign_label !== campaignFilter) return false;
       if (startDate && d.delivery_date < startDate) return false;
       if (endDate && d.delivery_date > endDate) return false;
       return true;
@@ -202,8 +202,8 @@ export default function ProducersAnalytics() {
     const cName = new Map(campaigns.map(c => [c.id, c.nom]));
     deliveries.forEach(d => {
       const ship = shipments.find(s => s.id === d.shipment_id);
-      if (!ship || ship.is_cancelled || !ship.campaign_id) return;
-      const name = cName.get(ship.campaign_id) || "—";
+      if (!ship || ship.is_cancelled || !ship.campaign_label) return;
+      const name = cName.get(ship.campaign_label) || "—";
       map.set(name, (map.get(name) || 0) + Number(d.net_weight || 0));
     });
     return Array.from(map.entries()).map(([campagne, kg]) => ({ campagne, kg: Math.round(kg) }));

@@ -1,11 +1,13 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { BarChart3, Truck, FileSpreadsheet, Users, Settings, Calendar, LogOut, ShieldCheck, Building2, Sprout, Handshake, Trash2, KeyRound, FileCog } from "lucide-react";
+import { BarChart3, Truck, FileSpreadsheet, Users, Settings, LogOut, ShieldCheck, Building2, Sprout, Handshake, Trash2, KeyRound, FileCog, LayoutDashboard } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { cn } from "@/lib/utils";
-import { useActiveCampaign } from "@/hooks/useActiveCampaign";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { currentCampaign } from "@/lib/campaign";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import SubscriptionBlocked from "@/components/SubscriptionBlocked";
 
 type NavItem = { to: string; label: string; icon: typeof BarChart3; adminOnly?: boolean; superAdminOnly?: boolean };
 type NavGroup = { label: string; items: NavItem[] };
@@ -15,7 +17,6 @@ const groups: NavGroup[] = [
     label: "Pilotage",
     items: [
       { to: "/", label: "Tableau de bord", icon: BarChart3 },
-      { to: "/campagnes", label: "Campagnes", icon: Calendar },
     ],
   },
   {
@@ -31,19 +32,25 @@ const groups: NavGroup[] = [
     label: "Administration",
     items: [
       { to: "/gestion", label: "Gestion du projet", icon: Settings, adminOnly: true },
-      { to: "/gestion/cooperatives/nouvelle", label: "Nouvelle coopérative", icon: Building2, superAdminOnly: true },
       { to: "/gestion/modeles-chargement", label: "Modèles chargement", icon: FileCog, adminOnly: true },
       { to: "/audit", label: "Journal d'audit", icon: ShieldCheck, adminOnly: true },
       { to: "/audit/connexions", label: "Journal de connexion", icon: KeyRound, adminOnly: true },
       { to: "/corbeille", label: "Corbeille", icon: Trash2, adminOnly: true },
     ],
   },
+  {
+    label: "Super administration",
+    items: [
+      { to: "/gestion/dashboard", label: "Dashboard global", icon: LayoutDashboard, superAdminOnly: true },
+      { to: "/gestion/cooperatives", label: "Coopératives", icon: Building2, superAdminOnly: true },
+    ],
+  },
 ];
 
 export default function AppLayout() {
   const location = useLocation();
-  const { campaign } = useActiveCampaign();
   const { user, role, cooperatives, profile, signOut, isSuperAdmin, isCoopAdmin, isAdmin } = useAuth();
+  const guard = useSubscriptionGuard();
   const displayName = profile?.full_name?.trim() || profile?.username?.trim() || (user?.email ? user.email.split("@")[0] : "Utilisateur");
   const initials = displayName.split(/\s+/).map((s) => s[0]).slice(0, 2).join("").toUpperCase();
 
@@ -120,8 +127,8 @@ export default function AppLayout() {
 
         <div className="relative border-t border-sidebar-border/40 p-3 space-y-2">
           <div className="flex items-center justify-between px-2 py-1">
-            <span className="text-[10px] text-sidebar-foreground/40 uppercase tracking-wide">Campagne</span>
-            <span className="text-xs font-semibold text-primary">{campaign?.nom ?? "—"}</span>
+            <span className="text-[10px] text-sidebar-foreground/40 uppercase tracking-wide">Campagne active</span>
+            <span className="text-xs font-semibold text-primary">{currentCampaign()}</span>
           </div>
           {user && (
             <div className="rounded-lg bg-sidebar-accent/30 p-2.5 space-y-2">
@@ -156,7 +163,11 @@ export default function AppLayout() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
             >
-              <Outlet />
+              {guard.blocked ? (
+                <SubscriptionBlocked reason={guard.reason} endDate={guard.subscription?.end_date} />
+              ) : (
+                <Outlet />
+              )}
             </motion.div>
           </AnimatePresence>
         </main>

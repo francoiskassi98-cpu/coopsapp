@@ -18,7 +18,8 @@ const Producers = lazy(() => import("@/pages/Producers"));
 const CreateShipment = lazy(() => import("@/pages/CreateShipment"));
 const ExportPage = lazy(() => import("@/pages/ExportPage"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
-const Campaigns = lazy(() => import("@/pages/Campaigns"));
+const SuperAdminDashboard = lazy(() => import("@/pages/SuperAdminDashboard"));
+const CooperativesManagement = lazy(() => import("@/pages/CooperativesManagement"));
 const AuditLog = lazy(() => import("@/pages/AuditLog"));
 const CreateCooperative = lazy(() => import("@/pages/CreateCooperative"));
 const Trash = lazy(() => import("@/pages/Trash"));
@@ -65,7 +66,6 @@ const App = () => (
                     <Route path="/export" element={<ExportPage />} />
                     <Route path="/partenaires" element={<Partners />} />
                     <Route element={<ProtectedRoute adminOnly />}>
-                      <Route path="/campagnes" element={<Campaigns />} />
                       <Route path="/gestion" element={<UserManagement />} />
                       <Route path="/gestion/modeles-chargement" element={<ShipmentTemplates />} />
                       <Route path="/audit" element={<AuditLog />} />
@@ -73,6 +73,8 @@ const App = () => (
                       <Route path="/corbeille" element={<Trash />} />
                     </Route>
                     <Route element={<ProtectedRoute superAdminOnly />}>
+                      <Route path="/gestion/dashboard" element={<SuperAdminDashboard />} />
+                      <Route path="/gestion/cooperatives" element={<CooperativesManagement />} />
                       <Route path="/gestion/cooperatives/nouvelle" element={<CreateCooperative />} />
                     </Route>
                   </Route>

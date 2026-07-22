@@ -1,70 +1,45 @@
-import { useEffect, useState, useCallback } from "react";
+/**
+ * Compatibility shim — l'ancienne notion de « campagne DB » a été remplacée par le
+ * champ `campaign_label` (texte "YYYY-YYYY") calculé automatiquement. Ce hook expose
+ * la même API que l'ancien `useActiveCampaign` pour éviter de casser les écrans.
+ * `id` et `nom` valent tous les deux le label texte.
+ */
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { currentCampaign } from "@/lib/campaign";
 
-export type Campaign = {
+export interface CampaignLike {
   id: string;
   nom: string;
-  date_debut: string;
-  date_fin: string;
-  active: boolean;
   utilise_pour_chargement: boolean;
-  archived: boolean;
-  created_at: string;
-};
+}
+
+const toCampaign = (label: string, active = false): CampaignLike => ({
+  id: label, nom: label, utilise_pour_chargement: active,
+});
 
 export function useActiveCampaign() {
-  const [campaign, setCampaign] = useState<Campaign | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchActive = useCallback(async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from("campaigns" as any)
-      .select("*")
-      .eq("utilise_pour_chargement", true)
-      .maybeSingle();
-    setCampaign((data as any) ?? null);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    fetchActive();
-    const channel = supabase
-      .channel("campaigns-active")
-      .on("postgres_changes", { event: "*", schema: "public", table: "campaigns" }, () => fetchActive())
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchActive]);
-
-  return { campaign, loading, refetch: fetchActive };
+  const current = currentCampaign();
+  return { campaign: toCampaign(current, true) };
 }
 
 export function useCampaigns() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from("campaigns" as any)
-      .select("*")
-      .order("date_debut", { ascending: false });
-    setCampaigns((data as any) ?? []);
-    setLoading(false);
-  }, []);
+  const [campaigns, setCampaigns] = useState<CampaignLike[]>([toCampaign(currentCampaign(), true)]);
 
   useEffect(() => {
-    fetchAll();
-    const channel = supabase
-      .channel("campaigns-all")
-      .on("postgres_changes", { event: "*", schema: "public", table: "campaigns" }, () => fetchAll())
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchAll]);
+    (async () => {
+      const set = new Set<string>();
+      set.add(currentCampaign());
+      const { data } = await (supabase as any)
+        .from("shipments")
+        .select("campaign_label")
+        .not("campaign_label", "is", null)
+        .limit(2000);
+      (data || []).forEach((r: any) => { if (r.campaign_label) set.add(r.campaign_label); });
+      const active = currentCampaign();
+      setCampaigns(Array.from(set).sort().reverse().map((l) => toCampaign(l, l === active)));
+    })();
+  }, []);
 
-  return { campaigns, loading, refetch: fetchAll };
+  return { campaigns };
 }

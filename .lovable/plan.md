@@ -1,96 +1,129 @@
-# Refonte — Gestion des logos par upload uniquement
+# Plan — Automatisation des campagnes & Gestion des coopératives
 
-## Objectif
-Remplacer partout les champs URL manuels par un système d'upload via Supabase Storage (buckets privés), avec un composant réutilisable `<ImageUploader />` et injection physique des logos dans les exports Excel / PPTX.
+## 1. Suppression du module Campagnes
 
-## 1. Storage — buckets privés
+Suppression complète de :
+- Menu « Campagnes » dans `AppLayout`
+- Pages : `src/pages/Campaigns.tsx`
+- Routes dans `App.tsx`
+- Hook `useActiveCampaign` / `useCampaigns`
+- Références dans `ReportGenerator`, `ExportPage`, `AuditLog`, `PrimeProducer`, `Dashboard`, filtres, etc.
+- Politiques RLS et table `campaigns` (via migration : DROP TABLE cascade)
+- Colonnes `campaign_id` (remplacées par `campaign_label` déjà présent)
 
-- ✅ `cooperative-logos` (déjà existant, privé)
-- ✅ `partner-logos` (déjà existant, privé)
-- 🆕 `shipment-assets` (à créer, privé) — pour les logos des modèles de chargement et rapports PPTX
-- 🆕 `user-avatars` (à créer, privé) — pour les profils utilisateurs
+## 2. Fonction système unique de calcul de campagne
 
-Policies RLS sur `storage.objects` :
-- Lecture : `authenticated` (signed URLs côté client)
-- Écriture/MAJ/Suppression : `authenticated`, scopée à `cooperative_id` via path préfixe `<coop_id>/...`
-
-## 2. Schéma base de données (migration)
-
-Renommage des colonnes — `logo_url` → `logo_path` (stocke un path interne au bucket, pas une URL) :
-
-| Table | Avant | Après |
-|---|---|---|
-| `cooperatives` | `logo_url` | `logo_path` |
-| `partners` | `logo_url` | `logo_path` |
-| `shipment_excel_templates` | `coop_logo_url`, `partner_logo_url` | `coop_logo_path`, `partner_logo_path` |
-| `profiles` | `avatar_url` | `avatar_path` |
-
-Note : on conserve la valeur existante (les anciennes URLs publiques restent lisibles via fallback dans le composant uploader, qui détecte URL vs path).
-
-## 3. Composant frontend réutilisable
-
-`src/components/ui/ImageUploader.tsx`
-
-Props :
+**Frontend** (`src/lib/campaign.ts`) :
 ```ts
-{
-  bucket: "cooperative-logos" | "partner-logos" | "shipment-assets" | "user-avatars";
-  pathPrefix: string;          // ex: `${coopId}/templates`
-  value: string | null;        // path actuel
-  onChange: (path: string | null) => void;
-  label?: string;
-  maxSizeMb?: number;          // défaut 2
-  aspect?: "square" | "free";  // défaut square
+export function computeCampaign(date: Date | string): string {
+  const d = new Date(date);
+  const y = d.getFullYear();
+  return d.getMonth() >= 8 ? `${y}-${y+1}` : `${y-1}-${y}`;
 }
+export function currentCampaign(): string { return computeCampaign(new Date()); }
 ```
 
-Fonctionnalités :
-- Drag & drop + sélection fichier
-- Validation : PNG / JPG / JPEG / SVG / WEBP, taille max 2 Mo
-- Compression auto (canvas resize > 800px) pour PNG/JPG/WEBP
-- Aperçu via `createSignedUrl` (60s)
-- Remplacement → upsert nouveau path, suppression de l'ancien
-- Bouton supprimer → unlink storage + `onChange(null)`
-- État loading / erreur clair, message générique côté UI ("Une erreur est survenue."), détails dans `console.error`
+**Backend** : la fonction SQL `compute_campaign_label(timestamptz)` existe déjà — la réutiliser partout.
 
-## 4. Pages à mettre à jour
+## 3. Injection automatique dans toutes les écritures
 
-- `src/pages/CreateCooperative.tsx` — utilise déjà un upload ; standardiser sur `<ImageUploader />` et `logo_path`
-- `src/pages/Partners.tsx` — remplacer le champ URL par `<ImageUploader />`
-- `src/pages/ShipmentTemplates.tsx` — remplacer les deux `Input` URL par deux `<ImageUploader />` (coop + partenaire), bucket `shipment-assets`, préfixe `<coop_id>/templates`
-- `src/pages/UserManagement.tsx` / profil — `<ImageUploader />` pour avatar
-- Dashboard / Rapports PPTX — lire `logo_path` via signed URL
+- `campaign_label` renseignée automatiquement côté client via `currentCampaign()` avant tout `insert`
+- Triggers `BEFORE INSERT` sur `shipments`, `deliveries`, `producers`, `producer_registry`, `producer_bonus_results` : si `campaign_label IS NULL`, remplir avec `compute_campaign_label(now())`
+- Suppression de tout champ de saisie campagne dans les formulaires
 
-## 5. Exports Excel & PPTX — injection physique
+## 4. Filtrage par campagne (lecture seule)
 
-- `src/services/excel/shipment-fiche-excel.ts` — adapter `fetchImage()` :
-  - Accepter un `path` interne → générer signed URL (120s) → fetch → ArrayBuffer → `wb.addImage()`
-  - Supporter fallback URL legacy pour anciennes données
-- `src/lib/pptx-report-generator.ts` — même logique, `addImage({ data: base64 })`
-- Aucune référence externe : tout passe par signed URL temporaire le temps du fetch puis bytes embarqués
+Nouveau composant `CampaignFilter` qui liste les campagnes distinctes présentes en base (`SELECT DISTINCT campaign_label`) + option « Toutes ». Utilisé dans Dashboard, Rapports, Exports, Historique.
 
-## 6. Edge functions
+## 5-6. Module Gestion des Coopératives (Super Admin)
 
-- `supabase/functions/create-cooperative/index.ts` — accepter `logo_path` au lieu de `logo_url`
-- RPC `create_cooperative_with_admin` — renommer le champ JSON correspondant
+Nouveau menu **Administration → Gestion des Coopératives** → `/gestion/cooperatives`
 
-## Détails techniques
+Page unique `src/pages/CooperativesManagement.tsx` :
+- Table listant toutes les coopératives + statut abonnement + jours restants
+- Actions : Créer, Modifier, Suspendre, Réactiver, Supprimer (si aucune donnée liée), Voir détails, Gérer abonnement
 
-**Stratégie de path** : `<entity_id>/<filename-timestamp>.<ext>` — un path par entité, déterministe, simplifie le cleanup.
+Migration DB :
+- Ajout colonnes `cooperatives` : `region`, `manager_name` (responsable), + colonnes existantes conservées
+- Table `subscriptions` : déjà présente, ajout `plan_type` si absent
+- Statuts abonnement : `trial | active | expired | suspended`
+- Fonction `get_subscription_status(cooperative_id) returns text` calculant l'état en temps réel selon dates
 
-**Compatibilité données existantes** : le composant `<ImageUploader />` détecte si la valeur est une URL complète (legacy) vs un path interne. À l'affichage : URL → utiliser directe ; path → signed URL. À l'upload du nouveau fichier : on stocke toujours un path.
+## 7. Bandeau d'informations coopérative
 
-**Migration** : `ALTER TABLE ... RENAME COLUMN logo_url TO logo_path` — préserve les données. Régénération automatique de `src/integrations/supabase/types.ts` après migration.
+Nouveau composant `src/components/CooperativeBanner.tsx` monté dans `AppHeader` :
+- Logo + nom + acronyme
+- Registre actif
+- Badge statut (🟢 Actif / 🟡 Essai / 🔴 Expiré / ⚪ Suspendu)
+- Dates début/fin + jours restants
+- Type d'abonnement
 
-**Sécurité** : buckets privés + RLS sur `storage.objects` (path doit commencer par un `cooperative_id` accessible à l'utilisateur via `my_cooperative_ids()` ou être super_admin).
+Nouveau hook `useCooperativeContext()` qui charge la coopérative de l'utilisateur + abonnement courant (realtime).
 
-## Ordre d'exécution
+## 8. Contrôle d'accès selon abonnement
 
-1. Migration DB (renommage colonnes + création buckets `shipment-assets`, `user-avatars` + policies RLS)
-2. Création composant `<ImageUploader />`
-3. Mise à jour des pages (Cooperatives, Partners, ShipmentTemplates, Profile)
-4. Mise à jour des services Excel/PPTX (lecture path → signed URL → bytes)
-5. Mise à jour de l'edge function `create-cooperative`
-6. Vérification build + test visuel preview
+- Hook `useSubscriptionGuard()` retournant `{ blocked, reason }`
+- `ProtectedRoute` étendu : si `blocked === true` et route métier, afficher écran `SubscriptionBlocked` avec message clair
+- Super Admin non affecté
+- Routes admin (`/gestion/*`) restent accessibles pour permettre régularisation
 
-Voulez-vous que je procède dans cet ordre ? Confirmez et je commence par la migration.
+## 9. Tableau de bord Super Admin
+
+Nouvelle page `src/pages/SuperAdminDashboard.tsx` (`/gestion/dashboard`) :
+- KPIs : coopératives totales / actives / essai / expirées / suspendues
+- Totaux : registres, utilisateurs, producteurs
+- Redirection automatique du super_admin vers ce dashboard après login (au lieu de `/gestion/cooperatives/nouvelle`)
+
+## Migrations SQL prévues (une seule migration)
+
+```sql
+-- 1. Drop campaigns module
+DROP TABLE IF EXISTS public.campaigns CASCADE;
+
+-- 2. Add cooperative fields
+ALTER TABLE public.cooperatives
+  ADD COLUMN IF NOT EXISTS region text,
+  ADD COLUMN IF NOT EXISTS manager_name text;
+
+-- 3. Triggers auto campaign_label
+CREATE OR REPLACE FUNCTION public.set_campaign_label_auto()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.campaign_label IS NULL THEN
+    NEW.campaign_label := public.compute_campaign_label(COALESCE(NEW.created_at, now()));
+  END IF;
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER trg_ship_camp BEFORE INSERT ON public.shipments
+  FOR EACH ROW EXECUTE FUNCTION public.set_campaign_label_auto();
+-- (idem deliveries, producers, producer_registry, producer_bonus_results)
+
+-- 4. Subscription status function
+CREATE OR REPLACE FUNCTION public.get_subscription_status(_coop_id uuid)
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
+  SELECT CASE
+    WHEN s.status = 'suspended' THEN 'suspended'
+    WHEN s.end_date < CURRENT_DATE THEN 'expired'
+    WHEN s.status = 'trial' THEN 'trial'
+    ELSE 'active'
+  END
+  FROM public.subscriptions s
+  WHERE s.cooperative_id = _coop_id
+  ORDER BY s.end_date DESC NULLS LAST LIMIT 1;
+$$;
+```
+
+## Fichiers touchés (résumé)
+
+**Créés :** `src/lib/campaign.ts`, `src/components/CooperativeBanner.tsx`, `src/hooks/useCooperativeContext.tsx`, `src/hooks/useSubscriptionGuard.tsx`, `src/pages/CooperativesManagement.tsx`, `src/pages/SuperAdminDashboard.tsx`, `src/components/SubscriptionBlocked.tsx`, `src/components/CampaignFilter.tsx`
+
+**Modifiés :** `src/App.tsx`, `src/components/AppLayout.tsx`, `src/components/AppHeader.tsx`, `src/components/ProtectedRoute.tsx`, `src/pages/Auth.tsx`, `src/pages/Dashboard.tsx`, `src/components/dashboard/ReportGenerator.tsx`, `src/components/producers/PrimeProducer.tsx`, `src/pages/ExportPage.tsx`, `src/pages/AuditLog.tsx`, `src/pages/CreateShipment.tsx`, `src/pages/ImportShipments.tsx`, `src/pages/ImportProducers.tsx`
+
+**Supprimés :** `src/pages/Campaigns.tsx`, `src/hooks/useActiveCampaign.tsx`
+
+## Points de confirmation
+
+- **Contrainte de suppression coopérative** : bloquer si des `producers`, `shipments` ou `deliveries` y sont rattachés (proposer suspension à la place).
+- **Comportement blocage** : abonnement expiré/suspendu → lecture seule autorisée sur Dashboard/Rapports ou blocage total ? Le plan propose blocage total sauf `/gestion/*`.
+- Confirmer avant implémentation, puis j'exécute la migration + le code en une passe.

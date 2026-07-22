@@ -35,7 +35,7 @@ export async function loadReportData(
 ): Promise<ReportPayload> {
   // Shipments
   let shQ: any = supabase.from("shipments").select("*, partners(name), cooperatives(name)");
-  if (filters.campaignId) shQ = shQ.eq("campaign_id", filters.campaignId);
+  if (filters.campaignId) shQ = shQ.eq("campaign_label", filters.campaignId);
   if (filters.project) shQ = shQ.eq("project", filters.project);
   if (filters.destination) shQ = shQ.eq("destination", filters.destination);
   if (filters.partnerId) shQ = shQ.eq("partner_id", filters.partnerId);
@@ -47,7 +47,7 @@ export async function loadReportData(
 
   // Producer registry (for campaign-specific potential)
   let prQ: any = supabase.from("producer_registry").select("cooperative, section, potentiel_livraison, potentiel_restant, latitude, longitude, cni, surface_cacao_totale");
-  if (filters.campaignId) prQ = prQ.eq("campaign_id", filters.campaignId);
+  if (filters.campaignId) prQ = prQ.eq("campaign_label", filters.campaignId);
   let registry = await fetchAll(prQ);
 
   // Cooperatives filter (UI selection)

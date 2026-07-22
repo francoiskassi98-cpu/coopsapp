@@ -23,7 +23,7 @@ type AuditRow = {
   changed_by: string | null;
   changed_by_email: string | null;
   cooperative: string | null;
-  campaign_id: string | null;
+  campaign_label: string | null;
   changed_at: string;
 };
 
@@ -63,7 +63,7 @@ export default function AuditLog() {
           if (fTable !== "all") qb = qb.eq("table_name", fTable);
           if (fEmail.trim()) qb = qb.ilike("changed_by_email", `%${fEmail.trim()}%`);
           if (fCoop !== "all") qb = qb.eq("cooperative", fCoop);
-          if (fCampaign !== "all") qb = qb.eq("campaign_id", fCampaign);
+          if (fCampaign !== "all") qb = qb.eq("campaign_label", fCampaign);
           if (fFrom) qb = qb.gte("changed_at", fFrom);
           if (fTo) qb = qb.lte("changed_at", `${fTo}T23:59:59`);
           return qb;
@@ -82,10 +82,11 @@ export default function AuditLog() {
     (async () => {
       try {
         const [{ data: camps }, coops] = await Promise.all([
-          (supabase as any).from("campaigns").select("id, nom").order("date_debut", { ascending: false }),
+          (supabase as any).from("shipments").select("campaign_label").not("campaign_label","is",null).limit(2000),
           fetchAllRows("cooperatives", "name", { order: { column: "name" } }),
         ]);
-        setCampaigns((camps ?? []) as any);
+        const labels = Array.from(new Set(((camps as any[]) ?? []).map((r) => r.campaign_label).filter(Boolean))).sort().reverse();
+        setCampaigns(labels.map((l) => ({ id: l, nom: l })) as any);
         setCooperatives(((coops as any[]) ?? []).map((c) => c.name));
       } catch (e) {
         console.error(e);
@@ -106,7 +107,7 @@ export default function AuditLog() {
         { header: "ID enregistrement", key: "record_id", width: 38 },
         { header: "Utilisateur", key: "changed_by_email", width: 28 },
         { header: "Coopérative", key: "cooperative", width: 18 },
-        { header: "Campagne", key: "campaign_id", width: 38 },
+        { header: "Campagne", key: "campaign_label", width: 38 },
         { header: "Ancien", key: "old_data", width: 60 },
         { header: "Nouveau", key: "new_data", width: 60 },
       ];
@@ -246,7 +247,7 @@ export default function AuditLog() {
                     </TableCell>
                     <TableCell className="max-w-[220px] truncate">{r.changed_by_email ?? "—"}</TableCell>
                     <TableCell>{r.cooperative ?? "—"}</TableCell>
-                    <TableCell>{r.campaign_id ? (campMap.get(r.campaign_id) ?? r.campaign_id) : "—"}</TableCell>
+                    <TableCell>{r.campaign_label ? (campMap.get(r.campaign_label) ?? r.campaign_label) : "—"}</TableCell>
                     <TableCell className="font-mono text-xs max-w-[160px] truncate">{r.record_id ?? "—"}</TableCell>
                   </TableRow>
                 ))}
@@ -276,7 +277,7 @@ export default function AuditLog() {
                 <div><span className="text-muted-foreground">Date : </span>{new Date(selected.changed_at).toLocaleString("fr-FR")}</div>
                 <div><span className="text-muted-foreground">Utilisateur : </span>{selected.changed_by_email ?? "—"}</div>
                 <div><span className="text-muted-foreground">Coopérative : </span>{selected.cooperative ?? "—"}</div>
-                <div><span className="text-muted-foreground">Campagne : </span>{selected.campaign_id ? (campMap.get(selected.campaign_id) ?? selected.campaign_id) : "—"}</div>
+                <div><span className="text-muted-foreground">Campagne : </span>{selected.campaign_label ? (campMap.get(selected.campaign_label) ?? selected.campaign_label) : "—"}</div>
                 <div className="col-span-2"><span className="text-muted-foreground">ID : </span><span className="font-mono">{selected.record_id ?? "—"}</span></div>
               </div>
               <div className="grid md:grid-cols-2 gap-4">
