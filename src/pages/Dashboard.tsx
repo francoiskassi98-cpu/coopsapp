@@ -49,18 +49,31 @@ export default function Dashboard() {
 
   const { data: allProducers = [], isLoading: loadingProducers } = useQuery({
     queryKey: ["dashboard", "producers"],
-    queryFn: () => fetchAllRows(supabase.from("producers").select("delivery_potential, remaining_potential, cooperative")),
+    queryFn: () => fetchAllRows((supabase as any).from("producers").select("delivery_potential, remaining_potential, registre_id")),
   });
 
   const { data: allShipments = [], isLoading: loadingShipments } = useQuery({
     queryKey: ["dashboard", "shipments"],
     queryFn: () => fetchAllRows(
-      supabase
+      (supabase as any)
         .from("shipments")
-        .select("id, project, destination, total_weight, total_bags, created_at, campaign, zone, connaissement, partners(name), cooperatives(name)")
+        .select("id, project, destination, total_weight, total_bags, created_at, campaign_label, zone, connaissement, registre_id, partners(name)")
         .order("created_at", { ascending: false })
     ),
   });
+
+  const { data: registres = [] } = useQuery({
+    queryKey: ["dashboard", "registres"],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("registres").select("id, name");
+      return data ?? [];
+    },
+  });
+  const registreName = useMemo(() => {
+    const m: Record<string, string> = {};
+    (registres as any[]).forEach((r) => { m[r.id] = r.name; });
+    return m;
+  }, [registres]);
 
   const loading = loadingProducers || loadingShipments;
 
