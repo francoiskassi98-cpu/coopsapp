@@ -336,7 +336,7 @@ export default function ImportShipments() {
                     <TableHead>Nom (fichier)</TableHead>
                     <TableHead>Nom (registre)</TableHead>
                     <TableHead>Section</TableHead>
-                    <TableHead>Coopérative</TableHead>
+                    <TableHead>Registre</TableHead>
                     <TableHead>Potentiel restant</TableHead>
                     <TableHead>Statut</TableHead>
                   </TableRow>

@@ -109,11 +109,11 @@ export default function ReportDialog({ open, onOpenChange, dashboardData }: Repo
 
     // Slide 5: Cooperatives
     const slide5 = pptx.addSlide();
-    slide5.addText("Performance par Coopérative", { x: 0.5, y: 0.3, w: 12.3, h: 0.8, fontSize: 28, bold: true, color: COLORS.headerBg });
+    slide5.addText("Performance par Registre", { x: 0.5, y: 0.3, w: 12.3, h: 0.8, fontSize: 28, bold: true, color: COLORS.headerBg });
     if (dashboardData.coopStats.length > 0) {
       const rows: any[][] = [
         [
-          { text: "Coopérative", options: { bold: true, fill: { color: COLORS.headerBg }, color: "FFFFFF", fontSize: 10 } },
+          { text: "Registre", options: { bold: true, fill: { color: COLORS.headerBg }, color: "FFFFFF", fontSize: 10 } },
           { text: "Potentiel", options: { bold: true, fill: { color: COLORS.headerBg }, color: "FFFFFF", fontSize: 10, align: "right" } },
           { text: "Livré", options: { bold: true, fill: { color: COLORS.headerBg }, color: "FFFFFF", fontSize: 10, align: "right" } },
           { text: "Restant", options: { bold: true, fill: { color: COLORS.headerBg }, color: "FFFFFF", fontSize: 10, align: "right" } },
@@ -143,7 +143,7 @@ export default function ReportDialog({ open, onOpenChange, dashboardData }: Repo
       `• Volume livré : ${dashboardData.totalDelivered.toLocaleString("fr-FR")} kg (${rate}%)`,
       `• Volume restant : ${dashboardData.remaining.toLocaleString("fr-FR")} kg`,
       `• Nombre de chargements réalisés : ${dashboardData.shipmentCount}`,
-      `• Nombre de coopératives actives : ${dashboardData.coopStats.length}`,
+      `• Nombre de registres actives : ${dashboardData.coopStats.length}`,
       "",
       dashboardData.totalPotential > 0 && Number(rate) < 50
         ? "⚠ Le taux de réalisation est inférieur à 50%. Il est recommandé d'intensifier les collectes."

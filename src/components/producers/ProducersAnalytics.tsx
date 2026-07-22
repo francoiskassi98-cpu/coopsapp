@@ -233,7 +233,7 @@ export default function ProducersAnalytics() {
         <CardContent className="p-4 flex flex-wrap gap-3 items-end">
           {isSuperAdmin && (
             <div className="min-w-[180px]">
-              <Label className="text-xs">Coopérative</Label>
+              <Label className="text-xs">Registre</Label>
               <Select value={coopFilter} onValueChange={setCoopFilter}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -285,7 +285,7 @@ export default function ProducersAnalytics() {
         <KpiCard label="Volume livré" value={fmtKg(livre)} icon={Weight} />
         <KpiCard label="Volume restant" value={fmtKg(restant)} icon={Package} />
         <KpiCard label="Sections" value={fmt(sectionList.length)} icon={Layers} />
-        {isSuperAdmin && <KpiCard label="Coopératives" value={fmt(coopList.length)} icon={Building2} />}
+        {isSuperAdmin && <KpiCard label="Registres" value={fmt(coopList.length)} icon={Building2} />}
       </div>
 
       {/* Charts */}
@@ -352,7 +352,7 @@ export default function ProducersAnalytics() {
 
         {isSuperAdmin && (
           <Card className="lg:col-span-2 animate-fade-in">
-            <CardHeader><CardTitle className="text-base">Producteurs par coopérative</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Producteurs par registre</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={byCoop}>

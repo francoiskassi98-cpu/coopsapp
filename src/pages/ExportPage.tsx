@@ -57,7 +57,7 @@ export default function ExportPage() {
   };
 
   const exportByCooperative = async () => {
-    if (!selectedCoop) { toast({ title: "Sélectionnez une coopérative", variant: "destructive" }); return; }
+    if (!selectedCoop) { toast({ title: "Sélectionnez un registre", variant: "destructive" }); return; }
     setLoading("coop");
     try {
       const coopShipments = await fetchAllRows(
@@ -71,7 +71,7 @@ export default function ExportPage() {
       );
 
       if (!coopShipments || coopShipments.length === 0) {
-        toast({ title: "Aucun chargement pour cette coopérative dans cette campagne", variant: "destructive" });
+        toast({ title: "Aucun chargement pour ce registre dans cette campagne", variant: "destructive" });
         setLoading(null);
         return;
       }
@@ -221,7 +221,7 @@ export default function ExportPage() {
           }
         );
         rows = registry.map((p: any) => ({
-          "Coopérative / Zone": p.cooperative,
+          "Registre / Zone": p.cooperative,
           "Nom complet": p.nom_complet,
           "Section": p.section,
           "Code plantation": p.code_plantation,
@@ -238,7 +238,7 @@ export default function ExportPage() {
           }
         );
         rows = producers.map((p: any) => ({
-          "Coopérative / Zone": p.cooperative,
+          "Registre / Zone": p.cooperative,
           "Nom complet": p.full_name,
           "Section": p.section,
           "Code plantation": p.plantation_code,
@@ -299,20 +299,20 @@ export default function ExportPage() {
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Export par coopérative */}
+        {/* Export par registre */}
         <Card className="flex flex-col">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2 mb-1">
               <div className="p-2 rounded-lg bg-primary/10">
                 <Users className="h-5 w-5 text-primary" />
               </div>
-              <CardTitle className="text-base">Par coopérative</CardTitle>
+              <CardTitle className="text-base">Par registre</CardTitle>
             </div>
-            <CardDescription>Exporter tous les chargements d'une coopérative</CardDescription>
+            <CardDescription>Exporter tous les chargements d'un registre</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 flex-1">
             <div className="space-y-1.5">
-              <Label className="text-xs">Coopérative</Label>
+              <Label className="text-xs">Registre</Label>
               <Select value={selectedCoop} onValueChange={setSelectedCoop}>
                 <SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
                 <SelectContent>
@@ -374,7 +374,7 @@ export default function ExportPage() {
               </div>
               <CardTitle className="text-base">Potentiel par zone</CardTitle>
             </div>
-            <CardDescription>Potentiel restant de chaque producteur par coopérative</CardDescription>
+            <CardDescription>Potentiel restant de chaque producteur par registre</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 flex-1">
             <p className="text-xs text-muted-foreground flex-1">

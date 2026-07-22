@@ -37,7 +37,7 @@ export default function CoopPerformance({ coopStats }: Props) {
       {/* Performance Podium */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Trophy className="h-4 w-4 text-primary" /> Performance coopératives</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><Trophy className="h-4 w-4 text-primary" /> Performance registres</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {sorted.map((c, i) => {
@@ -67,7 +67,7 @@ export default function CoopPerformance({ coopStats }: Props) {
         <CardContent className="space-y-4">
           {critical.length > 0 && (
             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-              <p className="text-sm font-semibold text-destructive mb-1">⚠️ Coopératives à risque</p>
+              <p className="text-sm font-semibold text-destructive mb-1">⚠️ Registres à risque</p>
               {critical.map((c) => (
                 <p key={c.name} className="text-sm text-muted-foreground">
                   {c.name} : {getDeliveryRate(c).toFixed(1)}% — reste {c.remaining.toLocaleString("fr-FR")} kg

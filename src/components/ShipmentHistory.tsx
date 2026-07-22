@@ -85,10 +85,10 @@ export default function ShipmentHistory() {
           <div className="flex items-center gap-2 flex-wrap">
             <Select value={selectedCoop} onValueChange={setSelectedCoop}>
               <SelectTrigger className="w-52">
-                <SelectValue placeholder="Toutes les coopératives" />
+                <SelectValue placeholder="Tous les registres" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Toutes les coopératives</SelectItem>
+                <SelectItem value="all">Tous les registres</SelectItem>
                 {cooperatives.map((c) => (
                   <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                 ))}
@@ -117,7 +117,7 @@ export default function ShipmentHistory() {
                   <SortableHeader column="connaissement" label="Connaissement" sortConfig={sortConfig} onToggle={toggleSort} />
                   <SortableHeader column="project" label="Projet" sortConfig={sortConfig} onToggle={toggleSort} />
                   <SortableHeader column="partner" label="Partenaire" sortConfig={sortConfig} onToggle={toggleSort} />
-                  <SortableHeader column="cooperative" label="Coopérative" sortConfig={sortConfig} onToggle={toggleSort} />
+                  <SortableHeader column="cooperative" label="Registre" sortConfig={sortConfig} onToggle={toggleSort} />
                   <SortableHeader column="destination" label="Destination" sortConfig={sortConfig} onToggle={toggleSort} />
                   <SortableHeader column="total_weight" label="Poids (kg)" sortConfig={sortConfig} onToggle={toggleSort} />
                   <SortableHeader column="total_bags" label="Sacs" sortConfig={sortConfig} onToggle={toggleSort} />

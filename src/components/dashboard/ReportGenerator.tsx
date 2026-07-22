@@ -112,7 +112,7 @@ export default function ReportGenerator() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Le rapport inclura automatiquement toutes les coopératives, projets, destinations et partenaires
+            Le rapport inclura automatiquement tous les registres, projets, destinations et partenaires
             de la campagne et de la période sélectionnées (selon vos accès).
           </p>
 

@@ -22,7 +22,7 @@ export default function CoopTable({ coopStats, totalDelivered, totalRemaining, o
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Détail par coopérative</CardTitle>
+        <CardTitle className="text-base">Détail par registre</CardTitle>
       </CardHeader>
       <CardContent>
         {coopStats.length === 0 ? (
@@ -32,7 +32,7 @@ export default function CoopTable({ coopStats, totalDelivered, totalRemaining, o
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Coopérative</TableHead>
+                  <TableHead>Registre</TableHead>
                   <TableHead>Potentiel (kg)</TableHead>
                   <TableHead>Livré (kg)</TableHead>
                   <TableHead>% Livraison</TableHead>

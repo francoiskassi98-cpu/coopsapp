@@ -90,7 +90,7 @@ export default function GlobalSearch() {
       </Button>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Producteur, coopérative, partenaire, chargement…" value={q} onValueChange={setQ} />
+        <CommandInput placeholder="Producteur, registre, partenaire, chargement…" value={q} onValueChange={setQ} />
         <CommandList>
           {loading && (
             <div className="p-3 space-y-3">
@@ -123,11 +123,11 @@ export default function GlobalSearch() {
               ))}
             </CommandGroup>
           )}
-          {groupBy("Coopératives", Building2).length > 0 && (
+          {groupBy("Registres", Building2).length > 0 && (
             <>
               <CommandSeparator />
-              <CommandGroup heading="Coopératives">
-                {groupBy("Coopératives", Building2).map((h) => (
+              <CommandGroup heading="Registres">
+                {groupBy("Registres", Building2).map((h) => (
                   <CommandItem key={`c-${h.id}`} onSelect={() => go(h.route)}>
                     <Building2 className="h-3.5 w-3.5 mr-2" /> {h.label}
                     {h.sub && <span className="ml-auto text-[10px] text-muted-foreground">{h.sub}</span>}

@@ -159,7 +159,7 @@ export default function CreateShipment() {
     if (!endDate) m.push("Date fin");
     if (!project) m.push("Projet");
     if (!partnerId) m.push("Partenaire");
-    if (!selectedCoopId) m.push("Coopérative");
+    if (!selectedCoopId) m.push("Registre");
     if (!destination) m.push("Destination");
     if (!driverName.trim()) m.push("Chauffeur");
     if (!truckNumber.trim()) m.push("N° Camion");
@@ -499,9 +499,9 @@ export default function CreateShipment() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Coopérative *</Label>
+                  <Label>Registre *</Label>
                   <Select value={selectedCoopId} onValueChange={handleZoneChange}>
-                    <SelectTrigger><SelectValue placeholder="Sélectionner une coopérative" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner un registre" /></SelectTrigger>
                     <SelectContent>
                       {cooperatives.map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -533,7 +533,7 @@ export default function CreateShipment() {
 
                 {selectedCoopStats && (
                   <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">Stats coopérative — {zone}</p>
+                    <p className="text-xs font-medium text-muted-foreground">Stats registre — {zone}</p>
                     <div className="grid grid-cols-3 gap-2 text-sm">
                       <div>
                         <p className="text-muted-foreground text-xs">Potentiel</p>
