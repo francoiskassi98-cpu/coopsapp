@@ -40,6 +40,7 @@ export default function Auth() {
   }
 
   if (session) {
+    if (nextPath) return <Navigate to={nextPath} replace />;
     if (isSuperAdmin) return <Navigate to="/gestion/dashboard" replace />;
     return <Navigate to="/" replace />;
   }
