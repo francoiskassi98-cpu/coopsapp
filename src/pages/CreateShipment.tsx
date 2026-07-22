@@ -272,32 +272,39 @@ export default function CreateShipment() {
   const persistShipment = async (): Promise<string | null> => {
     if (preview.length === 0) return null;
 
+    const campaignLabel = normalizeCampaign(getCurrentCampaign());
+
+    const shipmentPayload = {
+      connaissement: connaissement || null,
+      total_weight: Number(totalWeight),
+      total_bags: Number(totalBags),
+      avg_bag_weight: Number(totalWeight) / Number(totalBags),
+      project: projects.find((p) => p.id === project)?.name || null,
+      project_id: project || null,
+      template_id: templateId || null,
+      partner_id: partnerId || null,
+      zone: zone || null,
+      registre_id: selectedCoopId || null,
+      destination,
+      campaign_label: campaignLabel,
+      delivery_start: startDate,
+      delivery_end: endDate,
+      driver_name: driverName.trim() || null,
+      truck_number: truckNumber.trim() || null,
+      trailer_number: trailerNumber.trim() || null,
+      departure_date: departureDate || null,
+    };
+
     const { data: shipment, error: shipErr } = await supabase
       .from("shipments")
-      .insert({
-        connaissement: connaissement || null,
-        total_weight: Number(totalWeight),
-        total_bags: Number(totalBags),
-        avg_bag_weight: Number(totalWeight) / Number(totalBags),
-        project: projects.find((p) => p.id === project)?.name || null,
-        project_id: project || null,
-        template_id: templateId || null,
-        partner_id: partnerId || null,
-        zone: zone || null,
-        cooperative_id: selectedCoopId || null,
-        destination,
-        campaign: normalizeCampaign(getCurrentCampaign()),
-        delivery_start: startDate,
-        delivery_end: endDate,
-        driver_name: driverName.trim() || null,
-        truck_number: truckNumber.trim() || null,
-        trailer_number: trailerNumber.trim() || null,
-        departure_date: departureDate || null,
-      } as any)
+      .insert(shipmentPayload as any)
       .select()
       .single();
 
-    if (shipErr) throw shipErr;
+    if (shipErr) {
+      console.error("[persistShipment] shipments insert failed", shipErr, shipmentPayload);
+      throw shipErr;
+    }
 
     const deliveries = preview.map((d) => ({
       shipment_id: shipment.id,
@@ -306,10 +313,16 @@ export default function CreateShipment() {
       delivery_date: d.delivery_date,
       net_weight: d.allocated_weight,
       num_bags: d.num_bags,
+      registre_id: selectedCoopId,
+      campaign_label: campaignLabel,
     }));
 
     const { error: delErr } = await (supabase as any).from("deliveries").insert(deliveries);
-    if (delErr) throw delErr;
+    if (delErr) {
+      console.error("[persistShipment] deliveries insert failed", delErr, deliveries[0]);
+      throw delErr;
+    }
+
 
     for (const d of preview) {
       const { data: producer } = await supabase.from("producers").select("remaining_potential").eq("id", d.producer_id).single();
