@@ -43,13 +43,26 @@ interface Shipment {
 
 interface Registre { id: string; name: string }
 
+// Palette alignée sur les tokens du Design System (thème navy/blue)
 const COLORS = {
-  primary: "hsl(174 72% 56%)",
-  female: "hsl(340 82% 65%)",
-  male: "hsl(200 85% 60%)",
-  accent1: "hsl(45 95% 60%)",
-  accent2: "hsl(150 65% 55%)",
-  accent3: "hsl(280 70% 65%)",
+  primary: "hsl(221 83% 53%)",
+  primaryGlow: "hsl(217 91% 60%)",
+  female: "hsl(340 82% 60%)",
+  male: "hsl(221 83% 53%)",
+  success: "hsl(158 84% 39%)",
+  warning: "hsl(38 92% 50%)",
+  violet: "hsl(262 70% 58%)",
+  teal: "hsl(174 72% 42%)",
+};
+
+type Tone = "blue" | "green" | "orange" | "violet" | "rose" | "teal";
+const TONE: Record<Tone, { bg: string; ring: string; icon: string; chip: string }> = {
+  blue:   { bg: "bg-blue-50/70",    ring: "ring-blue-100",    icon: "bg-blue-500 text-white",    chip: "text-blue-600" },
+  green:  { bg: "bg-emerald-50/70", ring: "ring-emerald-100", icon: "bg-emerald-500 text-white", chip: "text-emerald-600" },
+  orange: { bg: "bg-amber-50/70",   ring: "ring-amber-100",   icon: "bg-amber-500 text-white",   chip: "text-amber-600" },
+  violet: { bg: "bg-violet-50/70",  ring: "ring-violet-100",  icon: "bg-violet-500 text-white",  chip: "text-violet-600" },
+  rose:   { bg: "bg-rose-50/70",    ring: "ring-rose-100",    icon: "bg-rose-500 text-white",    chip: "text-rose-600" },
+  teal:   { bg: "bg-teal-50/70",    ring: "ring-teal-100",    icon: "bg-teal-500 text-white",    chip: "text-teal-600" },
 };
 
 async function fetchAll<T>(table: string, select = "*"): Promise<T[]> {
@@ -67,26 +80,29 @@ async function fetchAll<T>(table: string, select = "*"): Promise<T[]> {
   return all;
 }
 
-function KpiCard({ label, value, icon: Icon, accent = "primary", loading }: {
-  label: string; value: string | number; icon: any; accent?: string; loading?: boolean;
+function KpiCard({ label, value, icon: Icon, tone = "blue", sub, loading }: {
+  label: string; value: string | number; icon: any; tone?: Tone; sub?: string; loading?: boolean;
 }) {
+  const t = TONE[tone];
   return (
-    <Card className="relative overflow-hidden group hover:shadow-glow transition-all duration-300 animate-fade-in">
-      <div className={`absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-50`} />
-      <CardContent className="p-5 relative">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">{label}</div>
-          <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-            <Icon className="h-4 w-4 text-primary" />
-          </div>
+    <div className={`relative rounded-[20px] p-4 md:p-5 ring-1 ${t.ring} ${t.bg} shadow-glass hover:shadow-float transition-all animate-fade-in`}>
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className={`h-10 w-10 rounded-full flex items-center justify-center shadow-sm ${t.icon}`}>
+          <Icon className="h-4 w-4" />
         </div>
-        {loading ? (
-          <Skeleton className="h-8 w-24" />
-        ) : (
-          <div className="text-2xl font-bold tracking-tight">{value}</div>
-        )}
-      </CardContent>
-    </Card>
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-right leading-tight max-w-[110px]">
+          {label}
+        </div>
+      </div>
+      {loading ? (
+        <Skeleton className="h-7 w-24" />
+      ) : (
+        <>
+          <div className="text-xl md:text-[22px] font-bold tracking-tight leading-none mb-1 break-words">{value}</div>
+          {sub && <div className={`text-[11px] font-medium ${t.chip} truncate`}>{sub}</div>}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -283,91 +299,91 @@ export default function ProducersAnalytics() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-        <KpiCard label="Producteurs" value={fmt(total)} icon={Users} />
-        <KpiCard label="Hommes" value={fmt(males)} icon={UserCog} />
-        <KpiCard label="Femmes" value={fmt(females)} icon={UserCheck} />
-        <KpiCard label="% Femmes" value={`${pctF}%`} icon={PieIcon} />
-        <KpiCard label="Actifs" value={fmt(actives)} icon={Activity} />
-        <KpiCard label="Potentiel total" value={fmtKg(potentielTotal)} icon={TrendingUp} />
-        <KpiCard label="Volume livré" value={fmtKg(livre)} icon={Weight} />
-        <KpiCard label="Volume restant" value={fmtKg(restant)} icon={Package} />
-        <KpiCard label="Sections" value={fmt(sectionList.length)} icon={Layers} />
-        {isSuperAdmin && <KpiCard label="Registres" value={fmt(coopList.length)} icon={Building2} />}
+        <KpiCard label="Producteurs" value={fmt(total)} icon={Users} tone="blue" />
+        <KpiCard label="Hommes" value={fmt(males)} icon={UserCog} tone="teal" />
+        <KpiCard label="Femmes" value={fmt(females)} icon={UserCheck} tone="rose" />
+        <KpiCard label="% Femmes" value={`${pctF}%`} icon={PieIcon} tone="violet" sub={`${fmt(females)} / ${fmt(total)}`} />
+        <KpiCard label="Actifs" value={fmt(actives)} icon={Activity} tone="green" />
+        <KpiCard label="Potentiel total" value={fmtKg(potentielTotal)} icon={TrendingUp} tone="blue" />
+        <KpiCard label="Volume livré" value={fmtKg(livre)} icon={Weight} tone="green" sub={potentielTotal ? `${Math.round((livre / potentielTotal) * 100)}% du potentiel` : undefined} />
+        <KpiCard label="Volume restant" value={fmtKg(restant)} icon={Package} tone="orange" />
+        <KpiCard label="Sections" value={fmt(sectionList.length)} icon={Layers} tone="violet" />
+        {isSuperAdmin && <KpiCard label="Registres" value={fmt(coopList.length)} icon={Building2} tone="teal" />}
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="animate-fade-in">
-          <CardHeader><CardTitle className="text-base">Répartition Hommes / Femmes</CardTitle></CardHeader>
+        <Card className="animate-fade-in shadow-glass">
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><PieIcon className="h-4 w-4" /></span>Répartition Hommes / Femmes</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
                 <Pie data={sexData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={50} paddingAngle={4}>
                   {sexData.map((e, i) => <Cell key={i} fill={e.color} />)}
                 </Pie>
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, boxShadow: "var(--shadow-float)" }} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="animate-fade-in">
-          <CardHeader><CardTitle className="text-base">Évolution des livraisons</CardTitle></CardHeader>
+        <Card className="animate-fade-in shadow-glass">
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><TrendingUp className="h-4 w-4" /></span>Évolution des livraisons</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={deliveriesByMonth}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, boxShadow: "var(--shadow-float)" }} />
                 <Line type="monotone" dataKey="kg" stroke={COLORS.primary} strokeWidth={2.5} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="animate-fade-in">
-          <CardHeader><CardTitle className="text-base">Top sections (nombre de producteurs)</CardTitle></CardHeader>
+        <Card className="animate-fade-in shadow-glass">
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><span className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center"><Layers className="h-4 w-4" /></span>Top sections (nombre de producteurs)</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={topSections}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="section" tick={{ fontSize: 10 }} interval={0} angle={-25} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                <Bar dataKey="count" fill={COLORS.accent2} radius={[6, 6, 0, 0]} />
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, boxShadow: "var(--shadow-float)" }} />
+                <Bar dataKey="count" fill={COLORS.success} radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="animate-fade-in">
-          <CardHeader><CardTitle className="text-base">Volume livré par campagne</CardTitle></CardHeader>
+        <Card className="animate-fade-in shadow-glass">
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><span className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center"><Weight className="h-4 w-4" /></span>Volume livré par campagne</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={byCampaign}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="campagne" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                <Bar dataKey="kg" fill={COLORS.accent1} radius={[6, 6, 0, 0]} />
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, boxShadow: "var(--shadow-float)" }} />
+                <Bar dataKey="kg" fill={COLORS.warning} radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
         {isSuperAdmin && (
-          <Card className="lg:col-span-2 animate-fade-in">
-            <CardHeader><CardTitle className="text-base">Producteurs par registre</CardTitle></CardHeader>
+          <Card className="lg:col-span-2 animate-fade-in shadow-glass">
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><span className="h-8 w-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center"><Building2 className="h-4 w-4" /></span>Producteurs par registre</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={byCoop}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="cooperative" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                  <Bar dataKey="count" fill={COLORS.accent3} radius={[6, 6, 0, 0]} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, boxShadow: "var(--shadow-float)" }} />
+                  <Bar dataKey="count" fill={COLORS.violet} radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>

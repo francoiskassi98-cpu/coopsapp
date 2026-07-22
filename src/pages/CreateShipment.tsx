@@ -403,18 +403,21 @@ export default function CreateShipment() {
       />
 
       <Tabs defaultValue="create">
-        <TabsList>
-          <TabsTrigger value="create">Créer un chargement</TabsTrigger>
-          <TabsTrigger value="history">Historique</TabsTrigger>
-          <TabsTrigger value="details">Détail des chargements</TabsTrigger>
-          <TabsTrigger value="import">Importer les anciens chargements</TabsTrigger>
+        <TabsList className="bg-muted/50 p-1 rounded-full h-auto flex-wrap">
+          <TabsTrigger value="create" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-glass px-4 py-2">Créer un chargement</TabsTrigger>
+          <TabsTrigger value="history" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-glass px-4 py-2">Historique</TabsTrigger>
+          <TabsTrigger value="details" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-glass px-4 py-2">Détail des chargements</TabsTrigger>
+          <TabsTrigger value="import" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-glass px-4 py-2">Importer les anciens chargements</TabsTrigger>
         </TabsList>
 
         <TabsContent value="create">
           <div className="grid gap-6 md:grid-cols-2">
-            <Card>
+            <Card className="shadow-glass">
               <CardHeader>
-                <CardTitle className="text-base">Paramètres du chargement</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><Truck className="h-4 w-4" /></span>
+                  Paramètres du chargement
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -591,14 +594,17 @@ export default function CreateShipment() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="shadow-glass">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Aperçu du chargement</CardTitle>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <span className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center"><Download className="h-4 w-4" /></span>
+                    Aperçu du chargement
+                  </CardTitle>
                   {preview.length > 0 && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Button variant="outline" onClick={handleSaveAndDownload} disabled={saving}>
-                        <Download className="h-4 w-4" /> Enregistrer et télécharger la fiche
+                        <Download className="h-4 w-4 mr-2" /> Enregistrer et télécharger
                       </Button>
                       <Button onClick={handleSave} disabled={saving}>
                         {saving ? "Enregistrement..." : "Valider et enregistrer"}
