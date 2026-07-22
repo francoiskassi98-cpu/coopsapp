@@ -111,12 +111,12 @@ export default function Producers() {
     setDisabledSections(new Set((data || []).map((d: any) => d.section_name)));
   }
 
-  async function toggleSection(sectionName: string, cooperative: string) {
+  async function toggleSection(sectionName: string, registreId?: string) {
     if (disabledSections.has(sectionName)) {
       await supabase.from("disabled_sections").delete().eq("section_name", sectionName);
       toast({ title: `Section "${sectionName}" réactivée` });
     } else {
-      await (supabase as any).from("disabled_sections").insert({ section_name: sectionName, cooperative });
+      await (supabase as any).from("disabled_sections").insert({ section_name: sectionName, registre_id: registreId ?? null });
       toast({ title: `Section "${sectionName}" désactivée` });
     }
     loadDisabledSections();
