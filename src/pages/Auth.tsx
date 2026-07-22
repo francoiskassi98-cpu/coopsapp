@@ -37,7 +37,7 @@ export default function Auth() {
   }
 
   if (session) {
-    if (isSuperAdmin) return <Navigate to="/gestion/cooperatives/nouvelle" replace />;
+    if (isSuperAdmin) return <Navigate to="/gestion/dashboard" replace />;
     return <Navigate to="/" replace />;
   }
 
