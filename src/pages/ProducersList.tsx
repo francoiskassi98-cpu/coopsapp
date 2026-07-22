@@ -107,7 +107,7 @@ export default function Producers() {
       await supabase.from("disabled_sections").delete().eq("section_name", sectionName);
       toast({ title: `Section "${sectionName}" réactivée` });
     } else {
-      await supabase.from("disabled_sections").insert({ section_name: sectionName, cooperative });
+      await (supabase as any).from("disabled_sections").insert({ section_name: sectionName, cooperative });
       toast({ title: `Section "${sectionName}" désactivée` });
     }
     loadDisabledSections();
@@ -280,7 +280,7 @@ export default function Producers() {
           }));
           for (let i = 0; i < toInsert.length; i += 500) {
             const batch = toInsert.slice(i, i + 500);
-            const { error } = await supabase.from("producers").insert(batch);
+            const { error } = await (supabase as any).from("producers").insert(batch);
             if (error) throw error;
           }
           toast({ title: "Importation réussie", description: `${newRows.length} producteur(s) ajouté(s).` });

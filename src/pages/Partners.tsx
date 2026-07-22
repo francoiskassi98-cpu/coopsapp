@@ -155,8 +155,8 @@ export default function Partners() {
       status: form.status,
     };
     const { error } = editing
-      ? await supabase.from("partners").update(payload).eq("id", editing.id)
-      : await supabase.from("partners").insert(payload);
+      ? await (supabase as any).from("partners").update(payload).eq("id", editing.id)
+      : await (supabase as any).from("partners").insert(payload);
     setSaving(false);
     if (error) {
       console.error(error);

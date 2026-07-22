@@ -53,8 +53,8 @@ export default function PrimeProducer() {
   useEffect(() => {
     (async () => {
       const [{ data: c }, { data: cp }] = await Promise.all([
-        supabase.from("cooperatives").select("id,name,logo_path").order("name"),
-        supabase.from("campaigns").select("id,nom").order("nom", { ascending: false }),
+        (supabase as any).from("cooperatives").select("id,name,logo_path").order("name"),
+        (supabase as any).from("campaigns").select("id,nom").order("nom", { ascending: false }),
       ]);
       const list = (c || []) as Coop[];
       setCoops(isSuperAdmin ? list : list.filter(x => cooperativeRefs.some(r => r.id === x.id)));
@@ -72,7 +72,7 @@ export default function PrimeProducer() {
       let all: ProducerOpt[] = [];
       let from = 0;
       while (true) {
-        const { data } = await supabase.from("producers")
+        const { data } = await (supabase as any).from("producers")
           .select("id,full_name,section,cooperative")
           .in("cooperative", scopeNames)
           .order("full_name")
