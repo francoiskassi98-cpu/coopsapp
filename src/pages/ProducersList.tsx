@@ -248,108 +248,189 @@ export default function Producers() {
     [handleFile]
   );
 
+  async function resolveRegistreIds(names: string[]): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    const uniq = Array.from(new Set(names.map((n) => n.trim()).filter(Boolean)));
+    if (uniq.length === 0) return map;
+
+    // Fetch existing registres (RLS scopes them to accessible cooperatives)
+    const { data: existing, error: fetchErr } = await (supabase as any)
+      .from("registres")
+      .select("id, name, cooperative_id");
+    if (fetchErr) throw fetchErr;
+    const byName = new Map<string, { id: string; cooperative_id: string }>();
+    (existing || []).forEach((r: any) => byName.set(r.name.trim().toLowerCase(), r));
+
+    const missing: string[] = [];
+    for (const name of uniq) {
+      const found = byName.get(name.toLowerCase());
+      if (found) map.set(name.toLowerCase(), found.id);
+      else missing.push(name);
+    }
+
+    if (missing.length > 0) {
+      if (isSuperAdmin) {
+        throw new Error(
+          `Registre(s) introuvable(s) : ${missing.join(", ")}. En tant que super admin, créez-les d'abord depuis /gestion/coopératives.`,
+        );
+      }
+      const coopId = cooperativeRefs[0]?.id;
+      if (!coopId) {
+        throw new Error(
+          "Aucune coopérative associée à votre compte. Contactez le super administrateur.",
+        );
+      }
+      const toCreate = missing.map((name) => ({
+        name,
+        cooperative_id: coopId,
+        status: "active",
+      }));
+      const { data: created, error: createErr } = await (supabase as any)
+        .from("registres")
+        .insert(toCreate)
+        .select("id, name");
+      if (createErr) throw createErr;
+      (created || []).forEach((r: any) => map.set(r.name.trim().toLowerCase(), r.id));
+    }
+    return map;
+  }
+
+  function toDbRow(r: ProducerRow, registreId: string) {
+    return {
+      registre_id: registreId,
+      full_name: r.full_name,
+      producer_number: r.producer_number || null,
+      national_id: r.national_id || null,
+      producer_code: r.producer_code || null,
+      sexe: r.sexe || null,
+      section: r.section,
+      total_cocoa_area: r.total_cocoa_area || null,
+      num_plots: r.num_plots || null,
+      plantation_code: r.plantation_code,
+      delivery_potential: r.delivery_potential || 0,
+      remaining_potential: r.delivery_potential || 0,
+      plantation_area: r.plantation_area || null,
+      latitude: r.latitude || null,
+      longitude: r.longitude || null,
+      is_active: true,
+    };
+  }
+
+  function describeSupabaseError(err: any, step: string): string {
+    if (!err) return `Étape « ${step} » : erreur inconnue.`;
+    const parts: string[] = [`Étape « ${step} »`];
+    if (err.code) parts.push(`code ${err.code}`);
+    if (err.message) parts.push(err.message);
+    if (err.details) parts.push(`détails : ${err.details}`);
+    if (err.hint) parts.push(`indice : ${err.hint}`);
+    return parts.join(" — ");
+  }
+
   async function confirmImport() {
     if (parsedRows.length === 0) return;
     setImporting(true);
+    let step = "préparation";
 
     try {
-      // Sync cooperatives table
-      const uniqueCoops = [...new Set(parsedRows.map(r => r.cooperative).filter(Boolean))];
-      if (uniqueCoops.length > 0) {
-        const { data: existingCoops } = await supabase.from("cooperatives").select("name");
-        const existingNames = new Set((existingCoops || []).map(c => c.name.toLowerCase()));
-        const newCoops = uniqueCoops.filter(c => !existingNames.has(c.toLowerCase()));
-        if (newCoops.length > 0) {
-          await supabase.from("cooperatives").insert(newCoops.map(name => ({ name })));
-        }
+      // 1. Resolve registres by name
+      step = "résolution des registres";
+      const registreMap = await resolveRegistreIds(parsedRows.map((r) => r.cooperative));
+
+      const rowsWithRegistre = parsedRows
+        .map((r) => {
+          const rid = registreMap.get(r.cooperative.trim().toLowerCase());
+          return rid ? { row: r, registreId: rid } : null;
+        })
+        .filter((x): x is { row: ProducerRow; registreId: string } => !!x);
+
+      if (rowsWithRegistre.length === 0) {
+        throw new Error("Aucune ligne ne correspond à un registre accessible.");
       }
 
       if (importMode === "insert") {
-        const allCodes = parsedRows.map((r) => r.plantation_code);
+        step = "vérification des codes plantation existants";
+        const allCodes = rowsWithRegistre.map(({ row }) => row.plantation_code);
         const existingCodes = new Set<string>();
         for (let i = 0; i < allCodes.length; i += 500) {
           const chunk = allCodes.slice(i, i + 500);
-          const { data } = await supabase.from("producers").select("plantation_code").in("plantation_code", chunk);
-          (data || []).forEach((p) => existingCodes.add(p.plantation_code));
+          const { data, error } = await supabase
+            .from("producers")
+            .select("plantation_code")
+            .in("plantation_code", chunk);
+          if (error) throw error;
+          (data || []).forEach((p: any) => existingCodes.add(p.plantation_code));
         }
 
-        const newRows = parsedRows.filter((r) => !existingCodes.has(r.plantation_code));
-        const skipped = parsedRows.length - newRows.length;
+        const newRows = rowsWithRegistre.filter(({ row }) => !existingCodes.has(row.plantation_code));
+        const skipped = rowsWithRegistre.length - newRows.length;
 
         if (skipped > 0) {
-          toast({ title: `${skipped} producteur(s) ignoré(s)`, description: "Code plantation déjà existant.", variant: "destructive" });
+          toast({
+            title: `${skipped} producteur(s) ignoré(s)`,
+            description: "Code plantation déjà existant.",
+          });
         }
 
         if (newRows.length > 0) {
-          const toInsert = newRows.map((r) => {
-            const { campaign_label, ...rest } = r;
-            return { ...rest, remaining_potential: r.delivery_potential, sexe: r.sexe || null };
-          });
-
-          for (let i = 0; i < toInsert.length; i += 500) {
-            const batch = toInsert.slice(i, i + 500);
+          step = "insertion des producteurs";
+          const toInsert = newRows.map(({ row, registreId }) => toDbRow(row, registreId));
+          for (let i = 0; i < toInsert.length; i += 200) {
+            const batch = toInsert.slice(i, i + 200);
             const { error } = await (supabase as any).from("producers").insert(batch);
-            if (error) throw error;
+            if (error) {
+              (error as any).__batchIndex = i;
+              throw error;
+            }
           }
-          toast({ title: "Importation réussie", description: `${newRows.length} producteur(s) ajouté(s).` });
+          toast({
+            title: "Importation réussie",
+            description: `${newRows.length} producteur(s) ajouté(s).`,
+          });
         }
       } else {
         // Update mode: upsert by plantation_code
-        const allCodes = parsedRows.map((r) => r.plantation_code);
-        const existingMap = new Map<string, any>();
+        step = "récupération des producteurs existants";
+        const allCodes = rowsWithRegistre.map(({ row }) => row.plantation_code);
+        const existingMap = new Map<string, string>();
         for (let i = 0; i < allCodes.length; i += 500) {
           const chunk = allCodes.slice(i, i + 500);
-          const { data } = await supabase.from("producers").select("id, plantation_code").in("plantation_code", chunk);
-          (data || []).forEach((p) => existingMap.set(p.plantation_code, p.id));
+          const { data, error } = await supabase
+            .from("producers")
+            .select("id, plantation_code")
+            .in("plantation_code", chunk);
+          if (error) throw error;
+          (data || []).forEach((p: any) => existingMap.set(p.plantation_code, p.id));
         }
 
         let updatedCount = 0;
         let insertedCount = 0;
-        const toInsert: any[] = [];
+        const inserts: any[] = [];
+        const updates: { id: string; payload: any }[] = [];
 
-        for (const r of parsedRows) {
-          const existingId = existingMap.get(r.plantation_code);
-          const base = {
-            cooperative: r.cooperative,
-            full_name: r.full_name,
-            producer_number: r.producer_number,
-            national_id: r.national_id,
-            producer_code: r.producer_code,
-            sexe: r.sexe || null,
-            section: r.section,
-            total_cocoa_area: r.total_cocoa_area,
-            num_plots: r.num_plots,
-            delivery_potential: r.delivery_potential,
-            remaining_potential: r.delivery_potential,
-            plantation_area: r.plantation_area,
-            latitude: r.latitude,
-            longitude: r.longitude,
-          };
+        for (const { row, registreId } of rowsWithRegistre) {
+          const payload = toDbRow(row, registreId);
+          const existingId = existingMap.get(row.plantation_code);
           if (existingId) {
-            toInsert.push({ id: existingId, ...base, plantation_code: r.plantation_code });
+            const { registre_id: _rid, ...rest } = payload;
+            updates.push({ id: existingId, payload: rest });
             updatedCount++;
           } else {
-            toInsert.push({ ...base, plantation_code: r.plantation_code });
+            inserts.push(payload);
             insertedCount++;
           }
         }
 
+        step = "mise à jour des producteurs";
+        for (const u of updates) {
+          const { error } = await supabase.from("producers").update(u.payload).eq("id", u.id);
+          if (error) throw error;
+        }
 
-
-        for (let i = 0; i < toInsert.length; i += 500) {
-          const batch = toInsert.slice(i, i + 500);
-          const updates = batch.filter((r) => r.id);
-          const inserts = batch.filter((r) => !r.id);
-
-          if (updates.length > 0) {
-            for (const u of updates) {
-              const { id, ...rest } = u;
-              const { error } = await supabase.from("producers").update(rest).eq("id", id);
-              if (error) throw error;
-            }
-          }
-          if (inserts.length > 0) {
-            const { error } = await supabase.from("producers").insert(inserts);
+        if (inserts.length > 0) {
+          step = "insertion des nouveaux producteurs";
+          for (let i = 0; i < inserts.length; i += 200) {
+            const batch = inserts.slice(i, i + 200);
+            const { error } = await supabase.from("producers").insert(batch);
             if (error) throw error;
           }
         }
@@ -361,13 +442,20 @@ export default function Producers() {
       }
 
       setImportDone(true);
-      loadProducers();
+      await loadProducers();
     } catch (err: any) {
-      (console.error(err), toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }));
+      console.error("[import producers] échec:", { step, error: err });
+      const detail = describeSupabaseError(err, step);
+      toast({
+        title: "Erreur d'importation",
+        description: detail.length > 300 ? detail.slice(0, 297) + "…" : detail,
+        variant: "destructive",
+      });
     } finally {
       setImporting(false);
     }
   }
+
 
   // Export cooperative select for update dialog
   const [exportCoopForUpdate, setExportCoopForUpdate] = useState("all");
