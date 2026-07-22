@@ -17,7 +17,7 @@ import {
 interface Producer {
   id: string;
   full_name: string;
-  cooperative: string;
+  registre_id: string | null;
   section: string;
   sexe: string | null;
   delivery_potential: number;
@@ -34,14 +34,14 @@ interface Delivery {
 
 interface Shipment {
   id: string;
-  cooperative_id: string | null;
+  registre_id: string | null;
   campaign_label: string | null;
   total_weight: number;
   departure_date: string | null;
   is_cancelled: boolean | null;
 }
 
-interface Campaign { id: string; nom: string }
+interface Registre { id: string; name: string }
 
 const COLORS = {
   primary: "hsl(174 72% 56%)",
@@ -96,7 +96,7 @@ export default function ProducersAnalytics() {
   const [producers, setProducers] = useState<Producer[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [registres, setRegistres] = useState<Registre[]>([]);
 
   // Filters
   const [coopFilter, setCoopFilter] = useState("all");
@@ -109,16 +109,16 @@ export default function ProducersAnalytics() {
     (async () => {
       setLoading(true);
       try {
-        const [p, s, d, c] = await Promise.all([
-          fetchAll<Producer>("producers", "id,full_name,cooperative,section,sexe,delivery_potential,remaining_potential,is_active"),
-          fetchAll<Shipment>("shipments", "id,cooperative_id,campaign_label,total_weight,departure_date,is_cancelled"),
+        const [p, s, d, r] = await Promise.all([
+          fetchAll<Producer>("producers", "id,full_name,registre_id,section,sexe,delivery_potential,remaining_potential,is_active"),
+          fetchAll<Shipment>("shipments", "id,registre_id,campaign_label,total_weight,departure_date,is_cancelled"),
           fetchAll<Delivery>("deliveries", "id,shipment_id,net_weight,delivery_date"),
-          fetchAll<Campaign>("campaigns", "id,nom"),
+          fetchAll<Registre>("registres", "id,name"),
         ]);
         setProducers(p);
         setShipments(s);
         setDeliveries(d);
-        setCampaigns(c);
+        setRegistres(r);
       } catch (e) {
         console.error("[ProducersAnalytics]", e);
       } finally {
@@ -127,15 +127,23 @@ export default function ProducersAnalytics() {
     })();
   }, []);
 
-  const coopList = useMemo(() => [...new Set(producers.map(p => p.cooperative).filter(Boolean))].sort(), [producers]);
+  const registreName = useMemo(() => {
+    const m: Record<string, string> = {};
+    registres.forEach(r => { m[r.id] = r.name; });
+    return m;
+  }, [registres]);
+  const producerCoop = (p: Producer) => (p.registre_id ? registreName[p.registre_id] || "" : "");
+  const campaignsList = useMemo(() => Array.from(new Set(shipments.map(s => s.campaign_label).filter(Boolean))).sort() as string[], [shipments]);
+
+  const coopList = useMemo(() => [...new Set(producers.map(p => producerCoop(p)).filter(Boolean))].sort(), [producers, registreName]);
   const sectionList = useMemo(() => [...new Set(producers.map(p => p.section).filter(Boolean))].sort(), [producers]);
 
   // Filtered producers
   const filtered = useMemo(() => producers.filter(p => {
-    if (coopFilter !== "all" && p.cooperative !== coopFilter) return false;
+    if (coopFilter !== "all" && producerCoop(p) !== coopFilter) return false;
     if (sectionFilter !== "all" && p.section !== sectionFilter) return false;
     return true;
-  }), [producers, coopFilter, sectionFilter]);
+  }), [producers, coopFilter, sectionFilter, registreName]);
 
   // Filtered deliveries (by period + campaign coop)
   const filteredDeliveries = useMemo(() => {
@@ -199,21 +207,20 @@ export default function ProducersAnalytics() {
 
   const byCampaign = useMemo(() => {
     const map = new Map<string, number>();
-    const cName = new Map(campaigns.map(c => [c.id, c.nom]));
     deliveries.forEach(d => {
       const ship = shipments.find(s => s.id === d.shipment_id);
       if (!ship || ship.is_cancelled || !ship.campaign_label) return;
-      const name = cName.get(ship.campaign_label) || "—";
+      const name = ship.campaign_label;
       map.set(name, (map.get(name) || 0) + Number(d.net_weight || 0));
     });
     return Array.from(map.entries()).map(([campagne, kg]) => ({ campagne, kg: Math.round(kg) }));
-  }, [deliveries, shipments, campaigns]);
+  }, [deliveries, shipments]);
 
   const byCoop = useMemo(() => {
     const map = new Map<string, number>();
-    producers.forEach(p => map.set(p.cooperative, (map.get(p.cooperative) || 0) + 1));
+    producers.forEach(p => { const c = producerCoop(p) || "—"; map.set(c, (map.get(c) || 0) + 1); });
     return Array.from(map.entries()).map(([cooperative, count]) => ({ cooperative, count }));
-  }, [producers]);
+  }, [producers, registreName]);
 
   if (loading) {
     return (
@@ -249,7 +256,7 @@ export default function ProducersAnalytics() {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Toutes</SelectItem>
-                {campaigns.map(c => <SelectItem key={c.id} value={c.id}>{c.nom}</SelectItem>)}
+                {campaignsList.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

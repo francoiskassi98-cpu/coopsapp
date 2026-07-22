@@ -14,7 +14,7 @@ import { generatePrimeExcel } from "@/lib/prime-excel";
 
 interface Coop { id: string; name: string; logo_path?: string | null }
 interface Campaign { id: string; nom: string }
-interface ProducerOpt { id: string; full_name: string; section: string; cooperative: string }
+interface ProducerOpt { id: string; full_name: string; section: string; registre_id: string | null }
 
 interface PrimeRow {
   producer_id: string; // représentant (première plantation) pour l'enregistrement
@@ -53,31 +53,30 @@ export default function PrimeProducer() {
   useEffect(() => {
     (async () => {
       const [{ data: c }, { data: cp }] = await Promise.all([
-        (supabase as any).from("cooperatives").select("id,name,logo_path").order("name"),
+        (supabase as any).from("registres").select("id,name").order("name"),
         (supabase as any).from("shipments").select("campaign_label").not("campaign_label","is",null).limit(2000),
       ]);
-      const list = (c || []) as Coop[];
-      setCoops(isSuperAdmin ? list : list.filter(x => cooperativeRefs.some(r => r.id === x.id)));
+      const list = ((c || []) as any[]).map((r) => ({ id: r.id, name: r.name })) as Coop[];
+      setCoops(list);
       const labels = Array.from(new Set(((cp as any[]) || []).map((r) => r.campaign_label).filter(Boolean))).sort().reverse();
       setCampaigns(labels.map((l) => ({ id: l, nom: l })) as Campaign[]);
-      if (!isSuperAdmin && cooperativeRefs[0]) setCoopId(cooperativeRefs[0].id);
+      if (!isSuperAdmin && list[0]) setCoopId(list[0].id);
     })();
   }, [isSuperAdmin, cooperativeRefs]);
 
   // Charge producteurs + sections en fonction du filtre registre
   useEffect(() => {
     if (!coopId) { setSections([]); setProducersList([]); return; }
-    const scopeNames = coopId === "all" ? coops.map(c => c.name) : [coops.find(c => c.id === coopId)?.name].filter(Boolean) as string[];
-    if (scopeNames.length === 0) { setSections([]); setProducersList([]); return; }
     (async () => {
       let all: ProducerOpt[] = [];
       let from = 0;
       while (true) {
-        const { data } = await (supabase as any).from("producers")
-          .select("id,full_name,section,cooperative")
-          .in("cooperative", scopeNames)
+        let q = (supabase as any).from("producers")
+          .select("id,full_name,section,registre_id")
           .order("full_name")
           .range(from, from + 999);
+        if (coopId !== "all") q = q.eq("registre_id", coopId);
+        const { data } = await q;
         if (!data || data.length === 0) break;
         all = all.concat(data as ProducerOpt[]);
         if (data.length < 1000) break;
@@ -108,13 +107,13 @@ export default function PrimeProducer() {
       const deliveries: Array<{ producer_id: string | null; net_weight: number | null }> = [];
       let from = 0;
       while (true) {
-        let dq = supabase.from("deliveries")
-          .select("id,producer_id,net_weight,delivery_date,shipments!inner(cooperative_id,campaign_label,is_cancelled)")
+        let dq = (supabase as any).from("deliveries")
+          .select("id,producer_id,net_weight,delivery_date,shipments!inner(registre_id,campaign_label,is_cancelled)")
           .gte("delivery_date", startDate)
           .lte("delivery_date", endDate)
           .eq("shipments.is_cancelled", false)
           .order("id", { ascending: true });
-        if (!isAllCoops) dq = dq.eq("shipments.cooperative_id", coopId);
+        if (!isAllCoops) dq = dq.eq("shipments.registre_id", coopId);
         if (campaignId !== "all") dq = dq.eq("shipments.campaign_label", campaignId);
         if (producerId !== "all") dq = dq.eq("producer_id", producerId);
         const { data, error } = await dq.range(from, from + 999);
@@ -142,15 +141,16 @@ export default function PrimeProducer() {
 
       // 3) Charger les infos plantations (avec producer_code) — filtrer par section si demandé
       const plantMap = new Map<string, { id: string; producer_code: string; full_name: string; section: string; cooperative: string }>();
+      const coopNameById = new Map(coops.map(c => [c.id, c.name]));
       for (let i = 0; i < plantationIds.length; i += 500) {
         const chunk = plantationIds.slice(i, i + 500);
-        let pq = supabase.from("producers")
-          .select("id,producer_code,full_name,section,cooperative")
+        let pq = (supabase as any).from("producers")
+          .select("id,producer_code,full_name,section,registre_id")
           .in("id", chunk);
         if (section !== "all") pq = pq.eq("section", section);
         const { data, error } = await pq;
         if (error) throw error;
-        (data || []).forEach((p: any) => plantMap.set(p.id, p));
+        (data || []).forEach((p: any) => plantMap.set(p.id, { ...p, cooperative: coopNameById.get(p.registre_id) || "" }));
       }
 
       // 4) Regrouper par producer_code

@@ -49,18 +49,31 @@ export default function Dashboard() {
 
   const { data: allProducers = [], isLoading: loadingProducers } = useQuery({
     queryKey: ["dashboard", "producers"],
-    queryFn: () => fetchAllRows(supabase.from("producers").select("delivery_potential, remaining_potential, cooperative")),
+    queryFn: () => fetchAllRows((supabase as any).from("producers").select("delivery_potential, remaining_potential, registre_id")),
   });
 
   const { data: allShipments = [], isLoading: loadingShipments } = useQuery({
     queryKey: ["dashboard", "shipments"],
     queryFn: () => fetchAllRows(
-      supabase
+      (supabase as any)
         .from("shipments")
-        .select("id, project, destination, total_weight, total_bags, created_at, campaign, zone, connaissement, partners(name), cooperatives(name)")
+        .select("id, project, destination, total_weight, total_bags, created_at, campaign_label, zone, connaissement, registre_id, partners(name)")
         .order("created_at", { ascending: false })
     ),
   });
+
+  const { data: registres = [] } = useQuery({
+    queryKey: ["dashboard", "registres"],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("registres").select("id, name");
+      return data ?? [];
+    },
+  });
+  const registreName = useMemo(() => {
+    const m: Record<string, string> = {};
+    (registres as any[]).forEach((r) => { m[r.id] = r.name; });
+    return m;
+  }, [registres]);
 
   const loading = loadingProducers || loadingShipments;
 
@@ -72,14 +85,14 @@ export default function Dashboard() {
   // Available campaigns
   const campaigns = useMemo(() => {
     const set = new Set<string>();
-    allShipments.forEach((s) => { if (s.campaign) set.add(normalizeCampaign(s.campaign)); });
+    allShipments.forEach((s) => { if (s.campaign_label) set.add(normalizeCampaign(s.campaign_label)); });
     return Array.from(set).sort();
   }, [allShipments]);
 
   // Filtered shipments based on chronology
   const shipments = useMemo(() => {
     return allShipments.filter((s) => {
-      if (selectedCampaign !== "all" && normalizeCampaign(s.campaign) !== selectedCampaign) return false;
+      if (selectedCampaign !== "all" && normalizeCampaign(s.campaign_label) !== selectedCampaign) return false;
       if (selectedMonths.length > 0) {
         const date = new Date(s.created_at);
         const month = date.getMonth() + 1;
@@ -125,16 +138,16 @@ export default function Dashboard() {
 
   const coopStats = useMemo(() => {
     const coopPotentialMap: Record<string, { potentiel: number; remaining: number }> = {};
-    allProducers.forEach((p) => {
-      const coop = p.cooperative || "Inconnu";
+    allProducers.forEach((p: any) => {
+      const coop = registreName[p.registre_id] || "Inconnu";
       if (!coopPotentialMap[coop]) coopPotentialMap[coop] = { potentiel: 0, remaining: 0 };
       coopPotentialMap[coop].potentiel += Number(p.delivery_potential);
       coopPotentialMap[coop].remaining += Number(p.remaining_potential);
     });
 
     const coopDeliveredMap: Record<string, { delivered: number; count: number }> = {};
-    shipments.forEach((s) => {
-      const coop = (s.cooperatives as any)?.name || s.zone || "Inconnu";
+    shipments.forEach((s: any) => {
+      const coop = registreName[s.registre_id] || s.zone || "Inconnu";
       if (!coopDeliveredMap[coop]) coopDeliveredMap[coop] = { delivered: 0, count: 0 };
       coopDeliveredMap[coop].delivered += Number(s.total_weight);
       coopDeliveredMap[coop].count += 1;
@@ -148,10 +161,10 @@ export default function Dashboard() {
       remaining: coopPotentialMap[name]?.remaining || 0,
       shipmentCount: coopDeliveredMap[name]?.count || 0,
     })).sort((a, b) => b.delivered - a.delivered);
-  }, [allProducers, shipments]);
+  }, [allProducers, shipments, registreName]);
 
   const coopDetailShipments = coopDetailName
-    ? shipments.filter((s) => ((s.cooperatives as any)?.name || s.zone || "Inconnu") === coopDetailName)
+    ? shipments.filter((s: any) => (registreName[s.registre_id] || s.zone || "Inconnu") === coopDetailName)
     : [];
 
   return (
