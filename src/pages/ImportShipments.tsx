@@ -144,12 +144,13 @@ export default function ImportShipments() {
 
       const producerMap = new Map((producers || []).map((p: any) => [p.plantation_code, p]));
 
-      const { data: existingPartners } = await supabase.from("partners").select("id, name");
-      const partnerMap = new Map((existingPartners || []).map((p) => [p.name.toLowerCase(), p.id]));
+      const { data: existingPartners } = await supabase.from("partners").select("id, name, registre_id");
+      const partnerMap = new Map((existingPartners || []).map((p: any) => [p.name.toLowerCase(), p.id]));
 
-      // Load cooperatives for mapping zone -> cooperative_id
-      const { data: coopsData } = await supabase.from("cooperatives").select("id, name");
-      const coopNameToId = new Map((coopsData || []).map((c) => [c.name.toLowerCase(), c.id]));
+      // Load registres for mapping zone -> registre_id
+      const { data: regsData } = await (supabase as any).from("registres").select("id, name, cooperative_id");
+      const regNameToId = new Map((regsData || []).map((r: any) => [r.name.toLowerCase(), r.id]));
+      const regNameToCoop = new Map((regsData || []).map((r: any) => [r.name.toLowerCase(), r.cooperative_id]));
 
       const groups = groupByShipment(importRows);
       let totalDeliveries = 0;
@@ -157,7 +158,16 @@ export default function ImportShipments() {
 
       for (const [, group] of Object.entries(groups)) {
         const first = group[0];
-        const campaign = detectCampaignFromDate(first.date_livraison);
+        const campaignLabel = detectCampaignFromDate(first.date_livraison);
+
+        // Resolve registre_id from zone name
+        let registreId: string | null = null;
+        if (first.zone) {
+          registreId = regNameToId.get(first.zone.toLowerCase()) || null;
+        }
+        if (!registreId) {
+          throw new Error(`Registre introuvable pour la zone "${first.zone || "(vide)"}". Créez-le d'abord.`);
+        }
 
         let partnerId: string | null = null;
         if (first.partenaire) {
@@ -165,7 +175,7 @@ export default function ImportShipments() {
           if (!partnerId) {
             const { data: newPartner } = await (supabase as any)
               .from("partners")
-              .insert({ name: first.partenaire })
+              .insert({ name: first.partenaire, registre_id: registreId })
               .select()
               .single();
             if (newPartner) {
@@ -177,20 +187,6 @@ export default function ImportShipments() {
 
         const totalWeight = group.reduce((s, r) => s + r.poids_net, 0);
         const totalBags = group.reduce((s, r) => s + r.nombre_sacs, 0);
-
-        // Resolve cooperative_id from zone name
-        let cooperativeId: string | null = null;
-        if (first.zone) {
-          cooperativeId = coopNameToId.get(first.zone.toLowerCase()) || null;
-          if (!cooperativeId) {
-            // Auto-create the cooperative
-            const { data: newCoop } = await (supabase as any).from("cooperatives").insert({ name: first.zone }).select().single();
-            if (newCoop) {
-              cooperativeId = newCoop.id;
-              coopNameToId.set(first.zone.toLowerCase(), newCoop.id);
-            }
-          }
-        }
 
         const dates = group.map((r) => r.date_livraison).filter(Boolean).sort();
         const deliveryStart = dates[0] || first.date_livraison;
@@ -206,9 +202,9 @@ export default function ImportShipments() {
             project: first.projet || "Ordinaire",
             partner_id: partnerId,
             zone: first.zone || null,
-            cooperative_id: cooperativeId,
+            registre_id: registreId,
             destination: first.destination || "Abidjan",
-            campaign: campaign || "Principale",
+            campaign_label: campaignLabel || null,
             delivery_start: deliveryStart,
             delivery_end: deliveryEnd,
           })
