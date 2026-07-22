@@ -275,11 +275,10 @@ export default function Producers() {
         }
 
         if (newRows.length > 0) {
-          const toInsert = newRows.map((r) => ({
-            ...r,
-            remaining_potential: r.delivery_potential,
-            sexe: r.sexe || null,
-          }));
+          const toInsert = newRows.map((r) => {
+            const { campaign_label, ...rest } = r;
+            return { ...rest, remaining_potential: r.delivery_potential, sexe: r.sexe || null };
+          });
 
           for (let i = 0; i < toInsert.length; i += 500) {
             const batch = toInsert.slice(i, i + 500);
@@ -304,50 +303,32 @@ export default function Producers() {
 
         for (const r of parsedRows) {
           const existingId = existingMap.get(r.plantation_code);
+          const base = {
+            cooperative: r.cooperative,
+            full_name: r.full_name,
+            producer_number: r.producer_number,
+            national_id: r.national_id,
+            producer_code: r.producer_code,
+            sexe: r.sexe || null,
+            section: r.section,
+            total_cocoa_area: r.total_cocoa_area,
+            num_plots: r.num_plots,
+            delivery_potential: r.delivery_potential,
+            remaining_potential: r.delivery_potential,
+            plantation_area: r.plantation_area,
+            latitude: r.latitude,
+            longitude: r.longitude,
+          };
           if (existingId) {
-            const updateData: any = {
-              cooperative: r.cooperative,
-              full_name: r.full_name,
-              producer_number: r.producer_number,
-              national_id: r.national_id,
-              producer_code: r.producer_code,
-              sexe: r.sexe || null,
-              section: r.section,
-              total_cocoa_area: r.total_cocoa_area,
-              num_plots: r.num_plots,
-              delivery_potential: r.delivery_potential,
-              remaining_potential: r.delivery_potential,
-              plantation_area: r.plantation_area,
-              latitude: r.latitude,
-              longitude: r.longitude,
-              num_men: r.num_men || 0,
-              num_women: r.num_women || 0,
-            };
-            toInsert.push({ id: existingId, ...updateData, plantation_code: r.plantation_code });
+            toInsert.push({ id: existingId, ...base, plantation_code: r.plantation_code });
             updatedCount++;
           } else {
-            toInsert.push({
-              cooperative: r.cooperative,
-              full_name: r.full_name,
-              producer_number: r.producer_number,
-              national_id: r.national_id,
-              producer_code: r.producer_code,
-              sexe: r.sexe || null,
-              section: r.section,
-              total_cocoa_area: r.total_cocoa_area,
-              num_plots: r.num_plots,
-              plantation_code: r.plantation_code,
-              delivery_potential: r.delivery_potential,
-              remaining_potential: r.delivery_potential,
-              plantation_area: r.plantation_area,
-              latitude: r.latitude,
-              longitude: r.longitude,
-              num_men: r.num_men || 0,
-              num_women: r.num_women || 0,
-            });
+            toInsert.push({ ...base, plantation_code: r.plantation_code });
             insertedCount++;
           }
         }
+
+
 
         for (let i = 0; i < toInsert.length; i += 500) {
           const batch = toInsert.slice(i, i + 500);
