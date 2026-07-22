@@ -184,27 +184,26 @@ export default function Producers() {
       toast({ title: "Aucune donnée à exporter", variant: "destructive" });
       return;
     }
+    // Export dans le MÊME format que le modèle d'import (compat aller-retour)
     const rows = data.map((p) => ({
       "Registre": p.cooperative,
-      "Nom complet": p.full_name,
-      "N° producteur": p.producer_number || "",
-      "CNI": p.national_id || "",
-      "Code producteur": p.producer_code || "",
+      "Campagne": p.campaign_label || "",
+      "Nom et prenom du producteur": p.full_name,
+      "Numero du producteur": p.producer_number || "",
+      "N° identification nationale du producteur": p.national_id || "",
+      "Code du producteur": p.producer_code || "",
       "Sexe": p.sexe || "",
       "Section": p.section,
-      "Surface cacao totale": p.total_cocoa_area || 0,
-      "Nb parcelles": p.num_plots || 0,
-      "Code plantation": p.plantation_code,
-      "Potentiel livraison (kg)": p.delivery_potential,
-      "Potentiel restant (kg)": p.remaining_potential,
+      "Superficie total cacao": p.total_cocoa_area || 0,
+      "Nombre de champ de cacao": p.num_plots || 0,
+      "Code de la plantation": p.plantation_code,
+      "Potentiel de livraison": p.delivery_potential,
       "Superficie": p.plantation_area || 0,
-      "Latitude": p.latitude || 0,
-      "Longitude": p.longitude || 0,
-      "Nombre d'hommes": p.num_men || 0,
-      "Nombre de femmes": p.num_women || 0,
+      "Latitude polygone": p.latitude || 0,
+      "Longitude polygone": p.longitude || 0,
     }));
     const suffix = cooperative && cooperative !== "all" ? `-${cooperative}` : "";
-    await exportToExcel(rows, `Registre-Producteurs${suffix}.xlsx`, "Producteurs");
+    await exportToExcel(rows, `Registre-Producteurs${suffix}.xlsx`, "Registre");
     toast({ title: "Export réussi" });
   }
 
@@ -214,6 +213,7 @@ export default function Producers() {
     setImportFile(null);
     setParsedRows([]);
     setImportErrors([]);
+    setImportReport(null);
     setImportDone(false);
   }
 
@@ -221,10 +221,12 @@ export default function Producers() {
     setImportFile(f);
     setImportDone(false);
     const buffer = await f.arrayBuffer();
-    const { rows, errors } = await parseExcelFile(buffer);
-    setParsedRows(rows);
-    setImportErrors(errors);
+    const report = await parseExcelFile(buffer);
+    setParsedRows(report.rows);
+    setImportErrors(report.errors);
+    setImportReport(report);
   }, []);
+
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
