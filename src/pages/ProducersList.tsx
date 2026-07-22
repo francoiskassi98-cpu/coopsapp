@@ -13,7 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle, ShieldOff } from "lucide-react";
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
-import { parseExcelFile, downloadImportTemplate, exportToExcel, type ProducerRow, type ImportError } from "@/lib/excel-utils";
+import { parseExcelFile, downloadImportTemplate, exportToExcel, downloadErrorReport, type ProducerRow, type ImportError, type ImportReport } from "@/lib/excel-utils";
 import PageHeader from "@/components/PageHeader";
 import { Users as UsersIcon } from "lucide-react";
 
