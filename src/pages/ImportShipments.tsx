@@ -145,7 +145,7 @@ export default function ImportShipments() {
       const producerMap = new Map((producers || []).map((p: any) => [p.plantation_code, p]));
 
       const { data: existingPartners } = await supabase.from("partners").select("id, name, registre_id");
-      const partnerMap = new Map((existingPartners || []).map((p: any) => [p.name.toLowerCase(), p.id]));
+      const partnerMap = new Map<string, string>((existingPartners || []).map((p: any) => [String(p.name).toLowerCase(), p.id as string]));
 
       // Load registres for mapping zone -> registre_id
       const { data: regsData } = await (supabase as any).from("registres").select("id, name, cooperative_id");
