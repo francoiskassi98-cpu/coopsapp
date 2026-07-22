@@ -1,14 +1,23 @@
 import { useCooperativeContext } from "@/hooks/useCooperativeContext";
 import { useAuth } from "@/hooks/useAuth";
-import { Badge } from "@/components/ui/badge";
 import { Building2 } from "lucide-react";
+import { currentCampaign } from "@/lib/campaign";
 
-const STATUS_LABEL: Record<string, { label: string; dot: string; badge: string }> = {
-  active:    { label: "Abonnement actif",   dot: "bg-emerald-500",  badge: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" },
-  trial:     { label: "Période d'essai",    dot: "bg-amber-500",    badge: "bg-amber-500/10 text-amber-600 border-amber-500/30" },
-  expired:   { label: "Abonnement expiré",  dot: "bg-rose-500",     badge: "bg-rose-500/10 text-rose-600 border-rose-500/30" },
-  suspended: { label: "Suspendu",           dot: "bg-slate-400",    badge: "bg-slate-400/10 text-slate-500 border-slate-400/30" },
-};
+function Segment({ label, value, tone }: { label: string; value: React.ReactNode; tone?: "muted" | "primary" | "success" | "warning" | "danger" }) {
+  const toneCls: Record<string, string> = {
+    muted:   "text-foreground",
+    primary: "text-primary",
+    success: "text-emerald-600",
+    warning: "text-amber-600",
+    danger:  "text-rose-600",
+  };
+  return (
+    <div className="flex flex-col min-w-0 px-4 border-l border-border/60 first:border-l-0 first:pl-0">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground leading-tight">{label}</span>
+      <span className={`text-sm font-semibold truncate ${toneCls[tone ?? "muted"]}`}>{value}</span>
+    </div>
+  );
+}
 
 export default function CooperativeBanner() {
   const { cooperative, subscription, logoUrl, loading } = useCooperativeContext();
@@ -17,44 +26,31 @@ export default function CooperativeBanner() {
   if (isSuperAdmin) return null;
   if (loading || !cooperative) return null;
 
-  const status = subscription?.status ?? "trial";
-  const meta = STATUS_LABEL[status] ?? STATUS_LABEL.trial;
-  const currentRegistre = cooperativeRefs[0]?.name;
+  const currentRegistre = cooperativeRefs[0]?.name ?? "—";
+  const fmtDate = (d?: string) => (d ? new Date(d).toLocaleDateString("fr-FR") : "—");
+  const daysTone: "success" | "warning" | "danger" =
+    !subscription ? "warning" :
+    subscription.days_remaining <= 7 ? "danger" :
+    subscription.days_remaining <= 30 ? "warning" : "success";
 
   return (
-    <div className="flex items-center gap-3 min-w-0">
-      <div className="h-9 w-9 shrink-0 rounded-md bg-muted flex items-center justify-center overflow-hidden border border-border/50">
+    <div className="flex items-center gap-3 min-w-0 flex-1">
+      <div className="h-11 w-11 shrink-0 rounded-xl bg-muted flex items-center justify-center overflow-hidden ring-1 ring-border">
         {logoUrl ? (
           <img src={logoUrl} alt={cooperative.name} className="h-full w-full object-cover" />
         ) : (
-          <Building2 className="h-4 w-4 text-muted-foreground" />
+          <Building2 className="h-5 w-5 text-muted-foreground" />
         )}
       </div>
-      <div className="min-w-0">
-        <div className="text-sm font-semibold leading-tight truncate">
-          {cooperative.name}
-          {cooperative.acronym && <span className="ml-1.5 text-muted-foreground font-normal">({cooperative.acronym})</span>}
-        </div>
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground truncate">
-          {currentRegistre && <span className="truncate">Registre : {currentRegistre}</span>}
-          {subscription && (
-            <>
-              <span>·</span>
-              <span>{subscription.plan_name}</span>
-              <span>·</span>
-              <span>
-                {new Date(subscription.start_date).toLocaleDateString("fr-FR")} → {new Date(subscription.end_date).toLocaleDateString("fr-FR")}
-              </span>
-              <span>·</span>
-              <span>{subscription.days_remaining} j restants</span>
-            </>
-          )}
-        </div>
+      <div className="flex items-stretch gap-0 min-w-0 overflow-x-auto">
+        <Segment label="Coopérative" value={cooperative.acronym || cooperative.name} />
+        <Segment label="Registre actif" value={currentRegistre} tone="primary" />
+        <Segment label="Campagne" value={currentCampaign()} />
+        {subscription && <Segment label="Abonnement" value={<span className="capitalize">{subscription.plan_name}</span>} tone="success" />}
+        <Segment label="Début" value={fmtDate(subscription?.start_date)} />
+        <Segment label="Fin" value={fmtDate(subscription?.end_date)} />
+        <Segment label="Jours restants" value={subscription ? `${subscription.days_remaining} j` : "—"} tone={daysTone} />
       </div>
-      <Badge variant="outline" className={`shrink-0 gap-1.5 ${meta.badge}`}>
-        <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-        {meta.label}
-      </Badge>
     </div>
   );
 }

@@ -1,16 +1,10 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { X, Calendar } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const MONTHS = [
-  "Octobre", "Novembre", "Décembre",
-  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Août", "Septembre",
-];
-
-// Month indices mapped to campaign cycle (Oct=0 -> month 10, etc.)
-const MONTH_NUMBERS = [10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+const MONTHS = ["Sep", "Oct", "Nov", "Déc", "Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août"];
+const MONTH_NUMBERS = [9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8];
 
 type Props = {
   campaigns: string[];
@@ -21,34 +15,23 @@ type Props = {
 };
 
 export default function DashboardFilters({
-  campaigns,
-  selectedCampaign,
-  onCampaignChange,
-  selectedMonths,
-  onMonthsChange,
+  campaigns, selectedCampaign, onCampaignChange, selectedMonths, onMonthsChange,
 }: Props) {
-  function toggleMonth(monthNum: number) {
-    if (selectedMonths.includes(monthNum)) {
-      onMonthsChange(selectedMonths.filter((m) => m !== monthNum));
-    } else {
-      onMonthsChange([...selectedMonths, monthNum]);
-    }
-  }
-
-  function clearMonths() {
-    onMonthsChange([]);
+  function toggleMonth(m: number) {
+    if (selectedMonths.includes(m)) onMonthsChange(selectedMonths.filter((x) => x !== m));
+    else onMonthsChange([...selectedMonths, m]);
   }
 
   return (
-    <div className="flex flex-col gap-3 p-4 rounded-lg border bg-card">
-      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-        <Calendar className="h-4 w-4" />
+    <div className="rounded-[20px] border border-border bg-card shadow-glass p-5">
+      <div className="flex items-center gap-2 text-sm font-semibold text-foreground/80 mb-4">
+        <Calendar className="h-4 w-4 text-primary" />
         Chronologie
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="w-48">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="w-52">
           <Select value={selectedCampaign} onValueChange={onCampaignChange}>
-            <SelectTrigger>
+            <SelectTrigger className="rounded-full h-9 bg-background border-border">
               <SelectValue placeholder="Campagne" />
             </SelectTrigger>
             <SelectContent>
@@ -65,24 +48,25 @@ export default function DashboardFilters({
             const monthNum = MONTH_NUMBERS[i];
             const isSelected = selectedMonths.includes(monthNum);
             return (
-              <Badge
+              <button
                 key={monthNum}
-                variant={isSelected ? "default" : "outline"}
-                className={`cursor-pointer select-none transition-colors ${
-                  isSelected
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "hover:bg-accent"
-                }`}
+                type="button"
                 onClick={() => toggleMonth(monthNum)}
+                className={cn(
+                  "h-9 min-w-[54px] px-3 rounded-full text-xs font-medium transition-all border",
+                  isSelected
+                    ? "bg-primary text-primary-foreground border-primary shadow-glow"
+                    : "bg-background text-foreground/70 border-border hover:border-primary/40 hover:text-foreground"
+                )}
               >
-                {label.substring(0, 3)}
-              </Badge>
+                {label}
+              </button>
             );
           })}
         </div>
 
         {selectedMonths.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={clearMonths} className="h-7 px-2">
+          <Button variant="ghost" size="sm" onClick={() => onMonthsChange([])} className="h-9 px-2 rounded-full">
             <X className="h-3 w-3 mr-1" /> Réinitialiser
           </Button>
         )}

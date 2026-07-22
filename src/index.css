@@ -8,9 +8,9 @@ html, body {
 
 @layer base {
   :root {
-    /* AgroServices Digital — thème clair (inspiration bleu marine) */
-    --background: 210 40% 98%;           /* #F8FAFC */
-    --foreground: 222 47% 11%;           /* #0F172A navy */
+    /* AgroServices Digital — SaaS dashboard tokens */
+    --background: 220 25% 97%;           /* #F5F7FB */
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
@@ -18,54 +18,52 @@ html, body {
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 221 83% 53%;              /* #2563EB bleu */
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 217 91% 60%;         /* #3B82F6 */
+    --primary-glow: 217 91% 60%;
 
-    --secondary: 210 40% 96%;            /* #F1F5F9 */
+    --secondary: 220 25% 96%;
     --secondary-foreground: 222 47% 11%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;     /* #64748B lisible */
+    --muted: 220 20% 96%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 214 100% 97%;              /* #EFF6FF bleu très clair */
+    --accent: 214 100% 97%;
     --accent-foreground: 221 83% 53%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 158 84% 39%;              /* #10B981 */
+    --success: 158 84% 39%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;               /* #F59E0B */
+    --warning: 38 92% 50%;
     --warning-foreground: 222 47% 11%;
 
-    --border: 214 32% 91%;               /* #E2E8F0 */
-    --input: 214 32% 91%;
+    --border: 220 20% 92%;
+    --input: 220 20% 92%;
     --ring: 221 83% 53%;
 
-    --radius: 0.75rem;
+    --radius: 1.25rem;                   /* 20px cards */
 
-    /* Sidebar — blanc avec accent bleu */
+    /* Sidebar */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 47% 11%;
     --sidebar-primary: 221 83% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 214 100% 97%;      /* état actif bleu clair */
+    --sidebar-accent: 214 100% 97%;
     --sidebar-accent-foreground: 221 83% 53%;
-    --sidebar-border: 214 32% 91%;
+    --sidebar-border: 220 20% 92%;
     --sidebar-ring: 221 83% 53%;
 
-    /* Gradients & ombres */
+    /* Gradients & shadows */
     --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%), hsl(217 91% 60%));
-    --gradient-sidebar: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 40% 99%) 100%);
-    --gradient-hero: radial-gradient(ellipse at top left, hsl(214 100% 97% / 0.9), transparent 60%),
-                     radial-gradient(ellipse at bottom right, hsl(221 83% 90% / 0.4), transparent 55%),
-                     hsl(210 40% 98%);
-    --gradient-card: linear-gradient(160deg, hsl(0 0% 100%), hsl(210 40% 99%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(220 25% 99%) 100%);
+    --gradient-hero: hsl(220 25% 97%);
+    --gradient-card: linear-gradient(160deg, hsl(0 0% 100%), hsl(220 25% 99%));
 
-    --shadow-glass: 0 1px 2px hsl(222 47% 11% / 0.04), 0 4px 16px hsl(222 47% 11% / 0.06);
-    --shadow-float: 0 20px 50px -20px hsl(221 83% 53% / 0.25), 0 8px 24px hsl(222 47% 11% / 0.08);
-    --shadow-glow: 0 0 32px hsl(217 91% 60% / 0.25);
+    --shadow-glass: 0 1px 2px hsl(222 47% 11% / 0.03), 0 2px 8px hsl(222 47% 11% / 0.04);
+    --shadow-float: 0 12px 32px -12px hsl(221 83% 53% / 0.18), 0 4px 16px hsl(222 47% 11% / 0.06);
+    --shadow-glow: 0 0 24px hsl(217 91% 60% / 0.2);
 
     --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
