@@ -1,129 +1,79 @@
-# Plan — Automatisation des campagnes & Gestion des coopératives
 
-## 1. Suppression du module Campagnes
+## Contexte
 
-Suppression complète de :
-- Menu « Campagnes » dans `AppLayout`
-- Pages : `src/pages/Campaigns.tsx`
-- Routes dans `App.tsx`
-- Hook `useActiveCampaign` / `useCampaigns`
-- Références dans `ReportGenerator`, `ExportPage`, `AuditLog`, `PrimeProducer`, `Dashboard`, filtres, etc.
-- Politiques RLS et table `campaigns` (via migration : DROP TABLE cascade)
-- Colonnes `campaign_id` (remplacées par `campaign_label` déjà présent)
+La base de données possède déjà les deux entités :
+- `cooperatives` (client SaaS) + `user_cooperatives` + `subscriptions`
+- `registres` (entité métier) + `user_registres` + fonctions `my_registre_ids()`, `can_access_registre()`, `is_super_admin()`
 
-## 2. Fonction système unique de calcul de campagne
+Les tables métier (`producers`, `shipments`, `deliveries`, `partners`, `producer_registry`, `producer_bonus_*`, `disabled_sections`, `shipment_excel_templates`) ont déjà une colonne `registre_id` reliée à `registres`.
 
-**Frontend** (`src/lib/campaign.ts`) :
-```ts
-export function computeCampaign(date: Date | string): string {
-  const d = new Date(date);
-  const y = d.getFullYear();
-  return d.getMonth() >= 8 ? `${y}-${y+1}` : `${y-1}-${y}`;
-}
-export function currentCampaign(): string { return computeCampaign(new Date()); }
-```
+Le travail est donc principalement un **renommage UI + basculement des requêtes** de la coopérative vers le registre, pas une refonte de schéma.
 
-**Backend** : la fonction SQL `compute_campaign_label(timestamptz)` existe déjà — la réutiliser partout.
+## Périmètre — ce qui change
 
-## 3. Injection automatique dans toutes les écritures
+### 1. Terminologie UI (fr)
+Remplacer partout dans les modules métier :
+- "Coopérative" → "Registre"
+- "coopérative" → "registre"
+- "Coopératives" → "Registres"
+- icônes/labels de filtres, colonnes de tableaux, entêtes de formulaires, placeholders, toasts
 
-- `campaign_label` renseignée automatiquement côté client via `currentCampaign()` avant tout `insert`
-- Triggers `BEFORE INSERT` sur `shipments`, `deliveries`, `producers`, `producer_registry`, `producer_bonus_results` : si `campaign_label IS NULL`, remplir avec `compute_campaign_label(now())`
-- Suppression de tout champ de saisie campagne dans les formulaires
+Modules concernés : Dashboard, Producteurs (liste, analytics, primes, import), Chargements (création, historique, détails, import, templates, exports Excel/PDF), Livraisons, Partenaires, Rapports (PPTX, dialog, filtres, générateur), Exports, Recherche globale, Filtres, Audit métier, Corbeille métier.
 
-## 4. Filtrage par campagne (lecture seule)
+### 2. Ce qui garde le mot "Coopérative"
+- En-tête `CooperativeBanner`
+- `/gestion/cooperatives*` (Super Admin) : liste, création, édition, abonnements
+- `CreateCooperative`, `CooperativesManagement`, `SubscriptionBlocked`
+- Gestion des utilisateurs (rattachement à la coopérative, invitation coop_admin)
+- Paramètres de la coopérative
+- Dashboard Super Admin (nb coops, abonnements)
 
-Nouveau composant `CampaignFilter` qui liste les campagnes distinctes présentes en base (`SELECT DISTINCT campaign_label`) + option « Toutes ». Utilisé dans Dashboard, Rapports, Exports, Historique.
+### 3. Requêtes & jointures
+Basculer les jointures et agrégations métier de `cooperatives` vers `registres` :
+- `shipments … cooperatives(name)` → `shipments … registres(name)`
+- Filtres `cooperative_id` métier → `registre_id`
+- `useReportData`, `Dashboard`, `ProducersAnalytics`, `PrimeProducer`, `ReportGenerator`, `AuditLog`, `ExportPage`, `Trash`, `GlobalSearch`, `ShipmentHistory`, `ImportShipments`, `ImportProducers`, `Partners`, `CreateShipment`, `ShipmentDetails`, `ProducersList`, `dashboard/CoopTable`, `dashboard/CoopPerformance`, `ReportDialog`, `ReportHistory`, `pptx-report-generator`, `shipment-excel-utils`, `prime-excel`, `excel-utils`, `shipment-fiche-excel`.
+- Champs texte legacy (`producer_registry.cooperative`, `shipments.cooperative`, etc.) restent en DB pour compatibilité mais ne servent plus au filtrage : on utilise `registre_id` + jointure sur `registres.name`.
 
-## 5-6. Module Gestion des Coopératives (Super Admin)
+### 4. Hook d'accès
+- Introduire `useRegistreContext` (miroir de `useCooperativeContext`) qui expose le/les registres visibles selon les droits et remplace l'usage métier de `cooperativeRefs`.
+- `useAuth.cooperativeRefs` reste pour la partie SaaS ; ajouter `registreRefs` (issus de `my_registre_ids` + `registres`).
+- Composants métier passent à `registreRefs` (sélecteurs, isolation par registre).
 
-Nouveau menu **Administration → Gestion des Coopératives** → `/gestion/cooperatives`
+### 5. Base de données (migration légère, sans perte)
+Aucune suppression. Migration idempotente pour :
+- Créer une vue de commodité `public.v_shipments_registre` (optionnel) — sinon utiliser les jointures directes déjà possibles.
+- Vérifier les GRANT/POLICY sur `registres`, `user_registres` pour agents multi-registres.
+- Ajouter, si manquants, des index sur `registre_id` des tables métier.
+- RPCs métier existantes (`get_dashboard_stats_by_registre`, `next_lot_number`, `my_registre_ids`, `can_access_registre`) sont déjà bonnes ; ne rien casser.
+- Les libellés en français des enums restent inchangés.
 
-Page unique `src/pages/CooperativesManagement.tsx` :
-- Table listant toutes les coopératives + statut abonnement + jours restants
-- Actions : Créer, Modifier, Suspendre, Réactiver, Supprimer (si aucune donnée liée), Voir détails, Gérer abonnement
+### 6. Utilisateurs
+- Coop admin : voit tous les registres de sa coopérative → sélecteur de registre dans les filtres métier.
+- Agent : voit uniquement ses registres (`user_registres`) → sélecteur limité à ses affectations.
+- Super admin : sélecteur global (tous registres).
+- La gestion utilisateurs (`UserManagement`) permet déjà l'affectation via `user_registres` ; renommer les libellés "Coopératives assignées" → "Registres assignés" pour les agents.
 
-Migration DB :
-- Ajout colonnes `cooperatives` : `region`, `manager_name` (responsable), + colonnes existantes conservées
-- Table `subscriptions` : déjà présente, ajout `plan_type` si absent
-- Statuts abonnement : `trial | active | expired | suspended`
-- Fonction `get_subscription_status(cooperative_id) returns text` calculant l'état en temps réel selon dates
+## Livrables
 
-## 7. Bandeau d'informations coopérative
+1. Migration SQL non destructive (index, éventuelle vue, vérification GRANT/POLICY).
+2. Nouveau hook `useRegistreContext` + extension `useAuth` avec `registreRefs`.
+3. Renommage UI global dans tous les fichiers listés.
+4. Basculement des requêtes métier vers `registres` (jointures, filtres).
+5. `CooperativeBanner` inchangé ; ajout d'un sélecteur/label de registre courant si plusieurs registres.
 
-Nouveau composant `src/components/CooperativeBanner.tsx` monté dans `AppHeader` :
-- Logo + nom + acronyme
-- Registre actif
-- Badge statut (🟢 Actif / 🟡 Essai / 🔴 Expiré / ⚪ Suspendu)
-- Dates début/fin + jours restants
-- Type d'abonnement
+## Hors périmètre
 
-Nouveau hook `useCooperativeContext()` qui charge la coopérative de l'utilisateur + abonnement courant (realtime).
+- Aucune suppression de colonne, table, route.
+- Aucun changement des flux d'abonnement, création de coop, auth.
+- Aucun renommage de fichier interne (les paths restent, on ne renomme que les libellés UI et les jointures).
 
-## 8. Contrôle d'accès selon abonnement
+## Risques
 
-- Hook `useSubscriptionGuard()` retournant `{ blocked, reason }`
-- `ProtectedRoute` étendu : si `blocked === true` et route métier, afficher écran `SubscriptionBlocked` avec message clair
-- Super Admin non affecté
-- Routes admin (`/gestion/*`) restent accessibles pour permettre régularisation
+- Volume de fichiers touchés (~35). Risque de casser des filtres si un endroit oublie la bascule ; mitigation : rechercher `cooperatives(name)` et `cooperative_id` restants après le refactor et lister.
+- Types Supabase régénérés uniquement si migration ; on limitera la migration au strict nécessaire pour éviter une régénération lourde.
 
-## 9. Tableau de bord Super Admin
+## Validation
 
-Nouvelle page `src/pages/SuperAdminDashboard.tsx` (`/gestion/dashboard`) :
-- KPIs : coopératives totales / actives / essai / expirées / suspendues
-- Totaux : registres, utilisateurs, producteurs
-- Redirection automatique du super_admin vers ce dashboard après login (au lieu de `/gestion/cooperatives/nouvelle`)
-
-## Migrations SQL prévues (une seule migration)
-
-```sql
--- 1. Drop campaigns module
-DROP TABLE IF EXISTS public.campaigns CASCADE;
-
--- 2. Add cooperative fields
-ALTER TABLE public.cooperatives
-  ADD COLUMN IF NOT EXISTS region text,
-  ADD COLUMN IF NOT EXISTS manager_name text;
-
--- 3. Triggers auto campaign_label
-CREATE OR REPLACE FUNCTION public.set_campaign_label_auto()
-RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  IF NEW.campaign_label IS NULL THEN
-    NEW.campaign_label := public.compute_campaign_label(COALESCE(NEW.created_at, now()));
-  END IF;
-  RETURN NEW;
-END $$;
-
-CREATE TRIGGER trg_ship_camp BEFORE INSERT ON public.shipments
-  FOR EACH ROW EXECUTE FUNCTION public.set_campaign_label_auto();
--- (idem deliveries, producers, producer_registry, producer_bonus_results)
-
--- 4. Subscription status function
-CREATE OR REPLACE FUNCTION public.get_subscription_status(_coop_id uuid)
-RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
-  SELECT CASE
-    WHEN s.status = 'suspended' THEN 'suspended'
-    WHEN s.end_date < CURRENT_DATE THEN 'expired'
-    WHEN s.status = 'trial' THEN 'trial'
-    ELSE 'active'
-  END
-  FROM public.subscriptions s
-  WHERE s.cooperative_id = _coop_id
-  ORDER BY s.end_date DESC NULLS LAST LIMIT 1;
-$$;
-```
-
-## Fichiers touchés (résumé)
-
-**Créés :** `src/lib/campaign.ts`, `src/components/CooperativeBanner.tsx`, `src/hooks/useCooperativeContext.tsx`, `src/hooks/useSubscriptionGuard.tsx`, `src/pages/CooperativesManagement.tsx`, `src/pages/SuperAdminDashboard.tsx`, `src/components/SubscriptionBlocked.tsx`, `src/components/CampaignFilter.tsx`
-
-**Modifiés :** `src/App.tsx`, `src/components/AppLayout.tsx`, `src/components/AppHeader.tsx`, `src/components/ProtectedRoute.tsx`, `src/pages/Auth.tsx`, `src/pages/Dashboard.tsx`, `src/components/dashboard/ReportGenerator.tsx`, `src/components/producers/PrimeProducer.tsx`, `src/pages/ExportPage.tsx`, `src/pages/AuditLog.tsx`, `src/pages/CreateShipment.tsx`, `src/pages/ImportShipments.tsx`, `src/pages/ImportProducers.tsx`
-
-**Supprimés :** `src/pages/Campaigns.tsx`, `src/hooks/useActiveCampaign.tsx`
-
-## Points de confirmation
-
-- **Contrainte de suppression coopérative** : bloquer si des `producers`, `shipments` ou `deliveries` y sont rattachés (proposer suspension à la place).
-- **Comportement blocage** : abonnement expiré/suspendu → lecture seule autorisée sur Dashboard/Rapports ou blocage total ? Le plan propose blocage total sauf `/gestion/*`.
-- Confirmer avant implémentation, puis j'exécute la migration + le code en une passe.
+- `tsgo` sans nouvelles erreurs.
+- Vérification manuelle rapide sur : Dashboard, Chargements > Créer, Producteurs > Liste, Rapports > PPTX, Exports, Filtres.
