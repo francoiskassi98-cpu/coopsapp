@@ -1,20 +1,18 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { parseExcelFile, downloadImportTemplate, type ProducerRow, type ImportError } from "@/lib/excel-utils";
-import { useCampaigns } from "@/hooks/useActiveCampaign";
-import { Upload, CheckCircle, AlertCircle, FileSpreadsheet, Download, Calendar } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Upload, CheckCircle, AlertCircle, FileSpreadsheet, Download } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import PageHeader from "@/components/PageHeader";
 
 export default function ImportProducers() {
-  const { campaigns } = useCampaigns();
-  const [campaignId, setCampaignId] = useState<string>("");
+  const { cooperativeRefs, isSuperAdmin } = useAuth();
   const [replaceExisting, setReplaceExisting] = useState(true);
   const [file, setFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<ProducerRow[]>([]);
@@ -22,12 +20,6 @@ export default function ImportProducers() {
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-
-  useEffect(() => {
-    // default to campaign used for shipments
-    const def = campaigns.find((c) => c.utilise_pour_chargement) ?? campaigns[0];
-    if (def && !campaignId) setCampaignId(def.id);
-  }, [campaigns, campaignId]);
 
   const handleFile = useCallback(async (f: File) => {
     setFile(f);
@@ -50,33 +42,40 @@ export default function ImportProducers() {
     if (f) handleFile(f);
   }, [handleFile]);
 
-  const confirmImport = async () => {
-    if (!campaignId) {
-      toast({ title: "Campagne requise", description: "Sélectionnez ou créez une campagne avant d'importer.", variant: "destructive" });
-      return;
+  async function resolveRegistreIds(names: string[]): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    const uniq = Array.from(new Set(names.map((n) => n.trim()).filter(Boolean)));
+    if (uniq.length === 0) return map;
+    const { data: existing, error } = await (supabase as any).from("registres").select("id, name");
+    if (error) throw error;
+    const byName = new Map<string, string>();
+    (existing || []).forEach((r: any) => byName.set(r.name.trim().toLowerCase(), r.id));
+    const missing: string[] = [];
+    for (const n of uniq) {
+      const id = byName.get(n.toLowerCase());
+      if (id) map.set(n.toLowerCase(), id);
+      else missing.push(n);
     }
+    if (missing.length > 0) {
+      const coopId = cooperativeRefs[0]?.id;
+      if (!coopId) throw new Error(`Registres introuvables : ${missing.join(", ")}.`);
+      const toCreate = missing.map((name) => ({ name, cooperative_id: coopId, status: "active" }));
+      const { data: created, error: cErr } = await (supabase as any).from("registres").insert(toCreate).select("id, name");
+      if (cErr) throw cErr;
+      (created || []).forEach((r: any) => map.set(r.name.trim().toLowerCase(), r.id));
+    }
+    return map;
+  }
+
+  const confirmImport = async () => {
     if (parsedRows.length === 0) return;
     setImporting(true);
     try {
-      // Sync cooperatives table
-      const uniqueCoops = [...new Set(parsedRows.map((r) => r.cooperative).filter(Boolean))];
-      if (uniqueCoops.length > 0) {
-        const { data: existingCoops } = await supabase.from("cooperatives").select("name");
-        const existingNames = new Set((existingCoops || []).map((c) => c.name.toLowerCase()));
-        const newCoops = uniqueCoops.filter((c) => !existingNames.has(c.toLowerCase()));
-        if (newCoops.length > 0) {
-          await supabase.from("cooperatives").insert(newCoops.map((name) => ({ name })));
-        }
-      }
-
-      // Optionally replace registry of this campaign
-      if (replaceExisting) {
-        await (supabase.from as any)("producer_registry").delete().eq("campaign_label", campaignId);
-      }
+      const registreMap = await resolveRegistreIds(parsedRows.map((r) => r.cooperative));
 
       const toInsert = parsedRows.map((r) => ({
-        campaign_label: r.campaign_label || campaignId,
-        cooperative: r.cooperative,
+        registre_id: registreMap.get((r.cooperative || "").toLowerCase()) || null,
+        campaign_label: r.campaign_label,
         nom_complet: r.full_name,
         numero_producteur: r.producer_number || null,
         cni: r.national_id || null,
@@ -90,29 +89,33 @@ export default function ImportProducers() {
         latitude: r.latitude || null,
         longitude: r.longitude || null,
         actif: true,
-      }));
+      })).filter((r) => r.registre_id);
 
+      if (replaceExisting) {
+        const registreIds = Array.from(new Set(toInsert.map((r) => r.registre_id)));
+        const campaignLabels = Array.from(new Set(toInsert.map((r) => r.campaign_label)));
+        for (const rid of registreIds) {
+          for (const cl of campaignLabels) {
+            await (supabase.from as any)("producer_registry").delete().eq("registre_id", rid).eq("campaign_label", cl);
+          }
+        }
+      }
 
-      // bulk insert in batches
       for (let i = 0; i < toInsert.length; i += 200) {
         const batch = toInsert.slice(i, i + 200);
         const { error } = await (supabase.from as any)("producer_registry").insert(batch);
         if (error) throw error;
       }
 
-      toast({
-        title: "Importation réussie",
-        description: `${toInsert.length} producteur(s) importé(s) dans la campagne.`,
-      });
+      toast({ title: "Importation réussie", description: `${toInsert.length} producteur(s) importé(s).` });
       setImported(true);
     } catch (err: any) {
-      (console.error(err), toast({ title: "Erreur d'importation", description: "Une erreur est survenue.", variant: "destructive" }));
+      console.error(err);
+      toast({ title: "Erreur d'importation", description: err?.message || "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setImporting(false);
     }
   };
-
-  const selectedCampaign = campaigns.find((c) => c.id === campaignId);
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -127,62 +130,19 @@ export default function ImportProducers() {
         }
       />
 
-      {/* Campaign selector */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            1. Choisir la campagne
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Select value={campaignId} onValueChange={setCampaignId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Sélectionner une campagne" />
-            </SelectTrigger>
-            <SelectContent>
-              {campaigns.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.nom} {c.utilise_pour_chargement ? "• Chargements" : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {campaigns.length === 0 && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Aucune campagne. Créez-en une depuis la page « Campagnes » avant d'importer.
-              </AlertDescription>
-            </Alert>
-          )}
-          <div className="flex items-center gap-2">
-            <Checkbox id="replace" checked={replaceExisting} onCheckedChange={(v) => setReplaceExisting(!!v)} />
-            <label htmlFor="replace" className="text-sm">
-              Remplacer le registre existant de cette campagne
-            </label>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Drop zone */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">2. Déposer le fichier Excel</CardTitle>
+          <CardTitle className="text-base">1. Déposer le fichier Excel</CardTitle>
         </CardHeader>
         <CardContent>
           <div
-            className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
-              dragOver ? "border-primary bg-primary/5" : "border-border"
-            }`}
+            className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${dragOver ? "border-primary bg-primary/5" : "border-border"}`}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={onDrop}
           >
             <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
-            <p className="text-sm text-muted-foreground mb-2">
-              Glissez-déposez un fichier Excel ici, ou
-            </p>
+            <p className="text-sm text-muted-foreground mb-2">Glissez-déposez un fichier Excel ici, ou</p>
             <label>
               <input type="file" accept=".xlsx,.xls,.csv" onChange={onFileSelect} className="hidden" />
               <Button variant="outline" asChild>
@@ -193,6 +153,12 @@ export default function ImportProducers() {
               </Button>
             </label>
             {file && <p className="mt-3 text-sm font-medium">{file.name}</p>}
+          </div>
+          <div className="flex items-center gap-2 mt-4">
+            <Checkbox id="replace" checked={replaceExisting} onCheckedChange={(v) => setReplaceExisting(!!v)} />
+            <label htmlFor="replace" className="text-sm">
+              Remplacer le registre existant pour la même campagne
+            </label>
           </div>
         </CardContent>
       </Card>
@@ -222,9 +188,8 @@ export default function ImportProducers() {
               <CardTitle className="text-base flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-accent" />
                 {parsedRows.length} producteur(s) prêt(s) à importer
-                {selectedCampaign && <span className="text-sm text-muted-foreground"> → {selectedCampaign.nom}</span>}
               </CardTitle>
-              <Button onClick={confirmImport} disabled={importing || imported || !campaignId}>
+              <Button onClick={confirmImport} disabled={importing || imported}>
                 {importing ? "Importation..." : imported ? "Importé ✓" : "Confirmer l'importation"}
               </Button>
             </div>
@@ -240,6 +205,7 @@ export default function ImportProducers() {
                     <TableHead>Code plantation</TableHead>
                     <TableHead>Potentiel (kg)</TableHead>
                     <TableHead>Registre</TableHead>
+                    <TableHead>Campagne</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -251,6 +217,7 @@ export default function ImportProducers() {
                       <TableCell className="font-mono text-xs">{r.plantation_code}</TableCell>
                       <TableCell>{r.delivery_potential.toLocaleString("fr-FR")}</TableCell>
                       <TableCell>{r.cooperative}</TableCell>
+                      <TableCell>{r.campaign_label}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

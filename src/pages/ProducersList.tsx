@@ -54,9 +54,9 @@ export default function Producers() {
     let from = 0;
     const PAGE = 1000;
     while (true) {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("producers")
-        .select("*")
+        .select("*, registres(id, name)")
         .order("section", { ascending: true })
         .order("full_name", { ascending: true })
         .range(from, from + PAGE - 1);
@@ -65,7 +65,8 @@ export default function Producers() {
       if (data.length < PAGE) break;
       from += PAGE;
     }
-    setProducers(allData);
+    // Compat : expose le nom du registre sous `cooperative` pour tout le rendu existant
+    setProducers(allData.map((p: any) => ({ ...p, cooperative: p.registres?.name || "" })));
     setLoading(false);
   }
 
@@ -110,12 +111,12 @@ export default function Producers() {
     setDisabledSections(new Set((data || []).map((d: any) => d.section_name)));
   }
 
-  async function toggleSection(sectionName: string, cooperative: string) {
+  async function toggleSection(sectionName: string, registreId?: string) {
     if (disabledSections.has(sectionName)) {
       await supabase.from("disabled_sections").delete().eq("section_name", sectionName);
       toast({ title: `Section "${sectionName}" réactivée` });
     } else {
-      await (supabase as any).from("disabled_sections").insert({ section_name: sectionName, cooperative });
+      await (supabase as any).from("disabled_sections").insert({ section_name: sectionName, registre_id: registreId ?? null });
       toast({ title: `Section "${sectionName}" désactivée` });
     }
     loadDisabledSections();
@@ -126,7 +127,7 @@ export default function Producers() {
     const map = new Map<string, string>();
     producers.forEach((p) => {
       if (coopFilter === "all" || p.cooperative === coopFilter) {
-        if (!map.has(p.section)) map.set(p.section, p.cooperative);
+        if (!map.has(p.section)) map.set(p.section, p.registre_id);
       }
     });
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
@@ -137,7 +138,7 @@ export default function Producers() {
       full_name: p.full_name,
       section: p.section,
       plantation_code: p.plantation_code,
-      cooperative: p.cooperative,
+      registre_id: p.registre_id,
       sexe: p.sexe || "",
       delivery_potential: p.delivery_potential,
       remaining_potential: p.remaining_potential,

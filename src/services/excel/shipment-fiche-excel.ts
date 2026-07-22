@@ -47,11 +47,11 @@ const FALLBACK_TEMPLATE: TemplateConfig = {
   show_partner_logo: true,
 };
 
-async function loadTemplate(cooperativeId: string | null): Promise<TemplateConfig> {
-  if (!cooperativeId) return FALLBACK_TEMPLATE;
+async function loadTemplate(registreId: string | null): Promise<TemplateConfig> {
+  if (!registreId) return FALLBACK_TEMPLATE;
   const { data } = await (supabase.from("shipment_excel_templates") as any)
     .select("*")
-    .eq("cooperative_id", cooperativeId)
+    .eq("registre_id", registreId)
     .order("is_default", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(1);
@@ -105,13 +105,13 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   const { data: shipment, error: sErr } = await supabase
     .from("shipments")
     .select(
-      "id, connaissement, lot_number, project, destination, total_weight, total_bags, delivery_start, departure_date, driver_name, truck_number, trailer_number, cooperative_id, partner_id, cooperatives(name), partners(name)"
+      "id, connaissement, lot_number, project, destination, total_weight, total_bags, delivery_start, departure_date, driver_name, truck_number, trailer_number, registre_id, partner_id, registres(name, cooperatives(name)), partners(name)"
     )
     .eq("id", shipmentId)
     .maybeSingle();
   if (sErr || !shipment) throw new Error("Chargement introuvable");
 
-  const tpl = await loadTemplate((shipment as any).cooperative_id);
+  const tpl = await loadTemplate((shipment as any).registre_id);
 
   const { data: deliveries, error: dErr } = await supabase
     .from("deliveries")
@@ -128,7 +128,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   ).size;
 
   const sh: any = shipment;
-  const coopName = sh.cooperatives?.name || "—";
+  const coopName = sh.registres?.cooperatives?.name || sh.registres?.name || "—";
   const partnerName = sh.partners?.name || "—";
 
   // ===== Workbook =====
