@@ -27,13 +27,17 @@ export default function ReportGenerator() {
   useEffect(() => {
     (async () => {
       try {
-        const { data: camps } = await (supabase as any)
-          .from("campaigns")
-          .select("id, nom, utilise_pour_chargement, active")
-          .order("date_debut", { ascending: false });
-        setCampaigns((camps ?? []) as Campaign[]);
-        const activeCamp = (camps ?? []).find((c: any) => c.utilise_pour_chargement) || (camps ?? [])[0];
-        if (activeCamp) setCampaignId(activeCamp.id);
+        const { data } = await (supabase as any)
+          .from("shipments")
+          .select("campaign_label")
+          .not("campaign_label", "is", null)
+          .limit(2000);
+        const labels = Array.from(new Set(((data as any[]) || []).map((r) => r.campaign_label).filter(Boolean))).sort().reverse();
+        const current = (await import("@/lib/campaign")).currentCampaign();
+        if (!labels.includes(current)) labels.unshift(current);
+        const list = labels.map((l) => ({ id: l, nom: l, utilise_pour_chargement: l === current, active: l === current }));
+        setCampaigns(list as Campaign[]);
+        setCampaignId(current);
       } catch (e) {
         console.error(e);
         toast.error("Une erreur est survenue.");

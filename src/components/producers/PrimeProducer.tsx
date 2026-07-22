@@ -54,11 +54,12 @@ export default function PrimeProducer() {
     (async () => {
       const [{ data: c }, { data: cp }] = await Promise.all([
         (supabase as any).from("cooperatives").select("id,name,logo_path").order("name"),
-        (supabase as any).from("campaigns").select("id,nom").order("nom", { ascending: false }),
+        (supabase as any).from("shipments").select("campaign_label").not("campaign_label","is",null).limit(2000),
       ]);
       const list = (c || []) as Coop[];
       setCoops(isSuperAdmin ? list : list.filter(x => cooperativeRefs.some(r => r.id === x.id)));
-      setCampaigns((cp || []) as Campaign[]);
+      const labels = Array.from(new Set(((cp as any[]) || []).map((r) => r.campaign_label).filter(Boolean))).sort().reverse();
+      setCampaigns(labels.map((l) => ({ id: l, nom: l })) as Campaign[]);
       if (!isSuperAdmin && cooperativeRefs[0]) setCoopId(cooperativeRefs[0].id);
     })();
   }, [isSuperAdmin, cooperativeRefs]);

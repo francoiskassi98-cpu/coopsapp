@@ -82,10 +82,11 @@ export default function AuditLog() {
     (async () => {
       try {
         const [{ data: camps }, coops] = await Promise.all([
-          (supabase as any).from("campaigns").select("id, nom").order("date_debut", { ascending: false }),
+          (supabase as any).from("shipments").select("campaign_label").not("campaign_label","is",null).limit(2000),
           fetchAllRows("cooperatives", "name", { order: { column: "name" } }),
         ]);
-        setCampaigns((camps ?? []) as any);
+        const labels = Array.from(new Set(((camps as any[]) ?? []).map((r) => r.campaign_label).filter(Boolean))).sort().reverse();
+        setCampaigns(labels.map((l) => ({ id: l, nom: l })) as any);
         setCooperatives(((coops as any[]) ?? []).map((c) => c.name));
       } catch (e) {
         console.error(e);
