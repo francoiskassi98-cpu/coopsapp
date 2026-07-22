@@ -386,8 +386,12 @@ export default function Producers() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold">Registre des producteurs</h1>
+      <PageHeader
+        icon={UsersIcon}
+        title="Registre des producteurs"
+        description="Consulter, filtrer, importer et exporter les producteurs."
+      />
+      <div className="flex items-center justify-end flex-wrap gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={downloadImportTemplate}>
             <Download className="h-4 w-4 mr-2" />
