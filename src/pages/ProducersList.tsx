@@ -54,9 +54,9 @@ export default function Producers() {
     let from = 0;
     const PAGE = 1000;
     while (true) {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("producers")
-        .select("*")
+        .select("*, registres(id, name)")
         .order("section", { ascending: true })
         .order("full_name", { ascending: true })
         .range(from, from + PAGE - 1);
@@ -65,7 +65,8 @@ export default function Producers() {
       if (data.length < PAGE) break;
       from += PAGE;
     }
-    setProducers(allData);
+    // Compat : expose le nom du registre sous `cooperative` pour tout le rendu existant
+    setProducers(allData.map((p: any) => ({ ...p, cooperative: p.registres?.name || "" })));
     setLoading(false);
   }
 
