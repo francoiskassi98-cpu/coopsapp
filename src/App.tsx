@@ -27,6 +27,7 @@ const LoginEvents = lazy(() => import("@/pages/LoginEvents"));
 const Partners = lazy(() => import("@/pages/Partners"));
 const ShipmentTemplates = lazy(() => import("@/pages/ShipmentTemplates"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
+const OAuthConsent = lazy(() => import("@/pages/OAuthConsent"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
