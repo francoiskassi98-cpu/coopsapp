@@ -18,18 +18,18 @@ export default function PageHeader({ icon: Icon, title, description, actions, cl
   return (
     <div
       className={cn(
-        "flex flex-wrap items-start justify-between gap-4 pb-2",
+        "flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-4 pb-2",
         className
       )}
     >
       <div className="flex items-start gap-3 min-w-0">
         {Icon && (
-          <div className="shrink-0 h-11 w-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-glass">
+          <div className="shrink-0 h-10 w-10 md:h-11 md:w-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-glass">
             <Icon className="h-5 w-5" />
           </div>
         )}
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight leading-tight truncate">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight leading-tight break-words">
             {title}
           </h1>
           {description && (
@@ -37,7 +37,11 @@ export default function PageHeader({ icon: Icon, title, description, actions, cl
           )}
         </div>
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && (
+        <div className="flex flex-wrap items-center gap-2 md:justify-end w-full md:w-auto [&>*]:flex-1 sm:[&>*]:flex-none">
+          {actions}
+        </div>
+      )}
     </div>
   );
 }

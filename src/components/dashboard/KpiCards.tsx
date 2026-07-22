@@ -31,21 +31,21 @@ export default function KpiCards({ totalPotential, totalDelivered, remaining, sh
   ];
 
   return (
-    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+    <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {cards.map((c) => {
         const t = TONE[c.tone];
         return (
-          <div key={c.label} className={`relative rounded-[20px] p-5 ring-1 ${t.ring} ${t.bg} shadow-glass transition-all hover:shadow-float`}>
-            <div className="flex items-start justify-between mb-4">
-              <div className={`h-11 w-11 rounded-full flex items-center justify-center shadow-sm ${t.icon}`}>
-                <c.icon className="h-5 w-5" />
+          <div key={c.label} className={`relative rounded-[20px] p-3 sm:p-4 md:p-5 ring-1 ${t.ring} ${t.bg} shadow-glass transition-all hover:shadow-float`}>
+            <div className="flex items-start justify-between gap-2 mb-3 md:mb-4">
+              <div className={`h-9 w-9 md:h-11 md:w-11 rounded-full flex items-center justify-center shadow-sm ${t.icon}`}>
+                <c.icon className="h-4 w-4 md:h-5 md:w-5" />
               </div>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-right leading-tight max-w-[110px]">
+              <div className="text-[9px] md:text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-right leading-tight max-w-[100px] md:max-w-[110px]">
                 {c.label}
               </div>
             </div>
-            <div className="text-[22px] font-bold tracking-tight leading-none mb-1">{c.value}</div>
-            <div className={`text-[11px] font-medium ${t.chip} mb-3`}>{c.sub}</div>
+            <div className="text-lg md:text-[22px] font-bold tracking-tight leading-none mb-1 break-words">{c.value}</div>
+            <div className={`text-[10px] md:text-[11px] font-medium ${t.chip} mb-2 md:mb-3 truncate`}>{c.sub}</div>
             <div className="h-1.5 w-full rounded-full bg-white/70 overflow-hidden">
               <div className={`h-full rounded-full ${t.bar} transition-all`} style={{ width: `${c.progress}%` }} />
             </div>
