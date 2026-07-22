@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { KeyRound, Loader2 } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
 
 interface Row { id: string; email: string | null; user_agent: string | null; created_at: string; }
 
