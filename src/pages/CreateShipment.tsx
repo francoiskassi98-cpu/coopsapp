@@ -17,6 +17,7 @@ import ImportShipments from "@/pages/ImportShipments";
 import ShipmentDetails from "@/components/ShipmentDetails";
 import ShipmentHistory from "@/components/ShipmentHistory";
 import { TemplatePreview, type TemplatePreviewData } from "@/components/shipments/TemplatePreview";
+import PageHeader from "@/components/PageHeader";
 
 export default function CreateShipment() {
   const [totalWeight, setTotalWeight] = useState("");
