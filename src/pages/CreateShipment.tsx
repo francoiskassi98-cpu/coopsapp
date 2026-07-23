@@ -35,7 +35,7 @@ export default function CreateShipment() {
   const [partnerId, setPartnerId] = useState("");
   const [zone, setZone] = useState("");
   const [destination, setDestination] = useState("");
-  const [campaign, setCampaign] = useState("Principale");
+  
   const [partners, setPartners] = useState<any[]>([]);
   const [newPartnerName, setNewPartnerName] = useState("");
   const [projects, setProjects] = useState<any[]>([]);
@@ -759,15 +759,13 @@ export default function CreateShipment() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Campagne</Label>
-                  <Select value={campaign} onValueChange={setCampaign}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Principale">Principale</SelectItem>
-                      <SelectItem value="Intermédiaire">Intermédiaire</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">Campagne actuelle : {getCurrentCampaign()}</p>
+                  <Label>Campagne active</Label>
+                  <div className="h-10 px-3 rounded-md border bg-muted/40 flex items-center text-sm font-medium">
+                    {getCurrentCampaign()}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Automatique : cycle du 1er septembre au 31 août.
+                  </p>
                 </div>
 
                 {/* 6. Quantité */}

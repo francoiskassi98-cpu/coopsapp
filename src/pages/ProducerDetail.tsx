@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, ArrowLeft, User, MapPin, Truck, Coins, Activity, TrendingUp, Search } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { normalizeCampaign } from "@/lib/shipment-utils";
+import { normalizeCampaign, getCurrentCampaign } from "@/lib/shipment-utils";
 
 const fmt = (n: number) => Number(n || 0).toLocaleString("fr-FR");
 
@@ -105,14 +105,15 @@ export default function ProducerDetail() {
 
   // Filters for deliveries
   const [search, setSearch] = useState("");
-  const [campFilter, setCampFilter] = useState("all");
+  const [campFilter, setCampFilter] = useState(getCurrentCampaign());
   const [page, setPage] = useState(0);
   const pageSize = 20;
 
   const campaigns = useMemo(() => {
     const s = new Set<string>();
+    s.add(getCurrentCampaign());
     deliveries.forEach((d: any) => d.campaign_label && s.add(normalizeCampaign(d.campaign_label)));
-    return Array.from(s).sort();
+    return Array.from(s).sort().reverse();
   }, [deliveries]);
 
   const filteredDeliveries = useMemo(() => {

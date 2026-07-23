@@ -41,7 +41,7 @@ export default function Dashboard() {
   const [showReportDialog, setShowReportDialog] = useState(false);
 
   // Chronology filters
-  const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
+  const [selectedCampaign, setSelectedCampaign] = useState<string>(getCurrentCampaign());
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
 
   useEffect(() => {
@@ -86,8 +86,9 @@ export default function Dashboard() {
   // Available campaigns
   const campaigns = useMemo(() => {
     const set = new Set<string>();
+    set.add(getCurrentCampaign());
     allShipments.forEach((s) => { if (s.campaign_label) set.add(normalizeCampaign(s.campaign_label)); });
-    return Array.from(set).sort();
+    return Array.from(set).sort().reverse();
   }, [allShipments]);
 
   // Filtered shipments based on chronology
