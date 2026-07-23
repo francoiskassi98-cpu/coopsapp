@@ -12,6 +12,7 @@ import PageHeader from "@/components/PageHeader";
 import { toast } from "sonner";
 import { fetchAllRows } from "@/lib/database-utils";
 import { supabase } from "@/integrations/supabase/client";
+import { currentCampaign } from "@/lib/campaign";
 import ExcelJS from "exceljs";
 
 type AuditRow = {
@@ -49,7 +50,7 @@ export default function AuditLog() {
   const [fTable, setFTable] = useState<string>("all");
   const [fEmail, setFEmail] = useState<string>("");
   const [fCoop, setFCoop] = useState<string>("all");
-  const [fCampaign, setFCampaign] = useState<string>("all");
+  const [fCampaign, setFCampaign] = useState<string>(currentCampaign());
   const [fFrom, setFFrom] = useState<string>("");
   const [fTo, setFTo] = useState<string>("");
   const [selected, setSelected] = useState<AuditRow | null>(null);
@@ -86,7 +87,10 @@ export default function AuditLog() {
           (supabase as any).from("shipments").select("campaign_label").not("campaign_label","is",null).limit(2000),
           fetchAllRows("cooperatives", "name", { order: { column: "name" } }),
         ]);
-        const labels = Array.from(new Set(((camps as any[]) ?? []).map((r) => r.campaign_label).filter(Boolean))).sort().reverse();
+        const set = new Set<string>();
+        set.add(currentCampaign());
+        ((camps as any[]) ?? []).forEach((r) => { if (r.campaign_label) set.add(r.campaign_label); });
+        const labels = Array.from(set).sort().reverse();
         setCampaigns(labels.map((l) => ({ id: l, nom: l })) as any);
         setCooperatives(((coops as any[]) ?? []).map((c) => c.name));
       } catch (e) {
