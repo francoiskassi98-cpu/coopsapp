@@ -30,7 +30,7 @@ type AuditRow = {
 
 const TABLES = [
   "producers", "producer_registry", "shipments", "deliveries",
-  "campaigns", "user_cooperatives", "profiles",
+  "registres", "user_cooperatives", "user_registres", "profiles",
 ];
 
 const ACTION_COLOR: Record<string, string> = {
