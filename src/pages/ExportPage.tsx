@@ -247,6 +247,28 @@ export default function ExportPage() {
           "Potentiel initial (kg)": p.potentiel_livraison,
           "Potentiel restant (kg)": p.potentiel_restant,
         }));
+
+        // Fallback: si aucune ligne dans producer_registry pour cette campagne,
+        // on retombe sur la table producers (registre courant).
+        if (rows.length === 0) {
+          const producers = await fetchAllRows(
+            "producers",
+            "full_name, section, plantation_code, delivery_potential, remaining_potential, registre_id, registres(name)",
+            {
+              filters: (q) => registreFilter ? q.eq("registre_id", registreFilter) : q,
+              pageSize: 500,
+            }
+          );
+          rows = producers.map((p: any) => ({
+            "Registre": p.registres?.name || "",
+            "Nom complet": p.full_name,
+            "Section": p.section,
+            "Code plantation": p.plantation_code,
+            "Potentiel initial (kg)": p.delivery_potential,
+            "Potentiel restant (kg)": p.remaining_potential,
+          }));
+        }
+
       } else {
         const producers = await fetchAllRows(
           "producers",
