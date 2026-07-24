@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { Calculator, Download, Save, Coins } from "lucide-react";
 import { generatePrimeExcel } from "@/lib/prime-excel";
+import { currentCampaign } from "@/lib/campaign";
 
 interface Coop { id: string; name: string; logo_path?: string | null }
 interface Campaign { id: string; nom: string }
@@ -222,8 +223,8 @@ export default function PrimeProducer() {
     setSaving(true);
     try {
       const { data: setting, error } = await (supabase.from("producer_bonus_settings") as any).insert({
-        cooperative_id: coopId,
-        campaign_label: campaignId !== "all" ? campaignId : null,
+        registre_id: coopId,
+        campaign_label: campaignId !== "all" ? campaignId : currentCampaign(),
         section: section !== "all" ? section : null,
         start_date: startDate,
         end_date: endDate,
@@ -236,7 +237,8 @@ export default function PrimeProducer() {
       const results = rows.map(r => ({
         setting_id: settingId,
         producer_id: r.producer_id,
-        cooperative_id: coopId,
+        registre_id: coopId,
+        campaign_label: campaignId !== "all" ? campaignId : currentCampaign(),
         volume_delivered: r.volume,
         rate: r.rate,
         calculated_bonus: r.bonus,
