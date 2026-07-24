@@ -399,17 +399,18 @@ export default function ExportPage() {
               <div className="p-2 rounded-lg bg-primary/10">
                 <MapPin className="h-5 w-5 text-primary" />
               </div>
-              <CardTitle className="text-base">Potentiel par zone</CardTitle>
+              <CardTitle className="text-base">Potentiel par registre</CardTitle>
             </div>
-            <CardDescription>Potentiel restant de chaque producteur par registre</CardDescription>
+            <CardDescription>Potentiel restant de chaque producteur, filtrable par registre</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 flex-1">
             <p className="text-xs text-muted-foreground flex-1">
-              {selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS
-                ? "Export du potentiel initial et restant pour la campagne sélectionnée."
-                : "Export du potentiel global (toutes campagnes confondues)."}
+              {selectedRegistre
+                ? "Export restreint au registre sélectionné ci-dessus."
+                : "Aucun registre sélectionné : export de tous les registres accessibles."}
             </p>
-            <Button onClick={exportPotentialByZone} disabled={loading === "potential"} className="w-full mt-auto">
+            <Button onClick={exportPotentialByRegistre} disabled={loading === "potential"} className="w-full mt-auto">
+
               {loading === "potential" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
               Exporter
             </Button>
