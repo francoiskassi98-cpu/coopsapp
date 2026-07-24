@@ -220,21 +220,27 @@ export default function ExportPage() {
     setLoading(null);
   };
 
-  const exportPotentialByZone = async () => {
+  const exportPotentialByRegistre = async () => {
     setLoading("potential");
     try {
       let rows: any[] = [];
+      const registreFilter = selectedRegistre || null;
+
       if (selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS) {
         const registry = await fetchAllRows(
           "producer_registry",
           "nom_complet, section, code_plantation, potentiel_livraison, potentiel_restant, registre_id, registres(name)",
           {
-            filters: (q) => q.eq("campaign_label", selectedCampaign),
+            filters: (q) => {
+              let x = q.eq("campaign_label", selectedCampaign);
+              if (registreFilter) x = x.eq("registre_id", registreFilter);
+              return x;
+            },
             pageSize: 500,
           }
         );
         rows = registry.map((p: any) => ({
-          "Registre / Zone": p.registres?.name || "",
+          "Registre": p.registres?.name || "",
           "Nom complet": p.nom_complet,
           "Section": p.section,
           "Code plantation": p.code_plantation,
@@ -246,11 +252,12 @@ export default function ExportPage() {
           "producers",
           "full_name, section, plantation_code, delivery_potential, remaining_potential, registre_id, registres(name)",
           {
+            filters: (q) => registreFilter ? q.eq("registre_id", registreFilter) : q,
             pageSize: 500,
           }
         );
         rows = producers.map((p: any) => ({
-          "Registre / Zone": p.registres?.name || "",
+          "Registre": p.registres?.name || "",
           "Nom complet": p.full_name,
           "Section": p.section,
           "Code plantation": p.plantation_code,
@@ -265,15 +272,19 @@ export default function ExportPage() {
         return;
       }
 
-      rows.sort((a, b) => String(a["Registre / Zone"]).localeCompare(String(b["Registre / Zone"])));
+      rows.sort((a, b) => String(a["Registre"]).localeCompare(String(b["Registre"])));
 
-      await exportToExcel(rows, `Potentiel-Restant-${campaignLabel()}.xlsx`, "Potentiel");
+      const registreName = registreFilter
+        ? (registres.find(r => r.id === registreFilter)?.name || "Registre")
+        : "Tous-Registres";
+      await exportToExcel(rows, `Potentiel-${registreName}-${campaignLabel()}.xlsx`, "Potentiel");
       toast({ title: "Export réussi" });
     } catch (err: any) {
-      notifyError("Erreur lors de l'export du potentiel par zone", err);
+      notifyError("Erreur lors de l'export du potentiel par registre", err);
     }
     setLoading(null);
   };
+
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -388,17 +399,18 @@ export default function ExportPage() {
               <div className="p-2 rounded-lg bg-primary/10">
                 <MapPin className="h-5 w-5 text-primary" />
               </div>
-              <CardTitle className="text-base">Potentiel par zone</CardTitle>
+              <CardTitle className="text-base">Potentiel par registre</CardTitle>
             </div>
-            <CardDescription>Potentiel restant de chaque producteur par registre</CardDescription>
+            <CardDescription>Potentiel restant de chaque producteur, filtrable par registre</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 flex-1">
             <p className="text-xs text-muted-foreground flex-1">
-              {selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS
-                ? "Export du potentiel initial et restant pour la campagne sélectionnée."
-                : "Export du potentiel global (toutes campagnes confondues)."}
+              {selectedRegistre
+                ? "Export restreint au registre sélectionné ci-dessus."
+                : "Aucun registre sélectionné : export de tous les registres accessibles."}
             </p>
-            <Button onClick={exportPotentialByZone} disabled={loading === "potential"} className="w-full mt-auto">
+            <Button onClick={exportPotentialByRegistre} disabled={loading === "potential"} className="w-full mt-auto">
+
               {loading === "potential" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
               Exporter
             </Button>
