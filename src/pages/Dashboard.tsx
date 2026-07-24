@@ -107,8 +107,8 @@ export default function Dashboard() {
   // Computed stats
   const stats = useMemo(() => {
     const totalPotential = allProducers.reduce((s, p) => s + Number(p.delivery_potential), 0);
-    const remaining = allProducers.reduce((s, p) => s + Number(p.remaining_potential), 0);
     const totalDelivered = shipments.reduce((s, sh) => s + Number(sh.total_weight), 0);
+    const remaining = Math.max(totalPotential - totalDelivered, 0);
     return { totalPotential, totalDelivered, remaining, shipmentCount: shipments.length };
   }, [allProducers, shipments]);
 
@@ -139,12 +139,10 @@ export default function Dashboard() {
 
 
   const coopStats = useMemo(() => {
-    const coopPotentialMap: Record<string, { potentiel: number; remaining: number }> = {};
+    const coopPotentialMap: Record<string, number> = {};
     allProducers.forEach((p: any) => {
       const coop = registreName[p.registre_id] || "Inconnu";
-      if (!coopPotentialMap[coop]) coopPotentialMap[coop] = { potentiel: 0, remaining: 0 };
-      coopPotentialMap[coop].potentiel += Number(p.delivery_potential);
-      coopPotentialMap[coop].remaining += Number(p.remaining_potential);
+      coopPotentialMap[coop] = (coopPotentialMap[coop] || 0) + Number(p.delivery_potential);
     });
 
     const coopDeliveredMap: Record<string, { delivered: number; count: number }> = {};
@@ -156,14 +154,19 @@ export default function Dashboard() {
     });
 
     const allCoops = new Set([...Object.keys(coopPotentialMap), ...Object.keys(coopDeliveredMap)]);
-    return Array.from(allCoops).map((name) => ({
-      name,
-      potentiel: coopPotentialMap[name]?.potentiel || 0,
-      delivered: coopDeliveredMap[name]?.delivered || 0,
-      remaining: coopPotentialMap[name]?.remaining || 0,
-      shipmentCount: coopDeliveredMap[name]?.count || 0,
-    })).sort((a, b) => b.delivered - a.delivered);
+    return Array.from(allCoops).map((name) => {
+      const potentiel = coopPotentialMap[name] || 0;
+      const delivered = coopDeliveredMap[name]?.delivered || 0;
+      return {
+        name,
+        potentiel,
+        delivered,
+        remaining: Math.max(potentiel - delivered, 0),
+        shipmentCount: coopDeliveredMap[name]?.count || 0,
+      };
+    }).sort((a, b) => b.delivered - a.delivered);
   }, [allProducers, shipments, registreName]);
+
 
   const coopDetailShipments = coopDetailName
     ? shipments.filter((s: any) => (registreName[s.registre_id] || s.zone || "Inconnu") === coopDetailName)
