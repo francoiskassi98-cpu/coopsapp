@@ -247,6 +247,28 @@ export default function ExportPage() {
           "Potentiel initial (kg)": p.potentiel_livraison,
           "Potentiel restant (kg)": p.potentiel_restant,
         }));
+
+        // Fallback: si aucune ligne dans producer_registry pour cette campagne,
+        // on retombe sur la table producers (registre courant).
+        if (rows.length === 0) {
+          const producers = await fetchAllRows(
+            "producers",
+            "full_name, section, plantation_code, delivery_potential, remaining_potential, registre_id, registres(name)",
+            {
+              filters: (q) => registreFilter ? q.eq("registre_id", registreFilter) : q,
+              pageSize: 500,
+            }
+          );
+          rows = producers.map((p: any) => ({
+            "Registre": p.registres?.name || "",
+            "Nom complet": p.full_name,
+            "Section": p.section,
+            "Code plantation": p.plantation_code,
+            "Potentiel initial (kg)": p.delivery_potential,
+            "Potentiel restant (kg)": p.remaining_potential,
+          }));
+        }
+
       } else {
         const producers = await fetchAllRows(
           "producers",
@@ -401,21 +423,31 @@ export default function ExportPage() {
               </div>
               <CardTitle className="text-base">Potentiel par registre</CardTitle>
             </div>
-            <CardDescription>Potentiel restant de chaque producteur, filtrable par registre</CardDescription>
+            <CardDescription>Potentiel initial et restant des producteurs</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 flex-1">
-            <p className="text-xs text-muted-foreground flex-1">
-              {selectedRegistre
-                ? "Export restreint au registre sélectionné ci-dessus."
-                : "Aucun registre sélectionné : export de tous les registres accessibles."}
-            </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Registre (optionnel)</Label>
+              <Select
+                value={selectedRegistre || "__all_reg__"}
+                onValueChange={(v) => setSelectedRegistre(v === "__all_reg__" ? "" : v)}
+              >
+                <SelectTrigger><SelectValue placeholder="Tous les registres" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all_reg__">Tous les registres</SelectItem>
+                  {registres.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button onClick={exportPotentialByRegistre} disabled={loading === "potential"} className="w-full mt-auto">
-
               {loading === "potential" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
               Exporter
             </Button>
           </CardContent>
         </Card>
+
       </div>
     </div>
   );
