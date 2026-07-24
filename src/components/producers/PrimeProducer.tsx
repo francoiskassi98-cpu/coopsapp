@@ -222,8 +222,8 @@ export default function PrimeProducer() {
     setSaving(true);
     try {
       const { data: setting, error } = await (supabase.from("producer_bonus_settings") as any).insert({
-        cooperative_id: coopId,
-        campaign_label: campaignId !== "all" ? campaignId : null,
+        registre_id: coopId,
+        campaign_label: campaignId !== "all" ? campaignId : currentCampaign(),
         section: section !== "all" ? section : null,
         start_date: startDate,
         end_date: endDate,
@@ -236,7 +236,8 @@ export default function PrimeProducer() {
       const results = rows.map(r => ({
         setting_id: settingId,
         producer_id: r.producer_id,
-        cooperative_id: coopId,
+        registre_id: coopId,
+        campaign_label: campaignId !== "all" ? campaignId : currentCampaign(),
         volume_delivered: r.volume,
         rate: r.rate,
         calculated_bonus: r.bonus,
