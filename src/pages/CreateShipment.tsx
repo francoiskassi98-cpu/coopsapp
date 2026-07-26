@@ -274,7 +274,7 @@ export default function CreateShipment() {
     );
 
     // Sécurité : ne jamais dépasser le potentiel restant, exclure les volumes < 50 kg
-    const remainingById = new Map(producers.map((p) => [p.id, p.remaining_potential]));
+    const remainingById = new Map<string, number>(producers.map((p) => [p.id, p.remaining_potential] as [string, number]));
     const capped = results
       .map((r) => {
         const max = remainingById.get(r.producer_id) ?? 0;
