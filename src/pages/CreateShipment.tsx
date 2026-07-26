@@ -879,11 +879,27 @@ export default function CreateShipment() {
                 </div>
               </CardHeader>
               <CardContent>
+                {exclusions.length > 0 && (
+                  <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+                    <p className="font-semibold mb-1">
+                      {exclusions.length} producteur(s) exclu(s) par les règles métier
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1 max-h-48 overflow-auto text-xs">
+                      {exclusions.slice(0, 50).map((m, i) => (
+                        <li key={i}>{m}</li>
+                      ))}
+                    </ul>
+                    {exclusions.length > 50 && (
+                      <p className="text-xs mt-1">… et {exclusions.length - 50} autre(s).</p>
+                    )}
+                  </div>
+                )}
                 {preview.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-12">
                     Remplissez le formulaire et cliquez sur « Calculer la distribution » pour voir l'aperçu.
                   </p>
                 ) : (
+
                   <>
                     <p className="text-sm mb-3">
                       {preview.length} producteurs • {preview.reduce((s, d) => s + d.num_bags, 0)} sacs •{" "}
