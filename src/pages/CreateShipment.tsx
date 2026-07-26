@@ -20,6 +20,8 @@ import ShipmentDetails from "@/components/ShipmentDetails";
 import ShipmentHistory from "@/components/ShipmentHistory";
 import { TemplatePreview, type TemplatePreviewData } from "@/components/shipments/TemplatePreview";
 import PageHeader from "@/components/PageHeader";
+import { buildEligibleProducers, validateDistributionBeforeSave, MIN_REMAINING_WEIGHT_KG, MIN_DAYS_BETWEEN_DELIVERIES } from "@/lib/producer-eligibility";
+
 
 export default function CreateShipment() {
   const [totalWeight, setTotalWeight] = useState("");
@@ -48,7 +50,9 @@ export default function CreateShipment() {
   const [saving, setSaving] = useState(false);
   const [saveDiagnostic, setSaveDiagnostic] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [exclusions, setExclusions] = useState<string[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
   const [editWeight, setEditWeight] = useState("");
   const [editBags, setEditBags] = useState("");
   const { sortConfig, toggleSort, sortData } = useSortableTable();
