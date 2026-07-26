@@ -226,40 +226,27 @@ export default function CreateShipment() {
       return;
     }
 
-    // Fetch disabled sections
-    const { data: disabledSectionsData } = await supabase.from("disabled_sections").select("section_name");
-    const disabledSectionNames = new Set((disabledSectionsData || []).map((d: any) => d.section_name));
-
-    // Fetch only active producers of the selected registre with remaining potential, exclude disabled sections
-    let allActiveProducers: any[] = [];
-    let fetchFrom = 0;
-    const FETCH_PAGE = 1000;
-    while (true) {
-      const { data, error } = await (supabase as any)
-        .from("producers")
-        .select("id, full_name, section, plantation_code, remaining_potential, delivery_potential")
-        .eq("is_active", true)
-        .eq("registre_id", selectedCoopId)
-        .gt("remaining_potential", 0)
-        .order("section")
-        .range(fetchFrom, fetchFrom + FETCH_PAGE - 1);
-      if (error) {
-        console.error("[CreateShipment] producers fetch failed", error);
-        toast({ title: "Erreur chargement producteurs", description: `${error.message}${error.hint ? " — " + error.hint : ""}`, variant: "destructive" });
-        return;
-      }
-      if (!data || data.length === 0) break;
-      allActiveProducers = allActiveProducers.concat(data);
-      if (data.length < FETCH_PAGE) break;
-      fetchFrom += FETCH_PAGE;
+    // Construction automatique de la liste des producteurs éligibles (règles métier)
+    let eligibility;
+    try {
+      eligibility = await buildEligibleProducers(selectedCoopId, new Date(startDate));
+    } catch (error: any) {
+      console.error("[CreateShipment] eligibility build failed", error);
+      toast({ title: "Erreur chargement producteurs", description: `${error?.message || "Erreur inconnue"}`, variant: "destructive" });
+      return;
     }
 
+    setExclusions(eligibility.excluded.map((e) => e.message));
 
-    // Filter out producers from disabled sections
-    const producers = allActiveProducers.filter((p: any) => !disabledSectionNames.has(p.section));
+    const producers = eligibility.eligible;
 
-    if (!producers || producers.length === 0) {
-      toast({ title: "Aucun producteur disponible", description: "Importez d'abord des producteurs avec un potentiel restant.", variant: "destructive" });
+    if (producers.length === 0) {
+      toast({
+        title: "Aucun producteur éligible",
+        description: `Tous les producteurs du registre sont exclus (poids restant < ${MIN_REMAINING_WEIGHT_KG} kg, potentiel atteint ou délai de ${MIN_DAYS_BETWEEN_DELIVERIES} jours non écoulé).`,
+        variant: "destructive",
+      });
+      setPreview([]);
       return;
     }
 
@@ -267,7 +254,14 @@ export default function CreateShipment() {
     const lastNum = effectiveReceipt ? parseInt(effectiveReceipt, 10) - 1 : 0;
 
     const results = distributeShipment(
-      producers.map((p) => ({ ...p, remaining_potential: Number(p.remaining_potential), delivery_potential: Number(p.delivery_potential) })),
+      producers.map((p) => ({
+        id: p.id,
+        full_name: p.full_name,
+        section: p.section,
+        plantation_code: p.plantation_code,
+        remaining_potential: p.remaining_potential,
+        delivery_potential: p.delivery_potential,
+      })),
       Number(totalWeight),
       Number(totalBags),
       new Date(startDate),
@@ -275,13 +269,24 @@ export default function CreateShipment() {
       lastNum
     );
 
-    if (results.length === 0) {
-      toast({ title: "Distribution impossible", description: "Le potentiel restant des producteurs est insuffisant.", variant: "destructive" });
+    // Sécurité : ne jamais dépasser le potentiel restant, exclure les volumes < 50 kg
+    const remainingById = new Map(producers.map((p) => [p.id, p.remaining_potential]));
+    const capped = results
+      .map((r) => {
+        const max = remainingById.get(r.producer_id) ?? 0;
+        const weight = Math.min(r.allocated_weight, max);
+        return { ...r, allocated_weight: weight };
+      })
+      .filter((r) => r.allocated_weight >= MIN_REMAINING_WEIGHT_KG);
+
+    if (capped.length === 0) {
+      toast({ title: "Distribution impossible", description: "Le potentiel restant des producteurs éligibles est insuffisant.", variant: "destructive" });
       return;
     }
 
-    setPreview(results);
+    setPreview(capped);
   };
+
 
   const persistShipment = async (): Promise<string | null> => {
     if (preview.length === 0) return null;
