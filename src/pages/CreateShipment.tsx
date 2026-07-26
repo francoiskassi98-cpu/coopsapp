@@ -307,6 +307,25 @@ export default function CreateShipment() {
       throw new Error(`Distribution invalide pour ${invalidDelivery.full_name || "un producteur"}. Vérifiez le poids, le nombre de sacs, la date et le numéro de reçu.`);
     }
 
+    // Validation finale des règles métier (potentiel, seuil 50 kg, délai 15 jours)
+    const anomalies = await validateDistributionBeforeSave(
+      selectedCoopId,
+      preview.map((d) => ({
+        producer_id: d.producer_id,
+        full_name: d.full_name,
+        allocated_weight: Number(d.allocated_weight),
+        delivery_date: d.delivery_date,
+      })),
+      campaignLabel
+    );
+    if (anomalies.length > 0) {
+      console.error("[CreateShipment] business rules violated", anomalies);
+      setSaveDiagnostic(anomalies.join("\n"));
+      throw new Error(anomalies.slice(0, 3).join(" "));
+    }
+
+
+
     const shipmentPayload = {
       connaissement: connaissement || null,
       total_weight: Number(totalWeight),
