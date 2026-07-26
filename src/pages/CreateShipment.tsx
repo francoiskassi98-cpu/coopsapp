@@ -20,6 +20,8 @@ import ShipmentDetails from "@/components/ShipmentDetails";
 import ShipmentHistory from "@/components/ShipmentHistory";
 import { TemplatePreview, type TemplatePreviewData } from "@/components/shipments/TemplatePreview";
 import PageHeader from "@/components/PageHeader";
+import { buildEligibleProducers, validateDistributionBeforeSave, MIN_REMAINING_WEIGHT_KG, MIN_DAYS_BETWEEN_DELIVERIES } from "@/lib/producer-eligibility";
+
 
 export default function CreateShipment() {
   const [totalWeight, setTotalWeight] = useState("");
@@ -48,7 +50,9 @@ export default function CreateShipment() {
   const [saving, setSaving] = useState(false);
   const [saveDiagnostic, setSaveDiagnostic] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [exclusions, setExclusions] = useState<string[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
   const [editWeight, setEditWeight] = useState("");
   const [editBags, setEditBags] = useState("");
   const { sortConfig, toggleSort, sortData } = useSortableTable();
@@ -226,40 +230,27 @@ export default function CreateShipment() {
       return;
     }
 
-    // Fetch disabled sections
-    const { data: disabledSectionsData } = await supabase.from("disabled_sections").select("section_name");
-    const disabledSectionNames = new Set((disabledSectionsData || []).map((d: any) => d.section_name));
-
-    // Fetch only active producers of the selected registre with remaining potential, exclude disabled sections
-    let allActiveProducers: any[] = [];
-    let fetchFrom = 0;
-    const FETCH_PAGE = 1000;
-    while (true) {
-      const { data, error } = await (supabase as any)
-        .from("producers")
-        .select("id, full_name, section, plantation_code, remaining_potential, delivery_potential")
-        .eq("is_active", true)
-        .eq("registre_id", selectedCoopId)
-        .gt("remaining_potential", 0)
-        .order("section")
-        .range(fetchFrom, fetchFrom + FETCH_PAGE - 1);
-      if (error) {
-        console.error("[CreateShipment] producers fetch failed", error);
-        toast({ title: "Erreur chargement producteurs", description: `${error.message}${error.hint ? " — " + error.hint : ""}`, variant: "destructive" });
-        return;
-      }
-      if (!data || data.length === 0) break;
-      allActiveProducers = allActiveProducers.concat(data);
-      if (data.length < FETCH_PAGE) break;
-      fetchFrom += FETCH_PAGE;
+    // Construction automatique de la liste des producteurs éligibles (règles métier)
+    let eligibility;
+    try {
+      eligibility = await buildEligibleProducers(selectedCoopId, new Date(startDate));
+    } catch (error: any) {
+      console.error("[CreateShipment] eligibility build failed", error);
+      toast({ title: "Erreur chargement producteurs", description: `${error?.message || "Erreur inconnue"}`, variant: "destructive" });
+      return;
     }
 
+    setExclusions(eligibility.excluded.map((e) => e.message));
 
-    // Filter out producers from disabled sections
-    const producers = allActiveProducers.filter((p: any) => !disabledSectionNames.has(p.section));
+    const producers = eligibility.eligible;
 
-    if (!producers || producers.length === 0) {
-      toast({ title: "Aucun producteur disponible", description: "Importez d'abord des producteurs avec un potentiel restant.", variant: "destructive" });
+    if (producers.length === 0) {
+      toast({
+        title: "Aucun producteur éligible",
+        description: `Tous les producteurs du registre sont exclus (poids restant < ${MIN_REMAINING_WEIGHT_KG} kg, potentiel atteint ou délai de ${MIN_DAYS_BETWEEN_DELIVERIES} jours non écoulé).`,
+        variant: "destructive",
+      });
+      setPreview([]);
       return;
     }
 
@@ -267,7 +258,14 @@ export default function CreateShipment() {
     const lastNum = effectiveReceipt ? parseInt(effectiveReceipt, 10) - 1 : 0;
 
     const results = distributeShipment(
-      producers.map((p) => ({ ...p, remaining_potential: Number(p.remaining_potential), delivery_potential: Number(p.delivery_potential) })),
+      producers.map((p) => ({
+        id: p.id,
+        full_name: p.full_name,
+        section: p.section,
+        plantation_code: p.plantation_code,
+        remaining_potential: p.remaining_potential,
+        delivery_potential: p.delivery_potential,
+      })),
       Number(totalWeight),
       Number(totalBags),
       new Date(startDate),
@@ -275,13 +273,24 @@ export default function CreateShipment() {
       lastNum
     );
 
-    if (results.length === 0) {
-      toast({ title: "Distribution impossible", description: "Le potentiel restant des producteurs est insuffisant.", variant: "destructive" });
+    // Sécurité : ne jamais dépasser le potentiel restant, exclure les volumes < 50 kg
+    const remainingById = new Map<string, number>(producers.map((p) => [p.id, p.remaining_potential] as [string, number]));
+    const capped = results
+      .map((r) => {
+        const max = remainingById.get(r.producer_id) ?? 0;
+        const weight = Math.min(r.allocated_weight, max);
+        return { ...r, allocated_weight: weight };
+      })
+      .filter((r) => r.allocated_weight >= MIN_REMAINING_WEIGHT_KG);
+
+    if (capped.length === 0) {
+      toast({ title: "Distribution impossible", description: "Le potentiel restant des producteurs éligibles est insuffisant.", variant: "destructive" });
       return;
     }
 
-    setPreview(results);
+    setPreview(capped);
   };
+
 
   const persistShipment = async (): Promise<string | null> => {
     if (preview.length === 0) return null;
@@ -297,6 +306,25 @@ export default function CreateShipment() {
     if (invalidDelivery) {
       throw new Error(`Distribution invalide pour ${invalidDelivery.full_name || "un producteur"}. Vérifiez le poids, le nombre de sacs, la date et le numéro de reçu.`);
     }
+
+    // Validation finale des règles métier (potentiel, seuil 50 kg, délai 15 jours)
+    const anomalies = await validateDistributionBeforeSave(
+      selectedCoopId,
+      preview.map((d) => ({
+        producer_id: d.producer_id,
+        full_name: d.full_name,
+        allocated_weight: Number(d.allocated_weight),
+        delivery_date: d.delivery_date,
+      })),
+      campaignLabel
+    );
+    if (anomalies.length > 0) {
+      console.error("[CreateShipment] business rules violated", anomalies);
+      setSaveDiagnostic(anomalies.join("\n"));
+      throw new Error(anomalies.slice(0, 3).join(" "));
+    }
+
+
 
     const shipmentPayload = {
       connaissement: connaissement || null,
@@ -379,6 +407,8 @@ export default function CreateShipment() {
 
   const resetForm = () => {
     setPreview([]);
+    setExclusions([]);
+
     setConnaissement("");
     setTotalWeight("");
     setTotalBags("");
@@ -851,11 +881,27 @@ export default function CreateShipment() {
                 </div>
               </CardHeader>
               <CardContent>
+                {exclusions.length > 0 && (
+                  <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+                    <p className="font-semibold mb-1">
+                      {exclusions.length} producteur(s) exclu(s) par les règles métier
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1 max-h-48 overflow-auto text-xs">
+                      {exclusions.slice(0, 50).map((m, i) => (
+                        <li key={i}>{m}</li>
+                      ))}
+                    </ul>
+                    {exclusions.length > 50 && (
+                      <p className="text-xs mt-1">… et {exclusions.length - 50} autre(s).</p>
+                    )}
+                  </div>
+                )}
                 {preview.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-12">
                     Remplissez le formulaire et cliquez sur « Calculer la distribution » pour voir l'aperçu.
                   </p>
                 ) : (
+
                   <>
                     <p className="text-sm mb-3">
                       {preview.length} producteurs • {preview.reduce((s, d) => s + d.num_bags, 0)} sacs •{" "}
