@@ -407,6 +407,8 @@ export default function CreateShipment() {
 
   const resetForm = () => {
     setPreview([]);
+    setExclusions([]);
+
     setConnaissement("");
     setTotalWeight("");
     setTotalBags("");
