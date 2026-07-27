@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { email, password, username, role, cooperatives } = await req.json();
+    const { email, password, username, role, registres } = await req.json();
     if (!email || !password || !username) {
       return new Response(JSON.stringify({ error: "Champs requis manquants" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -53,13 +53,26 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const coopIds: string[] = Array.isArray(cooperatives)
-      ? cooperatives.map((c: unknown) => String(c).trim()).filter(Boolean)
+    const registreIds: string[] = Array.isArray(registres)
+      ? [...new Set(registres.map((r: unknown) => String(r).trim()).filter(Boolean))]
       : [];
-    if ((role === "agent" || role === "coop_admin") && coopIds.length === 0) {
-      return new Response(JSON.stringify({ error: "Au moins une coopérative est requise." }), {
+    if ((role === "agent" || role === "coop_admin") && registreIds.length === 0) {
+      return new Response(JSON.stringify({ error: "Au moins un registre est requis." }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Résolution des coopératives associées aux registres (scoping RLS)
+    let coopIds: string[] = [];
+    if (registreIds.length > 0) {
+      const { data: regRows, error: regErr } = await adminClient
+        .from("registres").select("id, cooperative_id").in("id", registreIds);
+      if (regErr || !regRows || regRows.length !== registreIds.length) {
+        return new Response(JSON.stringify({ error: "Un ou plusieurs registres sélectionnés sont introuvables." }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      coopIds = [...new Set(regRows.map((r) => r.cooperative_id).filter(Boolean))];
     }
 
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
@@ -68,24 +81,37 @@ Deno.serve(async (req) => {
 
     if (createError || !newUser.user) {
       console.error("[create-user] createUser error:", createError?.message);
-      return new Response(JSON.stringify({ error: "Impossible de créer l'utilisateur." }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const already = (createError?.message || "").toLowerCase().includes("already");
+      return new Response(JSON.stringify({
+        error: already ? "Un utilisateur existe déjà avec cette adresse e-mail." : "Impossible de créer l'utilisateur.",
+      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
+    const newId = newUser.user.id;
 
     if (role !== "agent") {
-      // trigger crée déjà role='agent' → on remplace
-      await adminClient.from("user_roles").delete().eq("user_id", newUser.user.id);
-      await adminClient.from("user_roles").insert({ user_id: newUser.user.id, role });
+      // le trigger crée déjà role='agent' → on remplace
+      await adminClient.from("user_roles").delete().eq("user_id", newId);
+      await adminClient.from("user_roles").insert({ user_id: newId, role });
     }
 
-    if (coopIds.length > 0) {
-      await adminClient.from("user_cooperatives").insert(
-        coopIds.map((id) => ({ user_id: newUser.user!.id, cooperative_id: id }))
+    if (registreIds.length > 0) {
+      const { error: urErr } = await adminClient.from("user_registres").insert(
+        registreIds.map((id) => ({ user_id: newId, registre_id: id }))
       );
+      if (urErr) console.error("[create-user] user_registres:", urErr.message);
+      const { error: ucErr } = await adminClient.from("user_cooperatives").insert(
+        coopIds.map((id) => ({ user_id: newId, cooperative_id: id }))
+      );
+      if (ucErr) console.error("[create-user] user_cooperatives:", ucErr.message);
+      if (urErr) {
+        return new Response(JSON.stringify({ error: "Utilisateur créé mais l'affectation des registres a échoué." }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
-    return new Response(JSON.stringify({ success: true, user_id: newUser.user.id }), {
+    return new Response(JSON.stringify({ success: true, user_id: newId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
