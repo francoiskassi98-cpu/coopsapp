@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Building2, Loader2, Plus, Pencil, PauseCircle, PlayCircle, Trash2, CreditCard } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+import ImageUploader from "@/components/ui/ImageUploader";
 
 type Status = "trial" | "active" | "expired" | "suspended";
 
