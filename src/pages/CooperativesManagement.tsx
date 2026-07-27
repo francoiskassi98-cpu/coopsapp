@@ -48,7 +48,7 @@ export default function CooperativesManagement() {
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "", acronym: "", city: "", region: "", country: "", phone: "",
-    official_email: "", manager_name: "",
+    official_email: "", manager_name: "", logo_path: null as string | null,
   });
   const [subForm, setSubForm] = useState({
     plan_name: "Pilote", start_date: "", end_date: "", status: "trial" as Status,
