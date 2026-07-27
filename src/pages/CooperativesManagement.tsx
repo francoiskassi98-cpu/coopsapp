@@ -244,6 +244,16 @@ export default function CooperativesManagement() {
             <div className="space-y-1.5"><Label>Pays</Label><Input value={editForm.country} onChange={(e) => setEditForm({ ...editForm, country: e.target.value })} /></div>
             <div className="space-y-1.5"><Label>Email officiel</Label><Input type="email" value={editForm.official_email} onChange={(e) => setEditForm({ ...editForm, official_email: e.target.value })} /></div>
             <div className="col-span-2 space-y-1.5"><Label>Responsable</Label><Input value={editForm.manager_name} onChange={(e) => setEditForm({ ...editForm, manager_name: e.target.value })} /></div>
+            <div className="col-span-2">
+              <ImageUploader
+                bucket="cooperative-logos"
+                pathPrefix={editing?.id ?? ""}
+                value={editForm.logo_path}
+                onChange={(path) => setEditForm((f) => ({ ...f, logo_path: path }))}
+                label="Logo de la coopérative"
+                helper="Visible dans l'en-tête de l'application pour les membres de la coopérative."
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Annuler</Button>
