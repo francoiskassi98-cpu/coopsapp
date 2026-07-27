@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Building2, Loader2, Plus, Pencil, PauseCircle, PlayCircle, Trash2, CreditCard } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+import ImageUploader from "@/components/ui/ImageUploader";
 
 type Status = "trial" | "active" | "expired" | "suspended";
 
@@ -48,7 +49,7 @@ export default function CooperativesManagement() {
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "", acronym: "", city: "", region: "", country: "", phone: "",
-    official_email: "", manager_name: "",
+    official_email: "", manager_name: "", logo_path: null as string | null,
   });
   const [subForm, setSubForm] = useState({
     plan_name: "Pilote", start_date: "", end_date: "", status: "trial" as Status,
@@ -86,7 +87,7 @@ export default function CooperativesManagement() {
     setEditForm({
       name: r.name, acronym: r.acronym ?? "", city: r.city ?? "", region: r.region ?? "",
       country: r.country ?? "", phone: r.phone ?? "", official_email: r.official_email ?? "",
-      manager_name: r.manager_name ?? "",
+      manager_name: r.manager_name ?? "", logo_path: r.logo_path ?? null,
     });
   };
 
@@ -244,6 +245,16 @@ export default function CooperativesManagement() {
             <div className="space-y-1.5"><Label>Pays</Label><Input value={editForm.country} onChange={(e) => setEditForm({ ...editForm, country: e.target.value })} /></div>
             <div className="space-y-1.5"><Label>Email officiel</Label><Input type="email" value={editForm.official_email} onChange={(e) => setEditForm({ ...editForm, official_email: e.target.value })} /></div>
             <div className="col-span-2 space-y-1.5"><Label>Responsable</Label><Input value={editForm.manager_name} onChange={(e) => setEditForm({ ...editForm, manager_name: e.target.value })} /></div>
+            <div className="col-span-2">
+              <ImageUploader
+                bucket="cooperative-logos"
+                pathPrefix={editing?.id ?? ""}
+                value={editForm.logo_path}
+                onChange={(path) => setEditForm((f) => ({ ...f, logo_path: path }))}
+                label="Logo de la coopérative"
+                helper="Visible dans l'en-tête de l'application pour les membres de la coopérative."
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Annuler</Button>
