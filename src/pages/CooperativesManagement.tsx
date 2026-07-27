@@ -86,7 +86,7 @@ export default function CooperativesManagement() {
     setEditForm({
       name: r.name, acronym: r.acronym ?? "", city: r.city ?? "", region: r.region ?? "",
       country: r.country ?? "", phone: r.phone ?? "", official_email: r.official_email ?? "",
-      manager_name: r.manager_name ?? "",
+      manager_name: r.manager_name ?? "", logo_path: r.logo_path ?? null,
     });
   };
 
