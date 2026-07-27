@@ -21,14 +21,14 @@ interface UserProfile {
   user_id: string;
   username: string;
   email: string;
-  cooperatives: Array<{ id: string; name: string }>;
+  registres: Array<{ id: string; name: string }>;
   created_at: string;
   role: string;
   is_banned: boolean;
   last_sign_in_at: string | null;
 }
 
-interface Coop { id: string; name: string }
+interface Registre { id: string; name: string }
 
 const ROLE_LABEL: Record<string, string> = {
   super_admin: "Super administrateur",
@@ -39,7 +39,7 @@ const ROLE_LABEL: Record<string, string> = {
 export default function UserManagement() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [coops, setCoops] = useState<Coop[]>([]);
+  const [registres, setRegistres] = useState<Registre[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -50,13 +50,13 @@ export default function UserManagement() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<string>("agent");
-  const [selectedCoops, setSelectedCoops] = useState<string[]>([]); // IDs
+  const [selectedRegistres, setSelectedRegistres] = useState<string[]>([]); // IDs
 
   const [editUser, setEditUser] = useState<UserProfile | null>(null);
   const [editUsername, setEditUsername] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState("agent");
-  const [editCoops, setEditCoops] = useState<string[]>([]); // IDs
+  const [editRegistres, setEditRegistres] = useState<string[]>([]); // IDs
   const [editActive, setEditActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -66,16 +66,16 @@ export default function UserManagement() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const [{ data: profiles }, { data: roles }, manageResult, { data: coopList }] = await Promise.all([
+      const [{ data: profiles }, { data: roles }, manageResult, { data: registreList }] = await Promise.all([
         (supabase.from("profiles") as any).select("user_id, username, email, created_at"),
         supabase.from("user_roles").select("*"),
         supabase.functions.invoke("manage-user", { body: { action: "list" } }),
-        supabase.from("cooperatives").select("id, name").order("name"),
+        supabase.from("registres").select("id, name").order("name"),
       ]);
 
-      setCoops((coopList || []) as Coop[]);
+      setRegistres((registreList || []) as Registre[]);
       const banMap: Record<string, boolean> = manageResult.data?.banMap || {};
-      const coopsByUser: Record<string, Array<{ id: string; name: string }>> = manageResult.data?.coopsByUser || {};
+      const registresByUser: Record<string, Array<{ id: string; name: string }>> = manageResult.data?.registresByUser || {};
       const lastSignInMap: Record<string, string | null> = manageResult.data?.lastSignInMap || {};
 
       if (profiles && roles) {
@@ -83,7 +83,7 @@ export default function UserManagement() {
           user_id: p.user_id,
           username: p.username,
           email: p.email,
-          cooperatives: coopsByUser[p.user_id] || [],
+          registres: registresByUser[p.user_id] || [],
           created_at: p.created_at,
           role: roles.find((r: any) => r.user_id === p.user_id)?.role || "agent",
           is_banned: banMap[p.user_id] || false,
@@ -111,22 +111,26 @@ export default function UserManagement() {
       toast({ title: "Erreur", description: "Tous les champs sont requis.", variant: "destructive" });
       return;
     }
-    if (role === "agent" && selectedCoops.length === 0) {
-      toast({ title: "Coopératives requises", description: "Sélectionnez au moins une coopérative.", variant: "destructive" });
+    if ((role === "agent" || role === "coop_admin") && selectedRegistres.length === 0) {
+      toast({ title: "Registres requis", description: "Sélectionnez au moins un registre.", variant: "destructive" });
       return;
     }
     setCreating(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-user", {
-        body: { email, password, username, role, cooperatives: selectedCoops },
+        body: { email, password, username, role, registres: selectedRegistres },
       });
       if (error || data?.error) {
         console.error("[create-user]", error || data?.error);
-        toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+        toast({
+          title: "Création impossible",
+          description: typeof data?.error === "string" ? data.error : "Une erreur est survenue.",
+          variant: "destructive",
+        });
         return;
       }
       toast({ title: "Utilisateur créé", description: `${username} a été ajouté.` });
-      setUsername(""); setEmail(""); setPassword(""); setRole("agent"); setSelectedCoops([]);
+      setUsername(""); setEmail(""); setPassword(""); setRole("agent"); setSelectedRegistres([]);
       setShowForm(false);
       fetchUsers();
     } catch (err) {
@@ -142,14 +146,14 @@ export default function UserManagement() {
     setEditUsername(u.username);
     setEditEmail(u.email);
     setEditRole(u.role);
-    setEditCoops(u.cooperatives.map((c) => c.id));
+    setEditRegistres(u.registres.map((r) => r.id));
     setEditActive(!u.is_banned);
   };
 
   const handleUpdate = async () => {
     if (!editUser) return;
-    if ((editRole === "agent" || editRole === "coop_admin") && editCoops.length === 0) {
-      toast({ title: "Coopératives requises", description: "Un agent ou admin de coopérative doit avoir au moins une coopérative assignée.", variant: "destructive" });
+    if ((editRole === "agent" || editRole === "coop_admin") && editRegistres.length === 0) {
+      toast({ title: "Registres requis", description: "Un agent ou un admin doit avoir au moins un registre assigné.", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -161,12 +165,16 @@ export default function UserManagement() {
           username: editUsername,
           email: editEmail,
           role: editRole,
-          cooperatives: editCoops,
+          registres: editRegistres,
         },
       });
       if (error || data?.error) {
         console.error("[manage-user update]", error || data?.error);
-        toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+        toast({
+          title: "Modification impossible",
+          description: typeof data?.error === "string" ? data.error : "Une erreur est survenue.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -238,12 +246,12 @@ export default function UserManagement() {
   const fmtDate = (d: string | null | undefined) =>
     d ? new Date(d).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" }) : "Jamais";
 
-  const CoopPicker = ({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) => (
+  const RegistrePicker = ({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) => (
     <div className="max-h-48 overflow-y-auto rounded-md border p-3 space-y-2">
-      {coops.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Aucune coopérative disponible.</p>
+      {registres.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Aucun registre disponible.</p>
       ) : (
-        coops.map((c) => (
+        registres.map((c) => (
           <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
             <Checkbox
               checked={selected.includes(c.id)}
@@ -261,7 +269,7 @@ export default function UserManagement() {
       <PageHeader
         icon={Users}
         title="Gestion du projet"
-        description="Gérer les utilisateurs, rôles et coopératives"
+        description="Gérer les utilisateurs, rôles et registres"
         actions={
           <Button onClick={() => setShowForm(!showForm)}>
             <UserPlus className="h-4 w-4 mr-2" /> Nouvel utilisateur
@@ -304,19 +312,19 @@ export default function UserManagement() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="super_admin">Super administrateur</SelectItem>
-                    <SelectItem value="coop_admin">Admin coopérative</SelectItem>
-                    <SelectItem value="agent">Agent coopérative</SelectItem>
+                    <SelectItem value="coop_admin">Admin de coopérative</SelectItem>
+                    <SelectItem value="agent">Agent</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label>
-                  Coopératives {role === "agent" && <span className="text-destructive">*</span>}
+                  Registres {(role === "agent" || role === "coop_admin") && <span className="text-destructive">*</span>}
                   <span className="text-xs text-muted-foreground ml-2">
-                    (sélection multiple — l'agent accédera aux données de toutes ses coopératives)
+                    (sélection multiple — l'utilisateur accédera aux données de tous ses registres)
                   </span>
                 </Label>
-                <CoopPicker selected={selectedCoops} onChange={setSelectedCoops} />
+                <RegistrePicker selected={selectedRegistres} onChange={setSelectedRegistres} />
               </div>
               <div className="md:col-span-2 flex gap-2">
                 <Button type="submit" disabled={creating}>
@@ -342,7 +350,7 @@ export default function UserManagement() {
                   <TableHead>Nom d'utilisateur</TableHead>
                   <TableHead>E-mail</TableHead>
                   <TableHead>Rôle</TableHead>
-                  <TableHead>Coopératives</TableHead>
+                  <TableHead>Registres</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead>Créé le</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -363,11 +371,11 @@ export default function UserManagement() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {u.cooperatives.length === 0 ? (
+                      {u.registres.length === 0 ? (
                         <span className="text-muted-foreground">—</span>
                       ) : (
                         <div className="flex flex-wrap gap-1">
-                          {u.cooperatives.map((c) => (
+                          {u.registres.map((c) => (
                             <Badge key={c.id} variant="outline" className="text-xs">{c.name}</Badge>
                           ))}
                         </div>
@@ -448,17 +456,17 @@ export default function UserManagement() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="super_admin">Super administrateur</SelectItem>
-                  <SelectItem value="coop_admin">Admin coopérative</SelectItem>
-                  <SelectItem value="agent">Agent coopérative</SelectItem>
+                  <SelectItem value="coop_admin">Admin de coopérative</SelectItem>
+                  <SelectItem value="agent">Agent</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>
-                Coopératives {editRole === "agent" && <span className="text-destructive">*</span>}
+                Registres {(editRole === "agent" || editRole === "coop_admin") && <span className="text-destructive">*</span>}
                 <span className="text-xs text-muted-foreground ml-2">(sélection multiple)</span>
               </Label>
-              <CoopPicker selected={editCoops} onChange={setEditCoops} />
+              <RegistrePicker selected={editRegistres} onChange={setEditRegistres} />
             </div>
             {editUser && !isSelf(editUser.user_id) && (
               <div className="flex items-center justify-between rounded-lg border p-3">
@@ -538,21 +546,21 @@ export default function UserManagement() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <Label className="text-sm">
-                      Coopératives attribuées
-                      <span className="ml-2 text-xs text-muted-foreground">({detailUser.cooperatives.length})</span>
+                      Registres attribués
+                      <span className="ml-2 text-xs text-muted-foreground">({detailUser.registres.length})</span>
                     </Label>
                   </div>
-                  {detailUser.cooperatives.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Aucune coopérative attribuée.</p>
+                  {detailUser.registres.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Aucun registre attribué.</p>
                   ) : (
                     <div className="flex flex-wrap gap-1.5">
-                      {detailUser.cooperatives.map((c) => (
+                      {detailUser.registres.map((c) => (
                         <Badge key={c.id} variant="outline">{c.name}</Badge>
                       ))}
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground mt-2">
-                    Pour ajouter ou retirer une coopérative, utilisez le bouton « Modifier ».
+                    Pour ajouter ou retirer un registre, utilisez le bouton « Modifier ».
                   </p>
                 </div>
 
