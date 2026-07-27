@@ -40,9 +40,9 @@ Deno.serve(async (req) => {
     console.log(`[manage-user][${reqId}] caller=${caller.id} action=${action}`);
 
     if (action === "list") {
-      const [{ data: authUsers, error: listErr }, { data: ucRows }] = await Promise.all([
+      const [{ data: authUsers, error: listErr }, { data: urRows }] = await Promise.all([
         adminClient.auth.admin.listUsers({ perPage: 1000 }),
-        adminClient.from("user_cooperatives").select("user_id, cooperative_id, cooperatives(id, name)"),
+        adminClient.from("user_registres").select("user_id, registre_id, registres(id, name)"),
       ]);
       if (listErr) console.error(`[manage-user][${reqId}] listUsers error:`, listErr.message);
       const banMap: Record<string, boolean> = {};
@@ -53,14 +53,14 @@ Deno.serve(async (req) => {
           lastSignInMap[u.id] = u.last_sign_in_at ?? null;
         }
       }
-      const coopsByUser: Record<string, Array<{ id: string; name: string }>> = {};
-      for (const r of (ucRows || []) as Array<{ user_id: string; cooperative_id: string; cooperatives: { id: string; name: string } | null }>) {
-        if (r.cooperatives) (coopsByUser[r.user_id] ||= []).push(r.cooperatives);
+      const registresByUser: Record<string, Array<{ id: string; name: string }>> = {};
+      for (const r of (urRows || []) as Array<{ user_id: string; registre_id: string; registres: { id: string; name: string } | null }>) {
+        if (r.registres) (registresByUser[r.user_id] ||= []).push(r.registres);
       }
-      return new Response(JSON.stringify({ banMap, coopsByUser, lastSignInMap }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ banMap, registresByUser, lastSignInMap }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { user_id, role, username, email, cooperatives } = body;
+    const { user_id, role, username, email, registres } = body;
 
     if (!user_id || !action) {
       return new Response(JSON.stringify({ error: "Paramètres manquants" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -84,21 +84,42 @@ Deno.serve(async (req) => {
       if (email) {
         await adminClient.auth.admin.updateUserById(user_id, { email });
       }
-      if (Array.isArray(cooperatives)) {
-        const coopIds: string[] = cooperatives.map((c: unknown) => String(c).trim()).filter(Boolean);
+      if (Array.isArray(registres)) {
+        const registreIds: string[] = [...new Set(registres.map((r: unknown) => String(r).trim()).filter(Boolean))];
         const effectiveRole = role || (await adminClient.from("user_roles").select("role").eq("user_id", user_id).maybeSingle()).data?.role;
-        if ((effectiveRole === "agent" || effectiveRole === "coop_admin") && coopIds.length === 0) {
-          return new Response(JSON.stringify({ error: "Un agent ou admin de coopérative doit avoir au moins une coopérative." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if ((effectiveRole === "agent" || effectiveRole === "coop_admin") && registreIds.length === 0) {
+          return new Response(JSON.stringify({ error: "Un agent ou un admin doit avoir au moins un registre assigné." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
+
+        let coopIds: string[] = [];
+        if (registreIds.length > 0) {
+          const { data: regRows, error: regErr } = await adminClient
+            .from("registres").select("id, cooperative_id").in("id", registreIds);
+          if (regErr || !regRows || regRows.length !== registreIds.length) {
+            return new Response(JSON.stringify({ error: "Un ou plusieurs registres sélectionnés sont introuvables." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+          coopIds = [...new Set(regRows.map((r) => r.cooperative_id).filter(Boolean))];
+        }
+
+        await adminClient.from("user_registres").delete().eq("user_id", user_id);
         await adminClient.from("user_cooperatives").delete().eq("user_id", user_id);
-        if (coopIds.length > 0) {
-          await adminClient.from("user_cooperatives").insert(
+        if (registreIds.length > 0) {
+          const { error: urErr } = await adminClient.from("user_registres").insert(
+            registreIds.map((id) => ({ user_id, registre_id: id }))
+          );
+          if (urErr) {
+            console.error(`[manage-user][${reqId}] user_registres:`, urErr.message);
+            return new Response(JSON.stringify({ error: "L'affectation des registres a échoué." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+          const { error: ucErr } = await adminClient.from("user_cooperatives").insert(
             coopIds.map((id) => ({ user_id, cooperative_id: id }))
           );
+          if (ucErr) console.error(`[manage-user][${reqId}] user_cooperatives:`, ucErr.message);
         }
       }
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
 
     if (action === "deactivate") {
       const { error } = await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "876000h" });
