@@ -16,6 +16,8 @@ export interface PrimeRowExport {
 
 export interface PrimeExcelParams {
   cooperativeName: string;
+  /** Nom du projet filtré (optionnel). */
+  projectName?: string | null;
   /** Path interne Storage (bucket cooperative-logos) ou URL legacy. */
   logoUrl?: string | null;
   startDate: string;
