@@ -329,6 +329,16 @@ export default function PrimeProducer() {
               </Select>
             </div>
             <div>
+              <Label className="text-xs">Projet</Label>
+              <Select value={projectId} onValueChange={setProjectId}>
+                <SelectTrigger><SelectValue placeholder="Tous les projets" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les projets</SelectItem>
+                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label className="text-xs">Section</Label>
               <Select value={section} onValueChange={setSection}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
