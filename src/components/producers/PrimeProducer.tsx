@@ -15,6 +15,7 @@ import { currentCampaign } from "@/lib/campaign";
 
 interface Coop { id: string; name: string; logo_path?: string | null }
 interface Campaign { id: string; nom: string }
+interface ProjectOpt { id: string; name: string }
 interface ProducerOpt { id: string; full_name: string; section: string; registre_id: string | null }
 
 interface PrimeRow {
@@ -37,9 +38,11 @@ export default function PrimeProducer() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [sections, setSections] = useState<string[]>([]);
   const [producersList, setProducersList] = useState<ProducerOpt[]>([]);
+  const [projects, setProjects] = useState<ProjectOpt[]>([]);
 
   const [coopId, setCoopId] = useState<string>("");
   const [campaignId, setCampaignId] = useState<string>("all");
+  const [projectId, setProjectId] = useState<string>("all");
   const [section, setSection] = useState<string>("all");
   const [producerId, setProducerId] = useState<string>("all");
   const [startDate, setStartDate] = useState("");
@@ -65,9 +68,9 @@ export default function PrimeProducer() {
     })();
   }, [isSuperAdmin, cooperativeRefs]);
 
-  // Charge producteurs + sections en fonction du filtre registre
+  // Charge producteurs + sections + projets en fonction du filtre registre
   useEffect(() => {
-    if (!coopId) { setSections([]); setProducersList([]); return; }
+    if (!coopId) { setSections([]); setProducersList([]); setProjects([]); return; }
     (async () => {
       let all: ProducerOpt[] = [];
       let from = 0;
@@ -86,11 +89,20 @@ export default function PrimeProducer() {
       setProducersList(all);
       setSections([...new Set(all.map(p => p.section).filter(Boolean))].sort());
     })();
+    (async () => {
+      let pq = (supabase as any).from("projects").select("id,name").order("name");
+      if (coopId !== "all") pq = pq.eq("registre_id", coopId);
+      const { data, error } = await pq;
+      if (error) { console.error("[PrimeProducer.projects]", error); setProjects([]); return; }
+      setProjects((data || []) as ProjectOpt[]);
+    })();
     setSection("all");
     setProducerId("all");
+    setProjectId("all");
   }, [coopId, coops]);
 
   const coopSelected = useMemo(() => coops.find(c => c.id === coopId), [coops, coopId]);
+  const projectSelected = useMemo(() => projects.find(p => p.id === projectId), [projects, projectId]);
   const isAllCoops = coopId === "all";
 
   async function calculate() {
@@ -109,13 +121,14 @@ export default function PrimeProducer() {
       let from = 0;
       while (true) {
         let dq = (supabase as any).from("deliveries")
-          .select("id,producer_id,net_weight,delivery_date,shipments!inner(registre_id,campaign_label,is_cancelled)")
+          .select("id,producer_id,net_weight,delivery_date,shipments!inner(registre_id,campaign_label,is_cancelled,project_id)")
           .gte("delivery_date", startDate)
           .lte("delivery_date", endDate)
           .eq("shipments.is_cancelled", false)
           .order("id", { ascending: true });
         if (!isAllCoops) dq = dq.eq("shipments.registre_id", coopId);
         if (campaignId !== "all") dq = dq.eq("shipments.campaign_label", campaignId);
+        if (projectId !== "all") dq = dq.eq("shipments.project_id", projectId);
         if (producerId !== "all") dq = dq.eq("producer_id", producerId);
         const { data, error } = await dq.range(from, from + 999);
         if (error) throw error;
@@ -230,7 +243,7 @@ export default function PrimeProducer() {
         end_date: endDate,
         bonus_type: bonusType,
         amount,
-        label: `Prime ${startDate} → ${endDate}`,
+        label: `Prime ${startDate} → ${endDate}${projectSelected ? ` — Projet ${projectSelected.name}` : ""}`,
       }).select("id").single();
       if (error) throw error;
       const settingId = setting.id;
@@ -263,6 +276,7 @@ export default function PrimeProducer() {
     try {
       await generatePrimeExcel({
         cooperativeName: isAllCoops ? "Tous les registres" : (coopSelected?.name ?? ""),
+        projectName: projectSelected?.name ?? "Tous",
         logoUrl: isAllCoops ? null : (coopSelected?.logo_path ?? null),
         startDate, endDate,
         bonusType, amount,
@@ -311,6 +325,16 @@ export default function PrimeProducer() {
                 <SelectContent>
                   <SelectItem value="all">Toutes</SelectItem>
                   {campaigns.map(c => <SelectItem key={c.id} value={c.id}>{c.nom}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Projet</Label>
+              <Select value={projectId} onValueChange={setProjectId}>
+                <SelectTrigger><SelectValue placeholder="Tous les projets" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les projets</SelectItem>
+                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
