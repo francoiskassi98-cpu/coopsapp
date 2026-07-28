@@ -38,9 +38,11 @@ export default function PrimeProducer() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [sections, setSections] = useState<string[]>([]);
   const [producersList, setProducersList] = useState<ProducerOpt[]>([]);
+  const [projects, setProjects] = useState<ProjectOpt[]>([]);
 
   const [coopId, setCoopId] = useState<string>("");
   const [campaignId, setCampaignId] = useState<string>("all");
+  const [projectId, setProjectId] = useState<string>("all");
   const [section, setSection] = useState<string>("all");
   const [producerId, setProducerId] = useState<string>("all");
   const [startDate, setStartDate] = useState("");
