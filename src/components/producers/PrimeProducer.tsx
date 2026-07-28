@@ -275,6 +275,7 @@ export default function PrimeProducer() {
     try {
       await generatePrimeExcel({
         cooperativeName: isAllCoops ? "Tous les registres" : (coopSelected?.name ?? ""),
+        projectName: projectSelected?.name ?? "Tous",
         logoUrl: isAllCoops ? null : (coopSelected?.logo_path ?? null),
         startDate, endDate,
         bonusType, amount,
