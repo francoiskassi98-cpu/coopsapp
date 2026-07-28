@@ -15,6 +15,7 @@ import { currentCampaign } from "@/lib/campaign";
 
 interface Coop { id: string; name: string; logo_path?: string | null }
 interface Campaign { id: string; nom: string }
+interface ProjectOpt { id: string; name: string }
 interface ProducerOpt { id: string; full_name: string; section: string; registre_id: string | null }
 
 interface PrimeRow {
