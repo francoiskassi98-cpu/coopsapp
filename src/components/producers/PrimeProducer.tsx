@@ -120,13 +120,14 @@ export default function PrimeProducer() {
       let from = 0;
       while (true) {
         let dq = (supabase as any).from("deliveries")
-          .select("id,producer_id,net_weight,delivery_date,shipments!inner(registre_id,campaign_label,is_cancelled)")
+          .select("id,producer_id,net_weight,delivery_date,shipments!inner(registre_id,campaign_label,is_cancelled,project_id)")
           .gte("delivery_date", startDate)
           .lte("delivery_date", endDate)
           .eq("shipments.is_cancelled", false)
           .order("id", { ascending: true });
         if (!isAllCoops) dq = dq.eq("shipments.registre_id", coopId);
         if (campaignId !== "all") dq = dq.eq("shipments.campaign_label", campaignId);
+        if (projectId !== "all") dq = dq.eq("shipments.project_id", projectId);
         if (producerId !== "all") dq = dq.eq("producer_id", producerId);
         const { data, error } = await dq.range(from, from + 999);
         if (error) throw error;
