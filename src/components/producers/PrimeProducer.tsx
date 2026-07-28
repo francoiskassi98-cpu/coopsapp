@@ -243,7 +243,7 @@ export default function PrimeProducer() {
         end_date: endDate,
         bonus_type: bonusType,
         amount,
-        label: `Prime ${startDate} → ${endDate}`,
+        label: `Prime ${startDate} → ${endDate}${projectSelected ? ` — Projet ${projectSelected.name}` : ""}`,
       }).select("id").single();
       if (error) throw error;
       const settingId = setting.id;
