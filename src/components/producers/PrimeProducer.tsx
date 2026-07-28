@@ -102,6 +102,7 @@ export default function PrimeProducer() {
   }, [coopId, coops]);
 
   const coopSelected = useMemo(() => coops.find(c => c.id === coopId), [coops, coopId]);
+  const projectSelected = useMemo(() => projects.find(p => p.id === projectId), [projects, projectId]);
   const isAllCoops = coopId === "all";
 
   async function calculate() {
