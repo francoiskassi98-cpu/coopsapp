@@ -68,9 +68,9 @@ export default function PrimeProducer() {
     })();
   }, [isSuperAdmin, cooperativeRefs]);
 
-  // Charge producteurs + sections en fonction du filtre registre
+  // Charge producteurs + sections + projets en fonction du filtre registre
   useEffect(() => {
-    if (!coopId) { setSections([]); setProducersList([]); return; }
+    if (!coopId) { setSections([]); setProducersList([]); setProjects([]); return; }
     (async () => {
       let all: ProducerOpt[] = [];
       let from = 0;
@@ -89,8 +89,16 @@ export default function PrimeProducer() {
       setProducersList(all);
       setSections([...new Set(all.map(p => p.section).filter(Boolean))].sort());
     })();
+    (async () => {
+      let pq = (supabase as any).from("projects").select("id,name").order("name");
+      if (coopId !== "all") pq = pq.eq("registre_id", coopId);
+      const { data, error } = await pq;
+      if (error) { console.error("[PrimeProducer.projects]", error); setProjects([]); return; }
+      setProjects((data || []) as ProjectOpt[]);
+    })();
     setSection("all");
     setProducerId("all");
+    setProjectId("all");
   }, [coopId, coops]);
 
   const coopSelected = useMemo(() => coops.find(c => c.id === coopId), [coops, coopId]);
