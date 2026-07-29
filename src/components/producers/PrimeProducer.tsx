@@ -64,13 +64,14 @@ export default function PrimeProducer() {
       setCoops(list);
       const labels = Array.from(new Set(((cp as any[]) || []).map((r) => r.campaign_label).filter(Boolean))).sort().reverse();
       setCampaigns(labels.map((l) => ({ id: l, nom: l })) as Campaign[]);
-      if (!isSuperAdmin && list[0]) setCoopId(list[0].id);
+      // Sélection auto : un seul registre accessible → on le sélectionne, sinon "Tous" pour le super admin
+      setCoopId((prev) => prev || (list.length === 1 ? list[0].id : (isSuperAdmin ? "all" : (list[0]?.id ?? ""))));
     })();
   }, [isSuperAdmin, cooperativeRefs]);
 
   // Charge producteurs + sections + projets en fonction du filtre registre
   useEffect(() => {
-    if (!coopId) { setSections([]); setProducersList([]); setProjects([]); return; }
+    if (!coopId && coops.length === 0) { setSections([]); setProducersList([]); setProjects([]); return; }
     (async () => {
       let all: ProducerOpt[] = [];
       let from = 0;
@@ -79,7 +80,7 @@ export default function PrimeProducer() {
           .select("id,full_name,section,registre_id")
           .order("full_name")
           .range(from, from + 999);
-        if (coopId !== "all") q = q.eq("registre_id", coopId);
+        if (coopId && coopId !== "all") q = q.eq("registre_id", coopId);
         const { data } = await q;
         if (!data || data.length === 0) break;
         all = all.concat(data as ProducerOpt[]);
@@ -91,7 +92,7 @@ export default function PrimeProducer() {
     })();
     (async () => {
       let pq = (supabase as any).from("projects").select("id,name").order("name");
-      if (coopId !== "all") pq = pq.eq("registre_id", coopId);
+      if (coopId && coopId !== "all") pq = pq.eq("registre_id", coopId);
       const { data, error } = await pq;
       if (error) { console.error("[PrimeProducer.projects]", error); setProjects([]); return; }
       setProjects((data || []) as ProjectOpt[]);
