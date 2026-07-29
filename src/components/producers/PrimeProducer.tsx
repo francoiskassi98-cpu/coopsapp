@@ -92,7 +92,7 @@ export default function PrimeProducer() {
     })();
     (async () => {
       let pq = (supabase as any).from("projects").select("id,name").order("name");
-      if (coopId !== "all") pq = pq.eq("registre_id", coopId);
+      if (coopId && coopId !== "all") pq = pq.eq("registre_id", coopId);
       const { data, error } = await pq;
       if (error) { console.error("[PrimeProducer.projects]", error); setProjects([]); return; }
       setProjects((data || []) as ProjectOpt[]);
