@@ -80,7 +80,7 @@ export default function PrimeProducer() {
           .select("id,full_name,section,registre_id")
           .order("full_name")
           .range(from, from + 999);
-        if (coopId !== "all") q = q.eq("registre_id", coopId);
+        if (coopId && coopId !== "all") q = q.eq("registre_id", coopId);
         const { data } = await q;
         if (!data || data.length === 0) break;
         all = all.concat(data as ProducerOpt[]);
