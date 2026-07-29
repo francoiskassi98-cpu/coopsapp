@@ -64,13 +64,14 @@ export default function PrimeProducer() {
       setCoops(list);
       const labels = Array.from(new Set(((cp as any[]) || []).map((r) => r.campaign_label).filter(Boolean))).sort().reverse();
       setCampaigns(labels.map((l) => ({ id: l, nom: l })) as Campaign[]);
-      if (!isSuperAdmin && list[0]) setCoopId(list[0].id);
+      // Sélection auto : un seul registre accessible → on le sélectionne, sinon "Tous" pour le super admin
+      setCoopId((prev) => prev || (list.length === 1 ? list[0].id : (isSuperAdmin ? "all" : (list[0]?.id ?? ""))));
     })();
   }, [isSuperAdmin, cooperativeRefs]);
 
   // Charge producteurs + sections + projets en fonction du filtre registre
   useEffect(() => {
-    if (!coopId) { setSections([]); setProducersList([]); setProjects([]); return; }
+    if (!coopId && coops.length === 0) { setSections([]); setProducersList([]); setProjects([]); return; }
     (async () => {
       let all: ProducerOpt[] = [];
       let from = 0;
