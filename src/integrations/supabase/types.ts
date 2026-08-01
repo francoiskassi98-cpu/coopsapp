@@ -1247,6 +1247,7 @@ export type Database = {
         Args: { p_campaign_label: string; p_registre: string }
         Returns: string
       }
+      shares_my_cooperative: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "super_admin" | "coop_admin" | "agent"
