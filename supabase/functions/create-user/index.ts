@@ -7,16 +7,18 @@ const corsHeaders = {
 
 const VALID_ROLES = ["super_admin", "coop_admin", "agent"] as const;
 
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Non autorisé" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!authHeader) return json({ error: "Non autorisé" }, 401);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -26,40 +28,38 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user: caller } } = await callerClient.auth.getUser();
-    if (!caller) {
-      return new Response(JSON.stringify({ error: "Non autorisé" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!caller) return json({ error: "Non autorisé" }, 401);
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: roleData } = await adminClient
-      .from("user_roles").select("role").eq("user_id", caller.id).eq("role", "super_admin").maybeSingle();
-    if (!roleData) {
-      return new Response(JSON.stringify({ error: "Accès refusé." }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const { data: callerRoles } = await adminClient
+      .from("user_roles").select("role").eq("user_id", caller.id);
+    const roles = (callerRoles || []).map((r: { role: string }) => r.role);
+    const isSuperAdmin = roles.includes("super_admin");
+    const isCoopAdmin = roles.includes("coop_admin");
+    if (!isSuperAdmin && !isCoopAdmin) {
+      return json({ error: "Accès refusé." }, 403);
     }
 
     const { email, password, username, role, registres } = await req.json();
     if (!email || !password || !username) {
-      return new Response(JSON.stringify({ error: "Champs requis manquants" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Champs requis manquants" }, 400);
     }
     if (!VALID_ROLES.includes(role)) {
-      return new Response(JSON.stringify({ error: "Rôle invalide" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Rôle invalide" }, 400);
     }
+    // Escalade de privilèges impossible : seul le super_admin crée un super_admin
+    if (role === "super_admin" && !isSuperAdmin) {
+      return json({
+        error: "Accès refusé : seul le Super Administrateur est autorisé à créer un compte Super Administrateur.",
+      }, 403);
+    }
+
     const registreIds: string[] = Array.isArray(registres)
       ? [...new Set(registres.map((r: unknown) => String(r).trim()).filter(Boolean))]
       : [];
     if ((role === "agent" || role === "coop_admin") && registreIds.length === 0) {
-      return new Response(JSON.stringify({ error: "Au moins un registre est requis." }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Au moins un registre est requis." }, 400);
     }
 
     // Résolution des coopératives associées aux registres (scoping RLS)
@@ -68,11 +68,21 @@ Deno.serve(async (req) => {
       const { data: regRows, error: regErr } = await adminClient
         .from("registres").select("id, cooperative_id").in("id", registreIds);
       if (regErr || !regRows || regRows.length !== registreIds.length) {
-        return new Response(JSON.stringify({ error: "Un ou plusieurs registres sélectionnés sont introuvables." }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return json({ error: "Un ou plusieurs registres sélectionnés sont introuvables." }, 400);
       }
       coopIds = [...new Set(regRows.map((r) => r.cooperative_id).filter(Boolean))];
+    }
+
+    // Un coop_admin ne peut affecter que des registres de ses propres coopératives
+    if (!isSuperAdmin) {
+      const { data: myCoops } = await adminClient
+        .from("user_cooperatives").select("cooperative_id").eq("user_id", caller.id);
+      const allowed = new Set((myCoops || []).map((c: { cooperative_id: string }) => c.cooperative_id));
+      if (coopIds.length === 0 || coopIds.some((id) => !allowed.has(id))) {
+        return json({
+          error: "Accès refusé : vous ne pouvez créer des utilisateurs que pour les registres de votre coopérative.",
+        }, 403);
+      }
     }
 
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
@@ -82,9 +92,9 @@ Deno.serve(async (req) => {
     if (createError || !newUser.user) {
       console.error("[create-user] createUser error:", createError?.message);
       const already = (createError?.message || "").toLowerCase().includes("already");
-      return new Response(JSON.stringify({
+      return json({
         error: already ? "Un utilisateur existe déjà avec cette adresse e-mail." : "Impossible de créer l'utilisateur.",
-      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }, 400);
     }
 
     const newId = newUser.user.id;
@@ -105,19 +115,13 @@ Deno.serve(async (req) => {
       );
       if (ucErr) console.error("[create-user] user_cooperatives:", ucErr.message);
       if (urErr) {
-        return new Response(JSON.stringify({ error: "Utilisateur créé mais l'affectation des registres a échoué." }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return json({ error: "Utilisateur créé mais l'affectation des registres a échoué." }, 400);
       }
     }
 
-    return new Response(JSON.stringify({ success: true, user_id: newId }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ success: true, user_id: newId });
   } catch (err) {
     console.error("[create-user] 500:", err instanceof Error ? err.message : err);
-    return new Response(JSON.stringify({ error: "Erreur serveur" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ error: "Erreur serveur" }, 500);
   }
 });

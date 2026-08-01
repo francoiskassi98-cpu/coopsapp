@@ -7,6 +7,12 @@ const corsHeaders = {
 
 const VALID_ROLES = ["super_admin", "coop_admin", "agent"] as const;
 
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 Deno.serve(async (req) => {
   const reqId = crypto.randomUUID().slice(0, 8);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -17,27 +23,47 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Non autorisé" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    if (!authHeader) return json({ error: "Non autorisé" }, 401);
 
     const callerClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: { user: caller }, error: authErr } = await callerClient.auth.getUser();
-    if (authErr || !caller) {
-      return new Response(JSON.stringify({ error: "Non autorisé" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    if (authErr || !caller) return json({ error: "Non autorisé" }, 401);
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: roleData } = await adminClient
-      .from("user_roles").select("role").eq("user_id", caller.id).eq("role", "super_admin").maybeSingle();
-    if (!roleData) {
-      return new Response(JSON.stringify({ error: "Accès refusé. Réservé aux super administrateurs." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const { data: callerRoles } = await adminClient
+      .from("user_roles").select("role").eq("user_id", caller.id);
+    const roles = (callerRoles || []).map((r: { role: string }) => r.role);
+    const isSuperAdmin = roles.includes("super_admin");
+    const isCoopAdmin = roles.includes("coop_admin");
+    if (!isSuperAdmin && !isCoopAdmin) {
+      return json({ error: "Accès refusé. Réservé aux administrateurs." }, 403);
     }
+
+    // Coopératives du caller (scoping coop_admin)
+    let myCoopIds: string[] = [];
+    if (!isSuperAdmin) {
+      const { data: myCoops } = await adminClient
+        .from("user_cooperatives").select("cooperative_id").eq("user_id", caller.id);
+      myCoopIds = [...new Set((myCoops || []).map((c: { cooperative_id: string }) => c.cooperative_id).filter(Boolean))];
+    }
+
+    const usersInMyCoops = async (): Promise<Set<string>> => {
+      if (isSuperAdmin) return new Set();
+      if (myCoopIds.length === 0) return new Set();
+      const { data } = await adminClient
+        .from("user_cooperatives").select("user_id").in("cooperative_id", myCoopIds);
+      return new Set((data || []).map((r: { user_id: string }) => r.user_id));
+    };
+
+    const roleOf = async (userId: string): Promise<string | null> => {
+      const { data } = await adminClient.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+      return (data?.role as string) ?? null;
+    };
 
     const body = await req.json();
     const { action } = body;
-    console.log(`[manage-user][${reqId}] caller=${caller.id} action=${action}`);
+    console.log(`[manage-user][${reqId}] caller=${caller.id} action=${action} super=${isSuperAdmin}`);
 
     if (action === "list") {
       const [{ data: authUsers, error: listErr }, { data: urRows }] = await Promise.all([
@@ -45,29 +71,63 @@ Deno.serve(async (req) => {
         adminClient.from("user_registres").select("user_id, registre_id, registres(id, name)"),
       ]);
       if (listErr) console.error(`[manage-user][${reqId}] listUsers error:`, listErr.message);
+
+      let visible: Set<string> | null = null;
+      if (!isSuperAdmin) {
+        const scoped = await usersInMyCoops();
+        scoped.add(caller.id);
+        // Aucun super_admin n'est visible pour un coop_admin
+        const { data: superRows } = await adminClient
+          .from("user_roles").select("user_id").eq("role", "super_admin");
+        for (const r of (superRows || []) as Array<{ user_id: string }>) scoped.delete(r.user_id);
+        visible = scoped;
+      }
+
       const banMap: Record<string, boolean> = {};
       const lastSignInMap: Record<string, string | null> = {};
       if (authUsers?.users) {
         for (const u of authUsers.users) {
+          if (visible && !visible.has(u.id)) continue;
           banMap[u.id] = u.banned_until ? new Date(u.banned_until) > new Date() : false;
           lastSignInMap[u.id] = u.last_sign_in_at ?? null;
         }
       }
       const registresByUser: Record<string, Array<{ id: string; name: string }>> = {};
       for (const r of (urRows || []) as Array<{ user_id: string; registre_id: string; registres: { id: string; name: string } | null }>) {
+        if (visible && !visible.has(r.user_id)) continue;
         if (r.registres) (registresByUser[r.user_id] ||= []).push(r.registres);
       }
-      return new Response(JSON.stringify({ banMap, registresByUser, lastSignInMap }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return json({
+        banMap,
+        registresByUser,
+        lastSignInMap,
+        allowedUserIds: visible ? [...visible] : null,
+      });
     }
 
     const { user_id, role, username, email, registres } = body;
 
-    if (!user_id || !action) {
-      return new Response(JSON.stringify({ error: "Paramètres manquants" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!user_id || !action) return json({ error: "Paramètres manquants" }, 400);
+
+    // Scoping des cibles pour un coop_admin
+    if (!isSuperAdmin) {
+      const targetRole = await roleOf(user_id);
+      if (targetRole === "super_admin") {
+        return json({ error: "Accès refusé : vous ne pouvez pas gérer un Super Administrateur." }, 403);
+      }
+      const scoped = await usersInMyCoops();
+      if (user_id !== caller.id && !scoped.has(user_id)) {
+        return json({ error: "Accès refusé : cet utilisateur n'appartient pas à votre coopérative." }, 403);
+      }
+      if (role === "super_admin") {
+        return json({
+          error: "Accès refusé : seul le Super Administrateur est autorisé à créer un compte Super Administrateur.",
+        }, 403);
+      }
     }
 
     if (action === "deactivate" && user_id === caller.id) {
-      return new Response(JSON.stringify({ error: "Vous ne pouvez pas désactiver votre propre compte" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return json({ error: "Vous ne pouvez pas désactiver votre propre compte" }, 400);
     }
 
     if (action === "update") {
@@ -86,9 +146,9 @@ Deno.serve(async (req) => {
       }
       if (Array.isArray(registres)) {
         const registreIds: string[] = [...new Set(registres.map((r: unknown) => String(r).trim()).filter(Boolean))];
-        const effectiveRole = role || (await adminClient.from("user_roles").select("role").eq("user_id", user_id).maybeSingle()).data?.role;
+        const effectiveRole = role || (await roleOf(user_id));
         if ((effectiveRole === "agent" || effectiveRole === "coop_admin") && registreIds.length === 0) {
-          return new Response(JSON.stringify({ error: "Un agent ou un admin doit avoir au moins un registre assigné." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          return json({ error: "Un agent ou un admin doit avoir au moins un registre assigné." }, 400);
         }
 
         let coopIds: string[] = [];
@@ -96,9 +156,16 @@ Deno.serve(async (req) => {
           const { data: regRows, error: regErr } = await adminClient
             .from("registres").select("id, cooperative_id").in("id", registreIds);
           if (regErr || !regRows || regRows.length !== registreIds.length) {
-            return new Response(JSON.stringify({ error: "Un ou plusieurs registres sélectionnés sont introuvables." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            return json({ error: "Un ou plusieurs registres sélectionnés sont introuvables." }, 400);
           }
           coopIds = [...new Set(regRows.map((r) => r.cooperative_id).filter(Boolean))];
+        }
+
+        if (!isSuperAdmin) {
+          const allowed = new Set(myCoopIds);
+          if (coopIds.some((id) => !allowed.has(id))) {
+            return json({ error: "Accès refusé : registre hors de votre coopérative." }, 403);
+          }
         }
 
         await adminClient.from("user_registres").delete().eq("user_id", user_id);
@@ -109,7 +176,7 @@ Deno.serve(async (req) => {
           );
           if (urErr) {
             console.error(`[manage-user][${reqId}] user_registres:`, urErr.message);
-            return new Response(JSON.stringify({ error: "L'affectation des registres a échoué." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            return json({ error: "L'affectation des registres a échoué." }, 400);
           }
           const { error: ucErr } = await adminClient.from("user_cooperatives").insert(
             coopIds.map((id) => ({ user_id, cooperative_id: id }))
@@ -117,39 +184,38 @@ Deno.serve(async (req) => {
           if (ucErr) console.error(`[manage-user][${reqId}] user_cooperatives:`, ucErr.message);
         }
       }
-      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return json({ success: true });
     }
-
 
     if (action === "deactivate") {
       const { error } = await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "876000h" });
-      if (error) return new Response(JSON.stringify({ error: "Erreur serveur" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (error) return json({ error: "Erreur serveur" }, 400);
+      return json({ success: true });
     }
 
     if (action === "activate") {
       const { error } = await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "none" });
-      if (error) return new Response(JSON.stringify({ error: "Erreur serveur" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (error) return json({ error: "Erreur serveur" }, 400);
+      return json({ success: true });
     }
 
     if (action === "reset_password") {
       const { data: targetUser, error: getErr } = await adminClient.auth.admin.getUserById(user_id);
       if (getErr || !targetUser?.user?.email) {
-        return new Response(JSON.stringify({ error: "Utilisateur introuvable" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return json({ error: "Utilisateur introuvable" }, 404);
       }
       const redirectTo = body.redirectTo || undefined;
       const { error: resetErr } = await adminClient.auth.resetPasswordForEmail(targetUser.user.email, redirectTo ? { redirectTo } : undefined);
       if (resetErr) {
         console.error(`[manage-user][${reqId}] reset error:`, resetErr.message);
-        return new Response(JSON.stringify({ error: "Erreur serveur" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return json({ error: "Erreur serveur" }, 400);
       }
-      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return json({ success: true });
     }
 
-    return new Response(JSON.stringify({ error: "Action inconnue" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return json({ error: "Action inconnue" }, 400);
   } catch (err) {
     console.error(`[manage-user][${reqId}] 500:`, err instanceof Error ? err.message : err);
-    return new Response(JSON.stringify({ error: "Erreur serveur" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return json({ error: "Erreur serveur" }, 500);
   }
 });

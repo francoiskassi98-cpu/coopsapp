@@ -37,7 +37,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export default function UserManagement() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isSuperAdmin } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [registres, setRegistres] = useState<Registre[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,9 +77,13 @@ export default function UserManagement() {
       const banMap: Record<string, boolean> = manageResult.data?.banMap || {};
       const registresByUser: Record<string, Array<{ id: string; name: string }>> = manageResult.data?.registresByUser || {};
       const lastSignInMap: Record<string, string | null> = manageResult.data?.lastSignInMap || {};
+      const allowedUserIds: string[] | null = manageResult.data?.allowedUserIds ?? null;
+      const allowedSet = allowedUserIds ? new Set(allowedUserIds) : null;
 
       if (profiles && roles) {
-        const merged = (profiles as any[]).map((p) => ({
+        const merged = (profiles as any[])
+          .filter((p) => !allowedSet || allowedSet.has(p.user_id))
+          .map((p) => ({
           user_id: p.user_id,
           username: p.username,
           email: p.email,
@@ -88,7 +92,8 @@ export default function UserManagement() {
           role: roles.find((r: any) => r.user_id === p.user_id)?.role || "agent",
           is_banned: banMap[p.user_id] || false,
           last_sign_in_at: lastSignInMap[p.user_id] || null,
-        }));
+        }))
+          .filter((u) => isSuperAdmin || u.role !== "super_admin");
         setUsers(merged);
       }
     } catch (err) {
@@ -100,7 +105,7 @@ export default function UserManagement() {
   };
 
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); }, [isSuperAdmin]);
 
   const toggleInList = (list: string[], value: string) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
@@ -109,6 +114,10 @@ export default function UserManagement() {
     e.preventDefault();
     if (!username.trim() || !email.trim() || !password.trim()) {
       toast({ title: "Erreur", description: "Tous les champs sont requis.", variant: "destructive" });
+      return;
+    }
+    if (role === "super_admin" && !isSuperAdmin) {
+      toast({ title: "Accès refusé", description: "Seul le Super Administrateur est autorisé à créer un compte Super Administrateur.", variant: "destructive" });
       return;
     }
     if ((role === "agent" || role === "coop_admin") && selectedRegistres.length === 0) {
@@ -142,6 +151,10 @@ export default function UserManagement() {
   };
 
   const openEdit = (u: UserProfile) => {
+    if (u.role === "super_admin" && !isSuperAdmin) {
+      toast({ title: "Accès refusé", description: "Vous ne pouvez pas modifier un Super Administrateur.", variant: "destructive" });
+      return;
+    }
     setEditUser(u);
     setEditUsername(u.username);
     setEditEmail(u.email);
@@ -152,6 +165,10 @@ export default function UserManagement() {
 
   const handleUpdate = async () => {
     if (!editUser) return;
+    if (editRole === "super_admin" && !isSuperAdmin) {
+      toast({ title: "Accès refusé", description: "Seul le Super Administrateur peut attribuer ce rôle.", variant: "destructive" });
+      return;
+    }
     if ((editRole === "agent" || editRole === "coop_admin") && editRegistres.length === 0) {
       toast({ title: "Registres requis", description: "Un agent ou un admin doit avoir au moins un registre assigné.", variant: "destructive" });
       return;
@@ -311,7 +328,7 @@ export default function UserManagement() {
                 <Select value={role} onValueChange={setRole}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="super_admin">Super administrateur</SelectItem>
+                    {isSuperAdmin && <SelectItem value="super_admin">Super administrateur</SelectItem>}
                     <SelectItem value="coop_admin">Admin de coopérative</SelectItem>
                     <SelectItem value="agent">Agent</SelectItem>
                   </SelectContent>
@@ -455,7 +472,7 @@ export default function UserManagement() {
               <Select value={editRole} onValueChange={setEditRole}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="super_admin">Super administrateur</SelectItem>
+                  {isSuperAdmin && <SelectItem value="super_admin">Super administrateur</SelectItem>}
                   <SelectItem value="coop_admin">Admin de coopérative</SelectItem>
                   <SelectItem value="agent">Agent</SelectItem>
                 </SelectContent>
