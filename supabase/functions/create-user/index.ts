@@ -106,16 +106,27 @@ Deno.serve(async (req) => {
     }
 
     if (registreIds.length > 0) {
+      // Le rattachement aux coopératives est synchronisé automatiquement par trigger DB
       const { error: urErr } = await adminClient.from("user_registres").insert(
         registreIds.map((id) => ({ user_id: newId, registre_id: id }))
       );
-      if (urErr) console.error("[create-user] user_registres:", urErr.message);
-      const { error: ucErr } = await adminClient.from("user_cooperatives").insert(
-        coopIds.map((id) => ({ user_id: newId, cooperative_id: id }))
-      );
-      if (ucErr) console.error("[create-user] user_cooperatives:", ucErr.message);
       if (urErr) {
+        console.error("[create-user] user_registres:", urErr.message);
         return json({ error: "Utilisateur créé mais l'affectation des registres a échoué." }, 400);
+      }
+      // Contrôle de cohérence : la liaison coopérative doit exister
+      const { data: ucRows } = await adminClient
+        .from("user_cooperatives").select("cooperative_id").eq("user_id", newId);
+      const linked = new Set((ucRows || []).map((r: { cooperative_id: string }) => r.cooperative_id));
+      const missing = coopIds.filter((id) => !linked.has(id));
+      if (missing.length > 0) {
+        const { error: ucErr } = await adminClient.from("user_cooperatives").insert(
+          missing.map((id) => ({ user_id: newId, cooperative_id: id }))
+        );
+        if (ucErr) {
+          console.error("[create-user] user_cooperatives:", ucErr.message);
+          return json({ error: "Utilisateur créé mais le rattachement à la coopérative a échoué." }, 400);
+        }
       }
     }
 

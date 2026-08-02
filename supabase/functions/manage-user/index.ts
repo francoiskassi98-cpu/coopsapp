@@ -171,6 +171,7 @@ Deno.serve(async (req) => {
         await adminClient.from("user_registres").delete().eq("user_id", user_id);
         await adminClient.from("user_cooperatives").delete().eq("user_id", user_id);
         if (registreIds.length > 0) {
+          // Le rattachement coopérative est synchronisé automatiquement par trigger DB
           const { error: urErr } = await adminClient.from("user_registres").insert(
             registreIds.map((id) => ({ user_id, registre_id: id }))
           );
@@ -178,10 +179,19 @@ Deno.serve(async (req) => {
             console.error(`[manage-user][${reqId}] user_registres:`, urErr.message);
             return json({ error: "L'affectation des registres a échoué." }, 400);
           }
-          const { error: ucErr } = await adminClient.from("user_cooperatives").insert(
-            coopIds.map((id) => ({ user_id, cooperative_id: id }))
-          );
-          if (ucErr) console.error(`[manage-user][${reqId}] user_cooperatives:`, ucErr.message);
+          const { data: ucRows } = await adminClient
+            .from("user_cooperatives").select("cooperative_id").eq("user_id", user_id);
+          const linked = new Set((ucRows || []).map((r: { cooperative_id: string }) => r.cooperative_id));
+          const missing = coopIds.filter((id) => !linked.has(id));
+          if (missing.length > 0) {
+            const { error: ucErr } = await adminClient.from("user_cooperatives").insert(
+              missing.map((id) => ({ user_id, cooperative_id: id }))
+            );
+            if (ucErr) {
+              console.error(`[manage-user][${reqId}] user_cooperatives:`, ucErr.message);
+              return json({ error: "Le rattachement à la coopérative a échoué." }, 400);
+            }
+          }
         }
       }
       return json({ success: true });
