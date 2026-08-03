@@ -272,9 +272,14 @@ export default function UserManagement() {
       });
       if (error || data?.error) {
         console.error("[manage-user reset]", error || data?.error);
-        toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+        toast({
+          title: "Erreur",
+          description: await edgeErrorMessage(error, data, "L'envoi du lien de réinitialisation a échoué."),
+          variant: "destructive",
+        });
         return;
       }
+
       toast({ title: "Lien envoyé", description: `Un email de réinitialisation a été envoyé à ${u.email}.` });
     } catch (err) {
       console.error(err);
