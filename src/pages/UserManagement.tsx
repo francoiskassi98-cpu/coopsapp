@@ -36,6 +36,23 @@ const ROLE_LABEL: Record<string, string> = {
   agent: "Agent",
 };
 
+/** Extrait le message d'erreur métier renvoyé par une Edge Function (y compris sur statut 4xx/5xx). */
+async function edgeErrorMessage(error: unknown, data: unknown, fallback: string): Promise<string> {
+  const d = data as { error?: unknown } | null;
+  if (typeof d?.error === "string") return d.error;
+  const ctx = (error as { context?: Response } | null)?.context;
+  if (ctx && typeof (ctx as Response).clone === "function") {
+    try {
+      const body = await (ctx as Response).clone().json();
+      if (typeof body?.error === "string") return body.error;
+    } catch (e) {
+      console.error("[edgeErrorMessage] parse", e);
+    }
+  }
+  return fallback;
+}
+
+
 export default function UserManagement() {
   const { user: currentUser, isSuperAdmin } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
