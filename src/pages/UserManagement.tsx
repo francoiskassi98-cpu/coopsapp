@@ -240,9 +240,14 @@ export default function UserManagement() {
       });
       if (error || data?.error) {
         console.error("[manage-user toggle]", error || data?.error);
-        toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+        toast({
+          title: "Erreur",
+          description: await edgeErrorMessage(error, data, "Le changement de statut a échoué."),
+          variant: "destructive",
+        });
         return;
       }
+
       toast({ title: activate ? "Utilisateur réactivé" : "Utilisateur désactivé", description: `${u.username}` });
       fetchUsers();
     } catch (err) {
