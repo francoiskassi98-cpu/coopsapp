@@ -150,11 +150,12 @@ export default function UserManagement() {
         console.error("[create-user]", error || data?.error);
         toast({
           title: "Création impossible",
-          description: typeof data?.error === "string" ? data.error : "Une erreur est survenue.",
+          description: await edgeErrorMessage(error, data, "La création de l'utilisateur a échoué."),
           variant: "destructive",
         });
         return;
       }
+
       toast({ title: "Utilisateur créé", description: `${username} a été ajouté.` });
       setUsername(""); setEmail(""); setPassword(""); setRole("agent"); setSelectedRegistres([]);
       setShowForm(false);
