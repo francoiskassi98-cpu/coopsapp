@@ -207,11 +207,12 @@ export default function UserManagement() {
         console.error("[manage-user update]", error || data?.error);
         toast({
           title: "Modification impossible",
-          description: typeof data?.error === "string" ? data.error : "Une erreur est survenue.",
+          description: await edgeErrorMessage(error, data, "La modification de l'utilisateur a échoué."),
           variant: "destructive",
         });
         return;
       }
+
 
       const wasBanned = editUser.is_banned;
       if (wasBanned && editActive) {
