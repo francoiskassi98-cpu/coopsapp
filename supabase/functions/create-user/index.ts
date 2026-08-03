@@ -32,14 +32,17 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: callerRoles } = await adminClient
+    const { data: callerRoles, error: rolesErr } = await adminClient
       .from("user_roles").select("role").eq("user_id", caller.id);
+    if (rolesErr) console.error("[create-user] rolesErr:", rolesErr.message);
     const roles = (callerRoles || []).map((r: { role: string }) => r.role);
+
     const isSuperAdmin = roles.includes("super_admin");
     const isCoopAdmin = roles.includes("coop_admin");
     if (!isSuperAdmin && !isCoopAdmin) {
       return json({ error: "Accès refusé." }, 403);
     }
+
 
     const { email, password, username, role, registres } = await req.json();
     if (!email || !password || !username) {

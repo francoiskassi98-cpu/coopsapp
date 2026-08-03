@@ -36,6 +36,23 @@ const ROLE_LABEL: Record<string, string> = {
   agent: "Agent",
 };
 
+/** Extrait le message d'erreur métier renvoyé par une Edge Function (y compris sur statut 4xx/5xx). */
+async function edgeErrorMessage(error: unknown, data: unknown, fallback: string): Promise<string> {
+  const d = data as { error?: unknown } | null;
+  if (typeof d?.error === "string") return d.error;
+  const ctx = (error as { context?: Response } | null)?.context;
+  if (ctx && typeof (ctx as Response).clone === "function") {
+    try {
+      const body = await (ctx as Response).clone().json();
+      if (typeof body?.error === "string") return body.error;
+    } catch (e) {
+      console.error("[edgeErrorMessage] parse", e);
+    }
+  }
+  return fallback;
+}
+
+
 export default function UserManagement() {
   const { user: currentUser, isSuperAdmin } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -133,11 +150,12 @@ export default function UserManagement() {
         console.error("[create-user]", error || data?.error);
         toast({
           title: "Création impossible",
-          description: typeof data?.error === "string" ? data.error : "Une erreur est survenue.",
+          description: await edgeErrorMessage(error, data, "La création de l'utilisateur a échoué."),
           variant: "destructive",
         });
         return;
       }
+
       toast({ title: "Utilisateur créé", description: `${username} a été ajouté.` });
       setUsername(""); setEmail(""); setPassword(""); setRole("agent"); setSelectedRegistres([]);
       setShowForm(false);
@@ -189,11 +207,12 @@ export default function UserManagement() {
         console.error("[manage-user update]", error || data?.error);
         toast({
           title: "Modification impossible",
-          description: typeof data?.error === "string" ? data.error : "Une erreur est survenue.",
+          description: await edgeErrorMessage(error, data, "La modification de l'utilisateur a échoué."),
           variant: "destructive",
         });
         return;
       }
+
 
       const wasBanned = editUser.is_banned;
       if (wasBanned && editActive) {
@@ -221,9 +240,14 @@ export default function UserManagement() {
       });
       if (error || data?.error) {
         console.error("[manage-user toggle]", error || data?.error);
-        toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+        toast({
+          title: "Erreur",
+          description: await edgeErrorMessage(error, data, "Le changement de statut a échoué."),
+          variant: "destructive",
+        });
         return;
       }
+
       toast({ title: activate ? "Utilisateur réactivé" : "Utilisateur désactivé", description: `${u.username}` });
       fetchUsers();
     } catch (err) {
@@ -248,9 +272,14 @@ export default function UserManagement() {
       });
       if (error || data?.error) {
         console.error("[manage-user reset]", error || data?.error);
-        toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+        toast({
+          title: "Erreur",
+          description: await edgeErrorMessage(error, data, "L'envoi du lien de réinitialisation a échoué."),
+          variant: "destructive",
+        });
         return;
       }
+
       toast({ title: "Lien envoyé", description: `Un email de réinitialisation a été envoyé à ${u.email}.` });
     } catch (err) {
       console.error(err);
