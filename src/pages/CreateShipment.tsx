@@ -210,11 +210,13 @@ export default function CreateShipment() {
     let eligibility;
     try {
       eligibility = await buildEligibleProducers(selectedCoopId, new Date(startDate));
+      eligibilitySnapshot.current = toEligibilitySnapshot(eligibility);
     } catch (error: any) {
       console.error("[CreateShipment] eligibility build failed", error);
       toast({ title: "Erreur chargement producteurs", description: `${error?.message || "Erreur inconnue"}`, variant: "destructive" });
       return;
     }
+
 
     setExclusions(eligibility.excluded.map((e) => e.message));
 
