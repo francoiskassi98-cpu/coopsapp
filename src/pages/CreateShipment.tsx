@@ -358,28 +358,15 @@ export default function CreateShipment() {
       setSaveDiagnostic(message);
       throw delErr;
     }
-
-
-    for (const d of preview) {
-      const { data: producer, error: readErr } = await supabase.from("producers").select("remaining_potential").eq("id", d.producer_id).single();
-      if (readErr) {
-        const message = formatTechnicalError(readErr, `Échec lecture du potentiel producteur ${d.full_name}`);
-        console.error("[CreateShipment] producer read failed", { error: readErr, producerId: d.producer_id });
-        setSaveDiagnostic(message);
-        throw readErr;
-      }
-      if (producer) {
-        const { error: updateErr } = await supabase
-          .from("producers")
-          .update({ remaining_potential: Number(producer.remaining_potential) - d.allocated_weight })
-          .eq("id", d.producer_id);
-        if (updateErr) {
-          const message = formatTechnicalError(updateErr, `Échec mise à jour du potentiel producteur ${d.full_name}`);
-          console.error("[CreateShipment] producer update failed", { error: updateErr, producerId: d.producer_id, allocatedWeight: d.allocated_weight });
-          setSaveDiagnostic(message);
-          throw updateErr;
-        }
-      }
+    // Mise à jour des potentiels producteurs en une seule opération serveur
+    const { error: potErr } = await (supabase as any).rpc("apply_shipment_potentials", {
+      p_lines: preview.map((d) => ({ producer_id: d.producer_id, weight: Number(d.allocated_weight) })),
+    });
+    if (potErr) {
+      const message = formatTechnicalError(potErr, "Échec mise à jour des potentiels producteurs");
+      console.error("[CreateShipment] potentials update failed", { error: potErr, count: preview.length });
+      setSaveDiagnostic(message);
+      throw potErr;
     }
 
     return shipment.id as string;
@@ -388,6 +375,7 @@ export default function CreateShipment() {
   const resetForm = () => {
     setPreview([]);
     setExclusions([]);
+    eligibilitySnapshot.current = null;
 
     setConnaissement("");
     setTotalWeight("");
@@ -397,6 +385,7 @@ export default function CreateShipment() {
     setTrailerNumber("");
     setDepartureDate("");
   };
+
 
   const handleSave = async () => {
     if (preview.length === 0) return;
