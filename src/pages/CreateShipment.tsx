@@ -60,16 +60,19 @@ export default function CreateShipment() {
   const canCreateProject = role === "super_admin" || role === "coop_admin" || role === "agent";
 
   const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
-  const [coopDelivered, setCoopDelivered] = useState<Record<string, number>>({});
-  const [coopPotential, setCoopPotential] = useState<Record<string, { potentiel: number; remaining: number }>>({});
+  const [selectedCoopStats, setSelectedCoopStats] = useState<{ potentiel: number; delivered: number; remaining: number } | null>(null);
   const [suggestedReceipt, setSuggestedReceipt] = useState<string>("");
   const [receiptNumber, setReceiptNumber] = useState<string>("");
   const [selectedCoopId, setSelectedCoopId] = useState<string>("");
+  // Snapshot d'éligibilité calculé lors du "Calculer la distribution" — réutilisé
+  // à l'enregistrement pour éviter un second scan complet producteurs/livraisons.
+  const eligibilitySnapshot = useRef<EligibilitySnapshot | null>(null);
 
   useEffect(() => {
-    supabase.from("partners").select("*").order("name").then(({ data }) => setPartners(data || []));
-    loadCooperatives();
+    supabase.from("partners").select("id, name").order("name").then(({ data }) => setPartners(data || []));
+    (supabase as any).from("registres").select("id, name").order("name").then(({ data }: any) => setCooperatives(data || []));
   }, []);
+
 
   const selectedTemplate = useMemo(
     () => templates.find((t) => t.id === templateId) || null,
