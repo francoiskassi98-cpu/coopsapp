@@ -294,8 +294,10 @@ export default function CreateShipment() {
         allocated_weight: Number(d.allocated_weight),
         delivery_date: d.delivery_date,
       })),
-      campaignLabel
+      campaignLabel,
+      eligibilitySnapshot.current
     );
+
     if (anomalies.length > 0) {
       console.error("[CreateShipment] business rules violated", anomalies);
       setSaveDiagnostic(anomalies.join("\n"));
