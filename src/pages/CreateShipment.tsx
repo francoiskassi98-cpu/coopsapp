@@ -20,7 +20,7 @@ import ShipmentDetails from "@/components/ShipmentDetails";
 import ShipmentHistory from "@/components/ShipmentHistory";
 import { TemplatePreview, type TemplatePreviewData } from "@/components/shipments/TemplatePreview";
 import PageHeader from "@/components/PageHeader";
-import { buildEligibleProducers, validateDistributionBeforeSave, MIN_REMAINING_WEIGHT_KG, MIN_DAYS_BETWEEN_DELIVERIES } from "@/lib/producer-eligibility";
+import { buildEligibleProducers, validateDistributionBeforeSave, toEligibilitySnapshot, type EligibilitySnapshot, MIN_REMAINING_WEIGHT_KG, MIN_DAYS_BETWEEN_DELIVERIES } from "@/lib/producer-eligibility";
 
 
 export default function CreateShipment() {
