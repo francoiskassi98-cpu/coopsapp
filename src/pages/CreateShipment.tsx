@@ -542,22 +542,35 @@ export default function CreateShipment() {
     if (preview.length === 0) return;
     setSaving(true);
     setSaveDiagnostic(null);
+    const count = preview.length;
+    let shipmentId: string | null = null;
     try {
-      const count = preview.length;
-      const shipmentId = await persistShipment();
-      if (!shipmentId) return;
-      await generateShipmentFiche(shipmentId);
-      toast({ title: "Chargement validé et enregistré avec succès.", description: `${count} fiches générées et fiche Excel téléchargée. N° chargement : ${shipmentId.slice(0, 8)}.` });
-      resetForm();
+      shipmentId = await persistShipment();
     } catch (err: any) {
-      const message = formatTechnicalError(err, "Enregistrement/téléchargement impossible");
-      console.error("[CreateShipment] save and download failed", err);
+      const message = formatTechnicalError(err, "Étape : enregistrement du chargement");
+      console.error("[CreateShipment] save failed", err);
       setSaveDiagnostic((current) => current || message);
-      toast({ title: "Enregistrement impossible", description: err?.message || "Consultez le diagnostic affiché sous l’aperçu.", variant: "destructive" });
-    } finally {
+      toast({ title: "Étape enregistrement échouée", description: err?.message || "Consultez le diagnostic affiché sous l’aperçu.", variant: "destructive" });
       setSaving(false);
+      return;
+    }
+
+    // Transaction terminée : on libère l'interface immédiatement.
+    toast({ title: "Chargement validé et enregistré avec succès.", description: `${count} fiches de livraison générées. Préparation du fichier Excel…` });
+    resetForm();
+    refreshAfterSaveInBackground();
+    setSaving(false);
+
+    if (!shipmentId) return;
+    // Génération du fichier hors du chemin critique de l'enregistrement.
+    try {
+      await generateShipmentFiche(shipmentId, selectedTemplate || undefined);
+    } catch (err: any) {
+      console.error("[CreateShipment] fiche generation failed", err);
+      toast({ title: "Étape téléchargement échouée", description: `Le chargement est bien enregistré, mais la fiche n'a pas pu être générée : ${err?.message || "erreur inconnue"}.`, variant: "destructive" });
     }
   };
+
 
   return (
     <div className="p-4 md:p-6 space-y-6">
