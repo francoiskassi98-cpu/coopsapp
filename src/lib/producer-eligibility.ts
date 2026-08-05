@@ -184,21 +184,28 @@ export interface DistributionLine {
   delivery_date: string;
 }
 
+/** Données réutilisables issues d'un calcul d'éligibilité déjà effectué. */
+export type EligibilitySnapshot = Pick<
+  EligibilityResult,
+  "deliveredByProducer" | "lastDeliveryByProducer" | "campaignLabel"
+>;
+
 /**
  * Validation finale avant enregistrement : aucun dépassement de potentiel,
  * aucun poids restant < 50 kg, aucun délai de 15 jours non respecté.
+ * Un snapshot d'éligibilité déjà calculé peut être fourni pour éviter
+ * un second scan complet des producteurs et livraisons.
  * Retourne la liste des anomalies (vide si tout est conforme).
  */
 export async function validateDistributionBeforeSave(
   registreId: string,
   lines: DistributionLine[],
-  campaignLabelInput?: string
+  campaignLabelInput?: string,
+  snapshot?: EligibilitySnapshot | null
 ): Promise<string[]> {
-  const { deliveredByProducer, lastDeliveryByProducer } = await buildEligibleProducers(
-    registreId,
-    new Date(),
-    campaignLabelInput
-  );
+  const { deliveredByProducer, lastDeliveryByProducer } =
+    snapshot ?? (await buildEligibleProducers(registreId, new Date(), campaignLabelInput));
+
 
   const potentials: Record<string, { potential: number; name: string }> = {};
   const ids = Array.from(new Set(lines.map((l) => l.producer_id)));
