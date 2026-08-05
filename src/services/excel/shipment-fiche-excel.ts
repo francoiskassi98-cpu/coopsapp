@@ -101,26 +101,39 @@ function extOf(url: string): "png" | "jpeg" {
 // - Bloc infos en horizontal lignes 2-11 (fusions A:B, C:D, F:G)
 // - Tableau producteurs commence STRICTEMENT à la ligne 13
 // ============================================================================
-export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ wb: ExcelJS.Workbook; ws: ExcelJS.Worksheet; fileName: string; tpl: TemplateConfig }> {
-  const { data: shipment, error: sErr } = await supabase
-    .from("shipments")
-    .select(
-      "id, connaissement, lot_number, project, destination, total_weight, total_bags, delivery_start, departure_date, driver_name, truck_number, trailer_number, registre_id, partner_id, registres(name, cooperatives(name)), partners(name)"
-    )
-    .eq("id", shipmentId)
-    .maybeSingle();
+export async function buildShipmentFicheWorkbook(
+  shipmentId: string,
+  presetTemplate?: Partial<TemplateConfig> | null
+): Promise<{ wb: ExcelJS.Workbook; ws: ExcelJS.Worksheet; fileName: string; tpl: TemplateConfig }> {
+  // Chargement + livraisons récupérés en parallèle (aucune dépendance entre les deux).
+  const [shipmentRes, deliveriesRes] = await Promise.all([
+    supabase
+      .from("shipments")
+      .select(
+        "id, connaissement, lot_number, project, destination, total_weight, total_bags, delivery_start, departure_date, driver_name, truck_number, trailer_number, registre_id, partner_id, registres(name, cooperatives(name)), partners(name)"
+      )
+      .eq("id", shipmentId)
+      .maybeSingle(),
+    supabase
+      .from("deliveries")
+      .select(
+        "receipt_number, delivery_date, net_weight, num_bags, producers(full_name, section, plantation_code)"
+      )
+      .eq("shipment_id", shipmentId)
+      .order("receipt_number", { ascending: true }),
+  ]);
+
+  const { data: shipment, error: sErr } = shipmentRes;
   if (sErr || !shipment) throw new Error("Chargement introuvable");
 
-  const tpl = await loadTemplate((shipment as any).registre_id);
+  // Le modèle déjà sélectionné dans le formulaire est réutilisé — aucune requête supplémentaire.
+  const tpl: TemplateConfig = presetTemplate
+    ? ({ ...FALLBACK_TEMPLATE, ...presetTemplate } as TemplateConfig)
+    : await loadTemplate((shipment as any).registre_id);
 
-  const { data: deliveries, error: dErr } = await supabase
-    .from("deliveries")
-    .select(
-      "receipt_number, delivery_date, net_weight, num_bags, producers(full_name, section, plantation_code)"
-    )
-    .eq("shipment_id", shipmentId)
-    .order("receipt_number", { ascending: true });
+  const { data: deliveries, error: dErr } = deliveriesRes;
   if (dErr) throw dErr;
+
 
   const rows = deliveries || [];
   const uniqueProducers = new Set(
@@ -434,10 +447,14 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   return { wb, ws, fileName, tpl };
 }
 
-export async function generateShipmentFiche(shipmentId: string): Promise<void> {
-  const { wb, fileName } = await buildShipmentFicheWorkbook(shipmentId);
+export async function generateShipmentFiche(
+  shipmentId: string,
+  presetTemplate?: Partial<TemplateConfig> | null
+): Promise<void> {
+  const { wb, fileName } = await buildShipmentFicheWorkbook(shipmentId, presetTemplate);
   await downloadWorkbook(wb, fileName);
 }
+
 
 export async function downloadWorkbook(wb: ExcelJS.Workbook, fileName: string): Promise<void> {
   const buffer = await wb.xlsx.writeBuffer();
