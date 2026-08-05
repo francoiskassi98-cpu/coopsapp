@@ -184,49 +184,24 @@ export interface DistributionLine {
   delivery_date: string;
 }
 
-/** Données réutilisables issues d'un calcul d'éligibilité déjà effectué. */
-export type EligibilitySnapshot = Pick<
-  EligibilityResult,
-  "deliveredByProducer" | "lastDeliveryByProducer" | "campaignLabel"
-> & {
-  /** potentiel de livraison par producteur, issu du même calcul */
-  potentialsById?: Record<string, { potential: number; name: string }>;
-};
-
-/** Construit un snapshot réutilisable à partir d'un résultat d'éligibilité. */
-export function toEligibilitySnapshot(result: EligibilityResult): EligibilitySnapshot {
-  const potentialsById: Record<string, { potential: number; name: string }> = {};
-  result.eligible.forEach((p) => {
-    potentialsById[p.id] = { potential: p.delivery_potential, name: p.full_name };
-  });
-  return {
-    deliveredByProducer: result.deliveredByProducer,
-    lastDeliveryByProducer: result.lastDeliveryByProducer,
-    campaignLabel: result.campaignLabel,
-    potentialsById,
-  };
-}
-
 /**
  * Validation finale avant enregistrement : aucun dépassement de potentiel,
  * aucun poids restant < 50 kg, aucun délai de 15 jours non respecté.
- * Un snapshot d'éligibilité déjà calculé peut être fourni pour éviter
- * un second scan complet des producteurs et livraisons.
  * Retourne la liste des anomalies (vide si tout est conforme).
  */
 export async function validateDistributionBeforeSave(
   registreId: string,
   lines: DistributionLine[],
-  campaignLabelInput?: string,
-  snapshot?: EligibilitySnapshot | null
+  campaignLabelInput?: string
 ): Promise<string[]> {
-  const source =
-    snapshot ??
-    toEligibilitySnapshot(await buildEligibleProducers(registreId, new Date(), campaignLabelInput));
-  const { deliveredByProducer, lastDeliveryByProducer } = source;
+  const { deliveredByProducer, lastDeliveryByProducer } = await buildEligibleProducers(
+    registreId,
+    new Date(),
+    campaignLabelInput
+  );
 
-  const potentials: Record<string, { potential: number; name: string }> = { ...(source.potentialsById || {}) };
-  const ids = Array.from(new Set(lines.map((l) => l.producer_id))).filter((id) => !potentials[id]);
+  const potentials: Record<string, { potential: number; name: string }> = {};
+  const ids = Array.from(new Set(lines.map((l) => l.producer_id)));
   for (let i = 0; i < ids.length; i += 200) {
     const chunk = ids.slice(i, i + 200);
     const { data, error } = await (supabase as any)
@@ -238,7 +213,6 @@ export async function validateDistributionBeforeSave(
       potentials[p.id] = { potential: Number(p.delivery_potential || 0), name: p.full_name || "Producteur" };
     });
   }
-
 
   const anomalies: string[] = [];
   for (const line of lines) {
