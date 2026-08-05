@@ -387,6 +387,13 @@ export default function CreateShipment() {
   };
 
 
+  /** Rafraîchissements secondaires — exécutés en arrière-plan, jamais bloquants. */
+  const refreshAfterSaveInBackground = () => {
+    if (!selectedCoopId) return;
+    void loadNextReceiptForCooperative(selectedCoopId);
+    void loadCoopStats(selectedCoopId);
+  };
+
   const handleSave = async () => {
     if (preview.length === 0) return;
     setSaving(true);
@@ -396,6 +403,7 @@ export default function CreateShipment() {
       const shipmentId = await persistShipment();
       toast({ title: "Chargement validé et enregistré avec succès.", description: `${count} fiches de livraison générées. N° chargement : ${shipmentId?.slice(0, 8) || "créé"}.` });
       resetForm();
+      refreshAfterSaveInBackground();
     } catch (err: any) {
       const message = formatTechnicalError(err, "Validation impossible");
       console.error("[CreateShipment] save failed", err);
@@ -405,6 +413,7 @@ export default function CreateShipment() {
       setSaving(false);
     }
   };
+
 
   const addPartner = async () => {
     const name = newPartnerName.trim();
