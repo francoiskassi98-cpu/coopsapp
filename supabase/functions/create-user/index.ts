@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendGmail, welcomeEmailHtml } from "../_shared/send-gmail.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -133,7 +135,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({ success: true, user_id: newId });
+    // Envoi de l'e-mail de bienvenue avec le mot de passe temporaire
+    const appUrl = Deno.env.get("APP_URL") || "https://coopsapp.lovable.app";
+    const mail = await sendGmail({
+      to: email,
+      subject: "Vos accès à la plateforme",
+      html: welcomeEmailHtml({ username, email, password, role, appUrl }),
+    });
+    if (!mail.ok) {
+      console.error("[create-user] welcome email failed:", mail.status, mail.details);
+    }
+
+    return json({ success: true, user_id: newId, email_sent: mail.ok });
+
   } catch (err) {
     console.error("[create-user] 500:", err instanceof Error ? err.message : err);
     return json({ error: "Erreur serveur" }, 500);
