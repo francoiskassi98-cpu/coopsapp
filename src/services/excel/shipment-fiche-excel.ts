@@ -447,10 +447,14 @@ export async function buildShipmentFicheWorkbook(
   return { wb, ws, fileName, tpl };
 }
 
-export async function generateShipmentFiche(shipmentId: string): Promise<void> {
-  const { wb, fileName } = await buildShipmentFicheWorkbook(shipmentId);
+export async function generateShipmentFiche(
+  shipmentId: string,
+  presetTemplate?: Partial<TemplateConfig> | null
+): Promise<void> {
+  const { wb, fileName } = await buildShipmentFicheWorkbook(shipmentId, presetTemplate);
   await downloadWorkbook(wb, fileName);
 }
+
 
 export async function downloadWorkbook(wb: ExcelJS.Workbook, fileName: string): Promise<void> {
   const buffer = await wb.xlsx.writeBuffer();
