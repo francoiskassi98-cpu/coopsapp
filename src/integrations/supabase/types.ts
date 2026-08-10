@@ -287,43 +287,43 @@ export type Database = {
       partners: {
         Row: {
           contact: string | null
+          cooperative_id: string
           created_at: string
           deleted_at: string | null
           id: string
           logo_path: string | null
           name: string
-          registre_id: string
           status: string
           updated_at: string
         }
         Insert: {
           contact?: string | null
+          cooperative_id: string
           created_at?: string
           deleted_at?: string | null
           id?: string
           logo_path?: string | null
           name: string
-          registre_id: string
           status?: string
           updated_at?: string
         }
         Update: {
           contact?: string | null
+          cooperative_id?: string
           created_at?: string
           deleted_at?: string | null
           id?: string
           logo_path?: string | null
           name?: string
-          registre_id?: string
           status?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "partners_registre_id_fkey"
-            columns: ["registre_id"]
+            foreignKeyName: "partners_cooperative_id_fkey"
+            columns: ["cooperative_id"]
             isOneToOne: false
-            referencedRelation: "registres"
+            referencedRelation: "cooperatives"
             referencedColumns: ["id"]
           },
         ]
