@@ -723,19 +723,11 @@ export default function CreateShipment() {
                     </Select>
                     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                       <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={(e) => {
-                            if (!selectedCoopId) {
-                              e.preventDefault();
-                              toast({ title: "Registre requis", description: "Sélectionnez d'abord un registre pour créer un partenaire.", variant: "destructive" });
-                            }
-                          }}
-                        >
+                        <Button variant="outline" size="icon">
                           <Plus className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
+
                       <DialogContent>
                         <DialogHeader><DialogTitle>Ajouter un partenaire</DialogTitle></DialogHeader>
                         <div className="space-y-4">
