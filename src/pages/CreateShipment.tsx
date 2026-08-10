@@ -443,13 +443,16 @@ export default function CreateShipment() {
       toast({ title: "Nom requis", description: "Renseignez le nom du partenaire.", variant: "destructive" });
       return;
     }
-    if (!selectedCoopId) {
-      toast({ title: "Registre requis", description: "Sélectionnez d'abord un registre.", variant: "destructive" });
+    const coopId =
+      cooperatives.find((c) => c.id === selectedCoopId)?.cooperative_id ||
+      cooperatives.find((c) => c.cooperative_id)?.cooperative_id;
+    if (!coopId) {
+      toast({ title: "Coopérative introuvable", description: "Impossible de déterminer la coopérative.", variant: "destructive" });
       return;
     }
     const { data, error } = await (supabase as any)
       .from("partners")
-      .insert({ name, registre_id: selectedCoopId })
+      .insert({ name, cooperative_id: coopId })
       .select()
       .single();
     if (error) {
