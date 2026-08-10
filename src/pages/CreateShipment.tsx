@@ -59,7 +59,7 @@ export default function CreateShipment() {
   const { role } = useAuth();
   const canCreateProject = role === "super_admin" || role === "coop_admin" || role === "agent";
 
-  const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
+  const [cooperatives, setCooperatives] = useState<{ id: string; name: string; cooperative_id?: string }[]>([]);
   const [coopDelivered, setCoopDelivered] = useState<Record<string, number>>({});
   const [coopPotential, setCoopPotential] = useState<Record<string, { potentiel: number; remaining: number }>>({});
   const [suggestedReceipt, setSuggestedReceipt] = useState<string>("");
@@ -107,7 +107,7 @@ export default function CreateShipment() {
 
   async function loadCooperatives() {
     // Load registres (business entity) — id + name
-    const { data: coopData } = await (supabase as any).from("registres").select("id, name").order("name");
+    const { data: coopData } = await (supabase as any).from("registres").select("id, name, cooperative_id").order("name");
     const coopList = (coopData || []) as { id: string; name: string }[];
     setCooperatives(coopList);
     const nameById: Record<string, string> = {};
