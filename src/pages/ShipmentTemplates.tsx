@@ -108,6 +108,12 @@ export default function ShipmentTemplates() {
     [templates, registreFilter]
   );
 
+  // Le dossier racine du stockage doit être l'ID de la coopérative (RLS storage)
+  const storagePrefix = useMemo(() => {
+    const coopId = registres.find(r => r.id === editing?.registre_id)?.cooperative_id;
+    return coopId ? `${coopId}/templates` : "";
+  }, [registres, editing?.registre_id]);
+
   function openNew() {
     setEditing({
       ...defaults,
