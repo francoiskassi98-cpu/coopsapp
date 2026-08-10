@@ -287,43 +287,43 @@ export type Database = {
       partners: {
         Row: {
           contact: string | null
+          cooperative_id: string
           created_at: string
           deleted_at: string | null
           id: string
           logo_path: string | null
           name: string
-          registre_id: string
           status: string
           updated_at: string
         }
         Insert: {
           contact?: string | null
+          cooperative_id: string
           created_at?: string
           deleted_at?: string | null
           id?: string
           logo_path?: string | null
           name: string
-          registre_id: string
           status?: string
           updated_at?: string
         }
         Update: {
           contact?: string | null
+          cooperative_id?: string
           created_at?: string
           deleted_at?: string | null
           id?: string
           logo_path?: string | null
           name?: string
-          registre_id?: string
           status?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "partners_registre_id_fkey"
-            columns: ["registre_id"]
+            foreignKeyName: "partners_cooperative_id_fkey"
+            columns: ["cooperative_id"]
             isOneToOne: false
-            referencedRelation: "registres"
+            referencedRelation: "cooperatives"
             referencedColumns: ["id"]
           },
         ]
@@ -1150,6 +1150,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_shipment_potentials: { Args: { p_lines: Json }; Returns: number }
       can_access_registre: { Args: { _registre_id: string }; Returns: boolean }
       compute_campaign_label: { Args: { d: string }; Returns: string }
       create_cooperative_with_admin:

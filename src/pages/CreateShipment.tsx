@@ -59,7 +59,7 @@ export default function CreateShipment() {
   const { role } = useAuth();
   const canCreateProject = role === "super_admin" || role === "coop_admin" || role === "agent";
 
-  const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
+  const [cooperatives, setCooperatives] = useState<{ id: string; name: string; cooperative_id?: string }[]>([]);
   const [coopDelivered, setCoopDelivered] = useState<Record<string, number>>({});
   const [coopPotential, setCoopPotential] = useState<Record<string, { potentiel: number; remaining: number }>>({});
   const [suggestedReceipt, setSuggestedReceipt] = useState<string>("");
@@ -107,7 +107,7 @@ export default function CreateShipment() {
 
   async function loadCooperatives() {
     // Load registres (business entity) — id + name
-    const { data: coopData } = await (supabase as any).from("registres").select("id, name").order("name");
+    const { data: coopData } = await (supabase as any).from("registres").select("id, name, cooperative_id").order("name");
     const coopList = (coopData || []) as { id: string; name: string }[];
     setCooperatives(coopList);
     const nameById: Record<string, string> = {};
@@ -443,13 +443,16 @@ export default function CreateShipment() {
       toast({ title: "Nom requis", description: "Renseignez le nom du partenaire.", variant: "destructive" });
       return;
     }
-    if (!selectedCoopId) {
-      toast({ title: "Registre requis", description: "Sélectionnez d'abord un registre.", variant: "destructive" });
+    const coopId =
+      cooperatives.find((c) => c.id === selectedCoopId)?.cooperative_id ||
+      cooperatives.find((c) => c.cooperative_id)?.cooperative_id;
+    if (!coopId) {
+      toast({ title: "Coopérative introuvable", description: "Impossible de déterminer la coopérative.", variant: "destructive" });
       return;
     }
     const { data, error } = await (supabase as any)
       .from("partners")
-      .insert({ name, registre_id: selectedCoopId })
+      .insert({ name, cooperative_id: coopId })
       .select()
       .single();
     if (error) {
@@ -720,19 +723,11 @@ export default function CreateShipment() {
                     </Select>
                     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                       <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={(e) => {
-                            if (!selectedCoopId) {
-                              e.preventDefault();
-                              toast({ title: "Registre requis", description: "Sélectionnez d'abord un registre pour créer un partenaire.", variant: "destructive" });
-                            }
-                          }}
-                        >
+                        <Button variant="outline" size="icon">
                           <Plus className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
+
                       <DialogContent>
                         <DialogHeader><DialogTitle>Ajouter un partenaire</DialogTitle></DialogHeader>
                         <div className="space-y-4">

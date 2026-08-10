@@ -18,10 +18,10 @@ type Partner = {
   contact: string | null;
   logo_path: string | null;
   status: string;
-  registre_id: string;
+  cooperative_id: string;
 };
 
-type Registre = { id: string; name: string; cooperative_id: string };
+type Coop = { id: string; name: string };
 
 const BUCKET = "partner-logos";
 
@@ -32,8 +32,8 @@ const signedUrl = async (path: string) => {
 
 export default function Partners() {
   const { cooperativeRefs, isSuperAdmin } = useAuth();
-  const [registres, setRegistres] = useState<Registre[]>([]);
-  const [registreFilter, setRegistreFilter] = useState<string>("all");
+  const [coops, setCoops] = useState<Coop[]>([]);
+  const [coopFilter, setCoopFilter] = useState<string>("all");
   const [items, setItems] = useState<Partner[]>([]);
   const [logoUrls, setLogoUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -47,31 +47,31 @@ export default function Partners() {
     contact: "",
     logo_path: "",
     status: "actif",
-    registre_id: "",
+    cooperative_id: "",
   });
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const loadRegistres = async () => {
-    const { data, error } = await (supabase.from("registres") as any)
-      .select("id,name,cooperative_id")
+  const loadCoops = async () => {
+    const { data, error } = await (supabase.from("cooperatives") as any)
+      .select("id,name")
+      .is("deleted_at", null)
       .order("name");
     if (error) {
-      console.error("[Partners] loadRegistres", error);
+      console.error("[Partners] loadCoops", error);
       return;
     }
-    setRegistres((data as Registre[]) || []);
+    setCoops((data as Coop[]) || []);
   };
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("partners")
-      .select("id,name,contact,logo_path,status,registre_id")
+    const { data, error } = await (supabase.from("partners") as any)
+      .select("id,name,contact,logo_path,status,cooperative_id")
       .is("deleted_at", null)
       .order("name");
     if (error) {
       console.error("[Partners] load", error);
-      toast.error("Impossible de charger les partenaires.", { description: error.message });
+      toast.error("Impossible de charger les partenaires.");
     }
     const list = (data as Partner[]) || [];
     setItems(list);
@@ -90,14 +90,17 @@ export default function Partners() {
   };
 
   useEffect(() => {
-    loadRegistres();
+    loadCoops();
     load();
   }, []);
 
   const filteredItems = useMemo(
-    () => (registreFilter === "all" ? items : items.filter((p) => p.registre_id === registreFilter)),
-    [items, registreFilter]
+    () => (coopFilter === "all" ? items : items.filter((p) => p.cooperative_id === coopFilter)),
+    [items, coopFilter]
   );
+
+  const defaultCoopId = () =>
+    (coopFilter !== "all" ? coopFilter : "") || cooperativeRefs[0]?.id || coops[0]?.id || "";
 
   const resetForm = () => {
     setEditing(null);
@@ -106,7 +109,7 @@ export default function Partners() {
       contact: "",
       logo_path: "",
       status: "actif",
-      registre_id: registreFilter !== "all" ? registreFilter : registres[0]?.id ?? "",
+      cooperative_id: defaultCoopId(),
     });
     setPreviewUrl(null);
     if (fileRef.current) fileRef.current.value = "";
@@ -124,7 +127,7 @@ export default function Partners() {
       contact: p.contact ?? "",
       logo_path: p.logo_path ?? "",
       status: p.status ?? "actif",
-      registre_id: p.registre_id,
+      cooperative_id: p.cooperative_id,
     });
     if (p.logo_path) {
       const url = p.logo_path.startsWith("http") ? p.logo_path : await signedUrl(p.logo_path);
@@ -141,10 +144,9 @@ export default function Partners() {
       toast.error("Fichier trop volumineux (max 2 Mo).");
       return;
     }
-    const registre = registres.find((r) => r.id === form.registre_id);
-    const coopId = registre?.cooperative_id ?? cooperativeRefs[0]?.id;
+    const coopId = form.cooperative_id || defaultCoopId();
     if (!coopId) {
-      toast.error("Sélectionnez d'abord un registre pour téléverser le logo.");
+      toast.error("Coopérative introuvable pour téléverser le logo.");
       return;
     }
     setUploading(true);
@@ -157,7 +159,7 @@ export default function Partners() {
     });
     if (error) {
       console.error("[Partners] upload", error);
-      toast.error("Échec du téléversement du logo.", { description: error.message });
+      toast.error("Échec du téléversement du logo.");
       setUploading(false);
       return;
     }
@@ -184,8 +186,9 @@ export default function Partners() {
       toast.error("Le nom du partenaire est requis.");
       return;
     }
-    if (!form.registre_id) {
-      toast.error("Veuillez sélectionner un registre de rattachement.");
+    const coopId = form.cooperative_id || defaultCoopId();
+    if (!coopId) {
+      toast.error("Aucune coopérative disponible.");
       return;
     }
     setSaving(true);
@@ -194,24 +197,17 @@ export default function Partners() {
       contact: form.contact.trim() || null,
       logo_path: form.logo_path || null,
       status: form.status,
-      registre_id: form.registre_id,
+      cooperative_id: coopId,
     };
-    console.info("[Partners] submit", { editing: editing?.id, payload });
     const { error } = editing
       ? await (supabase as any).from("partners").update(payload).eq("id", editing.id)
       : await (supabase as any).from("partners").insert(payload);
     setSaving(false);
     if (error) {
       console.error("[Partners] save error", error);
-      const isRls = error.code === "42501";
       const isDup = error.code === "23505";
       toast.error(
-        isRls
-          ? "Permission refusée par la politique de sécurité (RLS)."
-          : isDup
-          ? "Un partenaire portant ce nom existe déjà."
-          : "Échec de l'enregistrement du partenaire.",
-        { description: [error.message, error.details, error.hint].filter(Boolean).join(" — ") }
+        isDup ? "Un partenaire portant ce nom existe déjà." : "Une erreur est survenue."
       );
       return;
     }
@@ -229,7 +225,7 @@ export default function Partners() {
       .eq("id", p.id);
     if (error) {
       console.error("[Partners] delete", error);
-      toast.error("Impossible de supprimer le partenaire.", { description: error.message });
+      toast.error("Une erreur est survenue.");
       return;
     }
     toast.success("Partenaire supprimé.");
@@ -244,20 +240,20 @@ export default function Partners() {
         description="Acheteurs, exportateurs et partenaires commerciaux."
         actions={
           <div className="flex flex-col sm:flex-row gap-2">
-            {(isSuperAdmin || registres.length > 1) && (
-              <Select value={registreFilter} onValueChange={setRegistreFilter}>
+            {isSuperAdmin && coops.length > 1 && (
+              <Select value={coopFilter} onValueChange={setCoopFilter}>
                 <SelectTrigger className="w-full sm:w-56">
-                  <SelectValue placeholder="Tous les registres" />
+                  <SelectValue placeholder="Toutes les coopératives" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tous les registres</SelectItem>
-                  {registres.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  <SelectItem value="all">Toutes les coopératives</SelectItem>
+                  {coops.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
-            <Button onClick={openCreate} disabled={registres.length === 0}>
+            <Button onClick={openCreate}>
               <Plus className="h-4 w-4 mr-2" /> Nouveau partenaire
             </Button>
           </div>
@@ -268,12 +264,6 @@ export default function Partners() {
         <div className="flex justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      ) : registres.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            Aucun registre disponible. Créez d'abord un registre pour y rattacher vos partenaires.
-          </CardContent>
-        </Card>
       ) : filteredItems.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
@@ -282,40 +272,36 @@ export default function Partners() {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredItems.map((p) => {
-            const reg = registres.find((r) => r.id === p.registre_id);
-            return (
-              <Card key={p.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-                  <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0">
-                    {logoUrls[p.id] ? (
-                      <img src={logoUrls[p.id]} alt={p.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <Handshake className="h-6 w-6 text-muted-foreground" />
-                    )}
+          {filteredItems.map((p) => (
+            <Card key={p.id} className="hover:shadow-md transition-shadow">
+              <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+                <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                  {logoUrls[p.id] ? (
+                    <img src={logoUrls[p.id]} alt={p.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <Handshake className="h-6 w-6 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-base truncate">{p.name}</CardTitle>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant={p.status === "actif" ? "default" : "secondary"}>{p.status}</Badge>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-base truncate">{p.name}</CardTitle>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant={p.status === "actif" ? "default" : "secondary"}>{p.status}</Badge>
-                      {reg && <span className="text-xs text-muted-foreground truncate">{reg.name}</span>}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {p.contact && <p className="text-sm text-muted-foreground truncate">{p.contact}</p>}
-                  <div className="flex gap-2 pt-2">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(p)}>
-                      <Pencil className="h-4 w-4 mr-1" /> Éditer
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => remove(p)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {p.contact && <p className="text-sm text-muted-foreground truncate">{p.contact}</p>}
+                <div className="flex gap-2 pt-2">
+                  <Button size="sm" variant="outline" onClick={() => openEdit(p)}>
+                    <Pencil className="h-4 w-4 mr-1" /> Éditer
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => remove(p)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
@@ -323,20 +309,22 @@ export default function Partners() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editing ? "Modifier le partenaire" : "Nouveau partenaire"}</DialogTitle>
-            <DialogDescription>Renseignez les informations du partenaire et son registre de rattachement.</DialogDescription>
+            <DialogDescription>Renseignez les informations du partenaire.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Registre *</Label>
-              <Select value={form.registre_id} onValueChange={(v) => setForm({ ...form, registre_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner un registre" /></SelectTrigger>
-                <SelectContent>
-                  {registres.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {isSuperAdmin && coops.length > 1 && (
+              <div className="space-y-2">
+                <Label>Coopérative *</Label>
+                <Select value={form.cooperative_id} onValueChange={(v) => setForm({ ...form, cooperative_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner une coopérative" /></SelectTrigger>
+                  <SelectContent>
+                    {coops.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Nom *</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -366,7 +354,7 @@ export default function Partners() {
                   className="hidden"
                   onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
                 />
-                <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading || !form.registre_id}>
+                <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
                   {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
                   {form.logo_path ? "Remplacer" : "Téléverser"}
                 </Button>
