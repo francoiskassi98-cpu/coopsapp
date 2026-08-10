@@ -346,7 +346,8 @@ export default function ShipmentTemplates() {
                 <div>
                   <ImageUploader
                     bucket="shipment-assets"
-                    pathPrefix={`${editing.registre_id || "shared"}/templates`}
+                    pathPrefix={storagePrefix}
+                    disabled={!storagePrefix}
                     value={editing.coop_logo_path || null}
                     onChange={(p) => setEditing({ ...editing, coop_logo_path: p })}
                     label="Logo registre"
@@ -355,7 +356,8 @@ export default function ShipmentTemplates() {
                 <div>
                   <ImageUploader
                     bucket="shipment-assets"
-                    pathPrefix={`${editing.registre_id || "shared"}/templates`}
+                    pathPrefix={storagePrefix}
+                    disabled={!storagePrefix}
                     value={editing.partner_logo_path || null}
                     onChange={(p) => setEditing({ ...editing, partner_logo_path: p })}
                     label="Logo partenaire"
