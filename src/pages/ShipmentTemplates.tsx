@@ -16,7 +16,7 @@ import { TemplatePreview } from "@/components/shipments/TemplatePreview";
 import { ImageUploader } from "@/components/ui/ImageUploader";
 import PageHeader from "@/components/PageHeader";
 
-interface Registre { id: string; name: string }
+interface Registre { id: string; name: string; cooperative_id: string | null }
 interface Partner { id: string; name: string }
 
 interface Template {
@@ -93,7 +93,7 @@ export default function ShipmentTemplates() {
   async function load() {
     setLoading(true);
     const [{ data: rs }, { data: ps }, { data: ts }] = await Promise.all([
-      (supabase.from("registres") as any).select("id,name").order("name"),
+      (supabase.from("registres") as any).select("id,name,cooperative_id").order("name"),
       (supabase.from("partners") as any).select("id,name").order("name"),
       (supabase.from("shipment_excel_templates") as any).select("*").order("created_at", { ascending: false }),
     ]);
@@ -107,6 +107,12 @@ export default function ShipmentTemplates() {
     () => registreFilter === "all" ? templates : templates.filter(t => t.registre_id === registreFilter),
     [templates, registreFilter]
   );
+
+  // Le dossier racine du stockage doit être l'ID de la coopérative (RLS storage)
+  const storagePrefix = useMemo(() => {
+    const coopId = registres.find(r => r.id === editing?.registre_id)?.cooperative_id;
+    return coopId ? `${coopId}/templates` : "";
+  }, [registres, editing?.registre_id]);
 
   function openNew() {
     setEditing({
@@ -340,7 +346,8 @@ export default function ShipmentTemplates() {
                 <div>
                   <ImageUploader
                     bucket="shipment-assets"
-                    pathPrefix={`${editing.registre_id || "shared"}/templates`}
+                    pathPrefix={storagePrefix}
+                    disabled={!storagePrefix}
                     value={editing.coop_logo_path || null}
                     onChange={(p) => setEditing({ ...editing, coop_logo_path: p })}
                     label="Logo registre"
@@ -349,7 +356,8 @@ export default function ShipmentTemplates() {
                 <div>
                   <ImageUploader
                     bucket="shipment-assets"
-                    pathPrefix={`${editing.registre_id || "shared"}/templates`}
+                    pathPrefix={storagePrefix}
+                    disabled={!storagePrefix}
                     value={editing.partner_logo_path || null}
                     onChange={(p) => setEditing({ ...editing, partner_logo_path: p })}
                     label="Logo partenaire"

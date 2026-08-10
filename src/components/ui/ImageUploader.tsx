@@ -113,9 +113,16 @@ export function ImageUploader({
       }
       onChange(path);
       toast({ title: "Image téléversée" });
-    } catch (e) {
+    } catch (e: any) {
       console.error("upload error", e);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+      const denied = e?.statusCode === "403" || e?.status === 403 || /policy|unauthorized|denied/i.test(e?.message ?? "");
+      toast({
+        title: "Téléversement impossible",
+        description: denied
+          ? "Vous n'avez pas les droits pour téléverser dans cet emplacement."
+          : "Une erreur est survenue.",
+        variant: "destructive",
+      });
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
