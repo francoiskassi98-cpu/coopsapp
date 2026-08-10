@@ -16,7 +16,7 @@ import { TemplatePreview } from "@/components/shipments/TemplatePreview";
 import { ImageUploader } from "@/components/ui/ImageUploader";
 import PageHeader from "@/components/PageHeader";
 
-interface Registre { id: string; name: string }
+interface Registre { id: string; name: string; cooperative_id: string | null }
 interface Partner { id: string; name: string }
 
 interface Template {
@@ -93,7 +93,7 @@ export default function ShipmentTemplates() {
   async function load() {
     setLoading(true);
     const [{ data: rs }, { data: ps }, { data: ts }] = await Promise.all([
-      (supabase.from("registres") as any).select("id,name").order("name"),
+      (supabase.from("registres") as any).select("id,name,cooperative_id").order("name"),
       (supabase.from("partners") as any).select("id,name").order("name"),
       (supabase.from("shipment_excel_templates") as any).select("*").order("created_at", { ascending: false }),
     ]);
