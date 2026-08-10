@@ -150,6 +150,7 @@ export default function ImportShipments() {
       // Load registres for mapping zone -> registre_id
       const { data: regsData } = await (supabase as any).from("registres").select("id, name, cooperative_id");
       const regNameToId = new Map<string, string>((regsData || []).map((r: any) => [String(r.name).toLowerCase(), r.id as string]));
+      const regIdToCoopId = new Map<string, string>((regsData || []).map((r: any) => [r.id as string, r.cooperative_id as string]));
 
       const groups = groupByShipment(importRows);
       let totalDeliveries = 0;
@@ -174,7 +175,7 @@ export default function ImportShipments() {
           if (!partnerId) {
             const { data: newPartner } = await (supabase as any)
               .from("partners")
-              .insert({ name: first.partenaire, registre_id: registreId })
+              .insert({ name: first.partenaire, cooperative_id: regIdToCoopId.get(registreId) })
               .select()
               .single();
             if (newPartner) {
