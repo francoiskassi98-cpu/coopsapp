@@ -109,7 +109,6 @@ function KpiCard({ label, value, icon: Icon, tone = "blue", sub, loading }: {
 
 export default function ProducersAnalytics() {
   const { registres } = useRegistres();
-  const { registres } = useRegistres();
   const [loading, setLoading] = useState(true);
   const [producers, setProducers] = useState<Producer[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
