@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useRegistres } from "@/hooks/useRegistres";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -234,7 +235,10 @@ export default function ProducersAnalytics() {
 
   const byCoop = useMemo(() => {
     const map = new Map<string, number>();
-    producers.forEach(p => { const c = producerCoop(p) || "—"; map.set(c, (map.get(c) || 0) + 1); });
+    producers.forEach(p => {
+      const c = (p.registre_id ? registreName[p.registre_id] : "") || "—";
+      map.set(c, (map.get(c) || 0) + 1);
+    });
     return Array.from(map.entries()).map(([cooperative, count]) => ({ cooperative, count }));
   }, [producers, registreName]);
 
@@ -254,18 +258,16 @@ export default function ProducersAnalytics() {
       {/* Filters */}
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
         <CardContent className="p-4 flex flex-wrap gap-3 items-end">
-          {isSuperAdmin && (
-            <div className="min-w-[180px]">
-              <Label className="text-xs">Registre</Label>
-              <Select value={coopFilter} onValueChange={setCoopFilter}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes</SelectItem>
-                  {coopList.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="min-w-[200px]">
+            <Label className="text-xs">Registre</Label>
+            <Select value={registreFilter} onValueChange={setRegistreFilter}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les registres</SelectItem>
+                {registres.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="min-w-[180px]">
             <Label className="text-xs">Campagne</Label>
             <Select value={campaignFilter} onValueChange={setCampaignFilter}>
