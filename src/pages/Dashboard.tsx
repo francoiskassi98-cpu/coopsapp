@@ -14,6 +14,7 @@ import KpiCards from "@/components/dashboard/KpiCards";
 import CoopPerformance from "@/components/dashboard/CoopPerformance";
 import CoopTable from "@/components/dashboard/CoopTable";
 import DashboardFilters from "@/components/dashboard/DashboardFilters";
+import { useRegistres } from "@/hooks/useRegistres";
 import ReportDialog from "@/components/dashboard/ReportDialog";
 import ReportGenerator from "@/components/dashboard/ReportGenerator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -220,6 +221,9 @@ export default function Dashboard() {
         onCampaignChange={setSelectedCampaign}
         selectedMonths={selectedMonths}
         onMonthsChange={setSelectedMonths}
+        registres={registres}
+        selectedRegistre={selectedRegistre}
+        onRegistreChange={setSelectedRegistre}
       />
 
       <KpiCards
