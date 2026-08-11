@@ -43,6 +43,7 @@ export default function Dashboard() {
   // Chronology filters
   const [selectedCampaign, setSelectedCampaign] = useState<string>(getCurrentCampaign());
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
+  const [selectedRegistre, setSelectedRegistre] = useState<string>("all");
 
   useEffect(() => {
     setShowCampaignAlert(isCampaignStart());
