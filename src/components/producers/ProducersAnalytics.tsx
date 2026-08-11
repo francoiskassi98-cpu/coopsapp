@@ -223,15 +223,16 @@ export default function ProducersAnalytics() {
   }, [filteredDeliveries]);
 
   const byCampaign = useMemo(() => {
+    const shipmentById = new Map(shipments.map(s => [s.id, s]));
     const map = new Map<string, number>();
     deliveries.forEach(d => {
-      const ship = shipments.find(s => s.id === d.shipment_id);
+      const ship = shipmentById.get(d.shipment_id);
       if (!ship || ship.is_cancelled || !ship.campaign_label) return;
-      const name = ship.campaign_label;
-      map.set(name, (map.get(name) || 0) + Number(d.net_weight || 0));
+      if (registreFilter !== "all" && ship.registre_id !== registreFilter) return;
+      map.set(ship.campaign_label, (map.get(ship.campaign_label) || 0) + Number(d.net_weight || 0));
     });
     return Array.from(map.entries()).map(([campagne, kg]) => ({ campagne, kg: Math.round(kg) }));
-  }, [deliveries, shipments]);
+  }, [deliveries, shipments, registreFilter]);
 
   const byCoop = useMemo(() => {
     const map = new Map<string, number>();
