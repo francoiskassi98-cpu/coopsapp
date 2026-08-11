@@ -86,9 +86,10 @@ export default function Dashboard() {
     return Array.from(set).sort().reverse();
   }, [allShipments]);
 
-  // Filtered shipments based on chronology
+  // Filtered shipments based on chronology + registre
   const shipments = useMemo(() => {
     return allShipments.filter((s) => {
+      if (selectedRegistre !== "all" && s.registre_id !== selectedRegistre) return false;
       if (selectedCampaign !== "all" && normalizeCampaign(s.campaign_label) !== selectedCampaign) return false;
       if (selectedMonths.length > 0) {
         const date = new Date(s.created_at);
@@ -97,15 +98,21 @@ export default function Dashboard() {
       }
       return true;
     });
-  }, [allShipments, selectedCampaign, selectedMonths]);
+  }, [allShipments, selectedCampaign, selectedMonths, selectedRegistre]);
+
+  // Producteurs filtrés par registre
+  const producers = useMemo(
+    () => allProducers.filter((p) => selectedRegistre === "all" || p.registre_id === selectedRegistre),
+    [allProducers, selectedRegistre]
+  );
 
   // Computed stats
   const stats = useMemo(() => {
-    const totalPotential = allProducers.reduce((s, p) => s + Number(p.delivery_potential), 0);
+    const totalPotential = producers.reduce((s, p) => s + Number(p.delivery_potential), 0);
     const totalDelivered = shipments.reduce((s, sh) => s + Number(sh.total_weight), 0);
     const remaining = Math.max(totalPotential - totalDelivered, 0);
     return { totalPotential, totalDelivered, remaining, shipmentCount: shipments.length };
-  }, [allProducers, shipments]);
+  }, [producers, shipments]);
 
   const byProject = useMemo(() => {
     const map: Record<string, number> = {};
