@@ -143,7 +143,7 @@ export default function Dashboard() {
 
   const coopStats = useMemo(() => {
     const coopPotentialMap: Record<string, number> = {};
-    allProducers.forEach((p: any) => {
+    producers.forEach((p: any) => {
       const coop = registreName[p.registre_id] || "Inconnu";
       coopPotentialMap[coop] = (coopPotentialMap[coop] || 0) + Number(p.delivery_potential);
     });
@@ -168,7 +168,7 @@ export default function Dashboard() {
         shipmentCount: coopDeliveredMap[name]?.count || 0,
       };
     }).sort((a, b) => b.delivered - a.delivered);
-  }, [allProducers, shipments, registreName]);
+  }, [producers, shipments, registreName]);
 
 
   const coopDetailShipments = coopDetailName
