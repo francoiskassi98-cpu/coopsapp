@@ -64,16 +64,10 @@ export default function Dashboard() {
     ),
   });
 
-  const { data: registres = [] } = useQuery({
-    queryKey: ["dashboard", "registres"],
-    queryFn: async () => {
-      const { data } = await (supabase as any).from("registres").select("id, name");
-      return data ?? [];
-    },
-  });
+  const { registres } = useRegistres();
   const registreName = useMemo(() => {
     const m: Record<string, string> = {};
-    (registres as any[]).forEach((r) => { m[r.id] = r.name; });
+    registres.forEach((r) => { m[r.id] = r.name; });
     return m;
   }, [registres]);
 
