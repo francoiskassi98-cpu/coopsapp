@@ -12,10 +12,14 @@ type Props = {
   onCampaignChange: (c: string) => void;
   selectedMonths: number[];
   onMonthsChange: (months: number[]) => void;
+  registres: { id: string; name: string }[];
+  selectedRegistre: string;
+  onRegistreChange: (id: string) => void;
 };
 
 export default function DashboardFilters({
   campaigns, selectedCampaign, onCampaignChange, selectedMonths, onMonthsChange,
+  registres, selectedRegistre, onRegistreChange,
 }: Props) {
   function toggleMonth(m: number) {
     if (selectedMonths.includes(m)) onMonthsChange(selectedMonths.filter((x) => x !== m));
@@ -36,6 +40,20 @@ export default function DashboardFilters({
         )}
       </div>
       <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
+        <div className="w-full sm:w-52 shrink-0">
+          <Select value={selectedRegistre} onValueChange={onRegistreChange}>
+            <SelectTrigger className="rounded-full h-9 bg-background border-border w-full">
+              <SelectValue placeholder="Registre" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les registres</SelectItem>
+              {registres.map((r) => (
+                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="w-full sm:w-52 shrink-0">
           <Select value={selectedCampaign} onValueChange={onCampaignChange}>
             <SelectTrigger className="rounded-full h-9 bg-background border-border w-full">
