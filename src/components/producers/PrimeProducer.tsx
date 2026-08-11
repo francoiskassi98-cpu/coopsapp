@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,7 @@ interface PrimeRow {
 
 
 export default function PrimeProducer() {
-  const { isAdmin } = useAuth();
+  
   const [coops, setCoops] = useState<Coop[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [sections, setSections] = useState<string[]>([]);
