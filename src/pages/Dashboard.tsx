@@ -14,6 +14,7 @@ import KpiCards from "@/components/dashboard/KpiCards";
 import CoopPerformance from "@/components/dashboard/CoopPerformance";
 import CoopTable from "@/components/dashboard/CoopTable";
 import DashboardFilters from "@/components/dashboard/DashboardFilters";
+import { useRegistres } from "@/hooks/useRegistres";
 import ReportDialog from "@/components/dashboard/ReportDialog";
 import ReportGenerator from "@/components/dashboard/ReportGenerator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -43,6 +44,7 @@ export default function Dashboard() {
   // Chronology filters
   const [selectedCampaign, setSelectedCampaign] = useState<string>(getCurrentCampaign());
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
+  const [selectedRegistre, setSelectedRegistre] = useState<string>("all");
 
   useEffect(() => {
     setShowCampaignAlert(isCampaignStart());
@@ -63,16 +65,10 @@ export default function Dashboard() {
     ),
   });
 
-  const { data: registres = [] } = useQuery({
-    queryKey: ["dashboard", "registres"],
-    queryFn: async () => {
-      const { data } = await (supabase as any).from("registres").select("id, name");
-      return data ?? [];
-    },
-  });
+  const { registres } = useRegistres();
   const registreName = useMemo(() => {
     const m: Record<string, string> = {};
-    (registres as any[]).forEach((r) => { m[r.id] = r.name; });
+    registres.forEach((r) => { m[r.id] = r.name; });
     return m;
   }, [registres]);
 
@@ -91,9 +87,10 @@ export default function Dashboard() {
     return Array.from(set).sort().reverse();
   }, [allShipments]);
 
-  // Filtered shipments based on chronology
+  // Filtered shipments based on chronology + registre
   const shipments = useMemo(() => {
     return allShipments.filter((s) => {
+      if (selectedRegistre !== "all" && s.registre_id !== selectedRegistre) return false;
       if (selectedCampaign !== "all" && normalizeCampaign(s.campaign_label) !== selectedCampaign) return false;
       if (selectedMonths.length > 0) {
         const date = new Date(s.created_at);
@@ -102,15 +99,21 @@ export default function Dashboard() {
       }
       return true;
     });
-  }, [allShipments, selectedCampaign, selectedMonths]);
+  }, [allShipments, selectedCampaign, selectedMonths, selectedRegistre]);
+
+  // Producteurs filtrés par registre
+  const producers = useMemo(
+    () => allProducers.filter((p) => selectedRegistre === "all" || p.registre_id === selectedRegistre),
+    [allProducers, selectedRegistre]
+  );
 
   // Computed stats
   const stats = useMemo(() => {
-    const totalPotential = allProducers.reduce((s, p) => s + Number(p.delivery_potential), 0);
+    const totalPotential = producers.reduce((s, p) => s + Number(p.delivery_potential), 0);
     const totalDelivered = shipments.reduce((s, sh) => s + Number(sh.total_weight), 0);
     const remaining = Math.max(totalPotential - totalDelivered, 0);
     return { totalPotential, totalDelivered, remaining, shipmentCount: shipments.length };
-  }, [allProducers, shipments]);
+  }, [producers, shipments]);
 
   const byProject = useMemo(() => {
     const map: Record<string, number> = {};
@@ -140,7 +143,7 @@ export default function Dashboard() {
 
   const coopStats = useMemo(() => {
     const coopPotentialMap: Record<string, number> = {};
-    allProducers.forEach((p: any) => {
+    producers.forEach((p: any) => {
       const coop = registreName[p.registre_id] || "Inconnu";
       coopPotentialMap[coop] = (coopPotentialMap[coop] || 0) + Number(p.delivery_potential);
     });
@@ -165,7 +168,7 @@ export default function Dashboard() {
         shipmentCount: coopDeliveredMap[name]?.count || 0,
       };
     }).sort((a, b) => b.delivered - a.delivered);
-  }, [allProducers, shipments, registreName]);
+  }, [producers, shipments, registreName]);
 
 
   const coopDetailShipments = coopDetailName
@@ -218,6 +221,9 @@ export default function Dashboard() {
         onCampaignChange={setSelectedCampaign}
         selectedMonths={selectedMonths}
         onMonthsChange={setSelectedMonths}
+        registres={registres}
+        selectedRegistre={selectedRegistre}
+        onRegistreChange={setSelectedRegistre}
       />
 
       <KpiCards
