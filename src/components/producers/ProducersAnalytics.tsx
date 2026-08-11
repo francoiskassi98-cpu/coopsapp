@@ -310,7 +310,7 @@ export default function ProducersAnalytics() {
         <KpiCard label="Volume livré" value={fmtKg(livre)} icon={Weight} tone="green" sub={potentielTotal ? `${Math.round((livre / potentielTotal) * 100)}% du potentiel` : undefined} />
         <KpiCard label="Volume restant" value={fmtKg(restant)} icon={Package} tone="orange" />
         <KpiCard label="Sections" value={fmt(sectionList.length)} icon={Layers} tone="violet" />
-        {isSuperAdmin && <KpiCard label="Registres" value={fmt(coopList.length)} icon={Building2} tone="teal" />}
+        <KpiCard label="Registres" value={fmt(registreFilter === "all" ? registres.length : 1)} icon={Building2} tone="teal" />
       </div>
 
       {/* Charts */}
