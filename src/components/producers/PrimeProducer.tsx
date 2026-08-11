@@ -33,7 +33,7 @@ interface PrimeRow {
 
 
 export default function PrimeProducer() {
-  const { isSuperAdmin, cooperativeRefs } = useAuth();
+  const { isAdmin } = useAuth();
   const [coops, setCoops] = useState<Coop[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [sections, setSections] = useState<string[]>([]);
@@ -64,10 +64,10 @@ export default function PrimeProducer() {
       setCoops(list);
       const labels = Array.from(new Set(((cp as any[]) || []).map((r) => r.campaign_label).filter(Boolean))).sort().reverse();
       setCampaigns(labels.map((l) => ({ id: l, nom: l })) as Campaign[]);
-      // Sélection auto : un seul registre accessible → on le sélectionne, sinon "Tous" pour le super admin
-      setCoopId((prev) => prev || (list.length === 1 ? list[0].id : (isSuperAdmin ? "all" : (list[0]?.id ?? ""))));
+      // Sélection auto : un seul registre accessible → on le sélectionne, sinon « Tous »
+      setCoopId((prev) => prev || (list.length === 1 ? list[0].id : "all"));
     })();
-  }, [isSuperAdmin, cooperativeRefs]);
+  }, []);
 
   // Charge producteurs + sections + projets en fonction du filtre registre
   useEffect(() => {
@@ -311,10 +311,10 @@ export default function PrimeProducer() {
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div>
               <Label className="text-xs">Registre *</Label>
-              <Select value={coopId} onValueChange={setCoopId} disabled={!isSuperAdmin && cooperativeRefs.length <= 1}>
+              <Select value={coopId} onValueChange={setCoopId} disabled={coops.length <= 1}>
                 <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                 <SelectContent>
-                  {isSuperAdmin && <SelectItem value="all">Tous les registres</SelectItem>}
+                  {coops.length > 1 && <SelectItem value="all">Tous les registres</SelectItem>}
                   {coops.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
