@@ -108,7 +108,7 @@ function KpiCard({ label, value, icon: Icon, tone = "blue", sub, loading }: {
 }
 
 export default function ProducersAnalytics() {
-  const { isSuperAdmin } = useAuth();
+  const { registres } = useRegistres();
   const { registres } = useRegistres();
   const [loading, setLoading] = useState(true);
   const [producers, setProducers] = useState<Producer[]>([]);
@@ -376,7 +376,7 @@ export default function ProducersAnalytics() {
           </CardContent>
         </Card>
 
-        {isSuperAdmin && (
+        {registreFilter === "all" && registres.length > 1 && (
           <Card className="lg:col-span-2 animate-fade-in shadow-glass">
             <CardHeader><CardTitle className="text-base flex items-center gap-2"><span className="h-8 w-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center"><Building2 className="h-4 w-4" /></span>Producteurs par registre</CardTitle></CardHeader>
             <CardContent>
