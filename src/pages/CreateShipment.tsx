@@ -741,8 +741,12 @@ export default function CreateShipment() {
                       <SelectValue placeholder={selectedCoopId ? "Sélectionner un modèle" : "Sélectionnez d'abord un registre"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {templates.length === 0 ? (
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground">Aucun modèle actif</div>
+                      {templatesLoading ? (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">Chargement des modèles…</div>
+                      ) : templates.length === 0 ? (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          Aucun modèle de chargement actif n'est disponible pour votre coopérative. Créez ou activez un modèle dans « Modèles de chargement ».
+                        </div>
                       ) : templates.map((t) => {
                         const partnerName = partners.find((p) => p.id === t.partner_id)?.name;
                         return (
