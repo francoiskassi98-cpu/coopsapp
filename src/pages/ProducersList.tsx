@@ -17,6 +17,7 @@ import { parseExcelFile, downloadImportTemplate, exportToExcel, downloadErrorRep
 import PageHeader from "@/components/PageHeader";
 import { Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { normalizeCampaign, getCurrentCampaign } from "@/lib/shipment-utils";
 
 type ImportMode = "insert" | "update";
 
