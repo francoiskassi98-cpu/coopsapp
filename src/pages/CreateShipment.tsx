@@ -71,26 +71,20 @@ export default function CreateShipment() {
     loadCooperatives();
   }, []);
 
+  const { templates, loading: templatesLoading } = useActiveShipmentTemplates(selectedCoopId || null);
+
   const selectedTemplate = useMemo(
     () => templates.find((t) => t.id === templateId) || null,
     [templates, templateId]
   );
 
-  async function loadTemplatesForCoop(coopId: string) {
-    if (!coopId) { setTemplates([]); setTemplateId(""); return; }
-    const { data } = await (supabase as any)
-      .from("shipment_excel_templates")
-      .select("*")
-      .eq("registre_id", coopId)
-      .eq("is_active", true)
-      .order("is_default", { ascending: false })
-      .order("updated_at", { ascending: false });
-    const list = (data || []) as any[];
-    setTemplates(list);
-    // auto-select default
-    const def = list.find((t) => t.is_default) || list[0];
+  // Auto-sélection du modèle par défaut lorsque la liste change
+  useEffect(() => {
+    if (!selectedCoopId || templatesLoading) return;
+    if (templateId && templates.some((t) => t.id === templateId)) return;
+    const def = templates.find((t) => t.is_default) || templates[0];
     setTemplateId(def?.id || "");
-  }
+  }, [templates, templatesLoading, selectedCoopId, templateId]);
 
   async function loadProjectsForCoop(coopId: string) {
     if (!coopId) { setProjects([]); setProject(""); return; }
