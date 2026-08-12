@@ -68,8 +68,13 @@ export async function buildEligibleProducers(
 ): Promise<EligibilityResult> {
   const campaignLabel = normalizeCampaign(campaignLabelInput || getCurrentCampaign());
 
-  // Sections désactivées
-  const { data: disabledSectionsData } = await supabase.from("disabled_sections").select("section_name");
+  // Sections désactivées (registre + campagne active)
+  const { data: disabledSectionsData, error: dsError } = await (supabase as any)
+    .from("disabled_sections")
+    .select("section_name")
+    .eq("registre_id", registreId)
+    .eq("campaign_label", campaignLabel);
+  if (dsError) console.error("[producer-eligibility] disabled_sections", dsError);
   const disabledSections = new Set((disabledSectionsData || []).map((d: any) => d.section_name));
 
   // Producteurs actifs du registre
