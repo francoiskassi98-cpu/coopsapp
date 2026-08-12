@@ -180,7 +180,7 @@ export default function CreateShipment() {
     const coop = cooperatives.find(c => c.id === coopId);
     setZone(coop?.name || "");
     loadNextReceiptForCooperative(coopId);
-    loadTemplatesForCoop(coopId);
+    setTemplateId("");
     loadProjectsForCoop(coopId);
     setProject("");
   };
