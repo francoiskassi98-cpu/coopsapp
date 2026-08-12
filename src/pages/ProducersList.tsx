@@ -17,6 +17,7 @@ import { parseExcelFile, downloadImportTemplate, exportToExcel, downloadErrorRep
 import PageHeader from "@/components/PageHeader";
 import { Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { normalizeCampaign, getCurrentCampaign } from "@/lib/shipment-utils";
 
 type ImportMode = "insert" | "update";
 
@@ -99,39 +100,67 @@ export default function Producers() {
   }, [producers, coopFilter, search, sortConfig]);
 
   // --- Edit / Delete (existing) ---
-  // Disabled sections state
+  // Sections désactivées (clé = registre_id||section, campagne active)
+  const activeCampaign = normalizeCampaign(getCurrentCampaign());
   const [disabledSections, setDisabledSections] = useState<Set<string>>(new Set());
+  const sectionKey = (registreId: string, name: string) => `${registreId}||${name}`;
 
   useEffect(() => {
     loadDisabledSections();
   }, []);
 
   async function loadDisabledSections() {
-    const { data } = await supabase.from("disabled_sections").select("section_name");
-    setDisabledSections(new Set((data || []).map((d: any) => d.section_name)));
+    const { data, error } = await (supabase as any)
+      .from("disabled_sections")
+      .select("section_name, registre_id")
+      .eq("campaign_label", activeCampaign);
+    if (error) {
+      console.error("[disabled_sections] load", error);
+      return;
+    }
+    setDisabledSections(new Set((data || []).map((d: any) => sectionKey(d.registre_id, d.section_name))));
   }
 
   async function toggleSection(sectionName: string, registreId?: string) {
-    if (disabledSections.has(sectionName)) {
-      await supabase.from("disabled_sections").delete().eq("section_name", sectionName);
-      toast({ title: `Section "${sectionName}" réactivée` });
-    } else {
-      await (supabase as any).from("disabled_sections").insert({ section_name: sectionName, registre_id: registreId ?? null });
-      toast({ title: `Section "${sectionName}" désactivée` });
+    if (!registreId) {
+      toast({ title: "Erreur", description: "Registre introuvable pour cette section.", variant: "destructive" });
+      return;
     }
-    loadDisabledSections();
+    const key = sectionKey(registreId, sectionName);
+    const isDisabled = disabledSections.has(key);
+    const { error } = isDisabled
+      ? await (supabase as any)
+          .from("disabled_sections")
+          .delete()
+          .eq("section_name", sectionName)
+          .eq("registre_id", registreId)
+          .eq("campaign_label", activeCampaign)
+      : await (supabase as any)
+          .from("disabled_sections")
+          .insert({ section_name: sectionName, registre_id: registreId });
+    if (error) {
+      console.error("[disabled_sections] toggle", error);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+      return;
+    }
+    toast({ title: `Section "${sectionName}" ${isDisabled ? "réactivée" : "désactivée"}` });
+    await loadDisabledSections();
   }
 
-  // Get unique sections for the current filter
+  // Sections uniques (par registre) pour le filtre courant
   const sections = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { name: string; registreId: string; registreName: string }>();
     producers.forEach((p) => {
       if (coopFilter === "all" || p.cooperative === coopFilter) {
-        if (!map.has(p.section)) map.set(p.section, p.registre_id);
+        const key = sectionKey(p.registre_id, p.section);
+        if (!map.has(key)) map.set(key, { name: p.section, registreId: p.registre_id, registreName: p.cooperative || "" });
       }
     });
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    return Array.from(map.values()).sort((a, b) =>
+      a.registreName.localeCompare(b.registreName) || a.name.localeCompare(b.name)
+    );
   }, [producers, coopFilter]);
+
 
   function openEdit(p: any) {
     setEditForm({
@@ -502,17 +531,17 @@ export default function Producers() {
                 {sections.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Aucune section trouvée</p>
                 ) : (
-                  sections.map(([name, coop]) => (
-                    <div key={name} className="flex items-center justify-between rounded-md border p-2">
+                  sections.map((s) => (
+                    <div key={sectionKey(s.registreId, s.name)} className="flex items-center justify-between rounded-md border p-2">
                       <div>
-                        <p className="text-sm font-medium">{name}</p>
-                        <p className="text-xs text-muted-foreground">{coop}</p>
+                        <p className="text-sm font-medium">{s.name}</p>
+                        <p className="text-xs text-muted-foreground">{s.registreName}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{disabledSections.has(name) ? "Inactive" : "Active"}</span>
+                        <span className="text-xs text-muted-foreground">{disabledSections.has(sectionKey(s.registreId, s.name)) ? "Inactive" : "Active"}</span>
                         <Switch
-                          checked={!disabledSections.has(name)}
-                          onCheckedChange={() => toggleSection(name, coop)}
+                          checked={!disabledSections.has(sectionKey(s.registreId, s.name))}
+                          onCheckedChange={() => toggleSection(s.name, s.registreId)}
                         />
                       </div>
                     </div>
