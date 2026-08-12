@@ -20,6 +20,7 @@ import ShipmentDetails from "@/components/ShipmentDetails";
 import ShipmentHistory from "@/components/ShipmentHistory";
 import { TemplatePreview, type TemplatePreviewData } from "@/components/shipments/TemplatePreview";
 import PageHeader from "@/components/PageHeader";
+import { useActiveShipmentTemplates } from "@/hooks/useShipmentTemplates";
 import { buildEligibleProducers, validateDistributionBeforeSave, MIN_REMAINING_WEIGHT_KG, MIN_DAYS_BETWEEN_DELIVERIES } from "@/lib/producer-eligibility";
 
 
@@ -44,7 +45,6 @@ export default function CreateShipment() {
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [newProject, setNewProject] = useState<{ name: string; code: string; partner_id: string; description: string; is_active: boolean }>({ name: "", code: "", partner_id: "", description: "", is_active: true });
   const [creatingProject, setCreatingProject] = useState(false);
-  const [templates, setTemplates] = useState<any[]>([]);
   const [templateId, setTemplateId] = useState<string>("");
   const [preview, setPreview] = useState<DistributionResult[]>([]);
   const [saving, setSaving] = useState(false);
@@ -71,26 +71,20 @@ export default function CreateShipment() {
     loadCooperatives();
   }, []);
 
+  const { templates, loading: templatesLoading } = useActiveShipmentTemplates(selectedCoopId || null);
+
   const selectedTemplate = useMemo(
     () => templates.find((t) => t.id === templateId) || null,
     [templates, templateId]
   );
 
-  async function loadTemplatesForCoop(coopId: string) {
-    if (!coopId) { setTemplates([]); setTemplateId(""); return; }
-    const { data } = await (supabase as any)
-      .from("shipment_excel_templates")
-      .select("*")
-      .eq("registre_id", coopId)
-      .eq("is_active", true)
-      .order("is_default", { ascending: false })
-      .order("updated_at", { ascending: false });
-    const list = (data || []) as any[];
-    setTemplates(list);
-    // auto-select default
-    const def = list.find((t) => t.is_default) || list[0];
+  // Auto-sélection du modèle par défaut lorsque la liste change
+  useEffect(() => {
+    if (!selectedCoopId || templatesLoading) return;
+    if (templateId && templates.some((t) => t.id === templateId)) return;
+    const def = templates.find((t) => t.is_default) || templates[0];
     setTemplateId(def?.id || "");
-  }
+  }, [templates, templatesLoading, selectedCoopId, templateId]);
 
   async function loadProjectsForCoop(coopId: string) {
     if (!coopId) { setProjects([]); setProject(""); return; }
@@ -180,7 +174,7 @@ export default function CreateShipment() {
     const coop = cooperatives.find(c => c.id === coopId);
     setZone(coop?.name || "");
     loadNextReceiptForCooperative(coopId);
-    loadTemplatesForCoop(coopId);
+    setTemplateId("");
     loadProjectsForCoop(coopId);
     setProject("");
   };
@@ -747,8 +741,12 @@ export default function CreateShipment() {
                       <SelectValue placeholder={selectedCoopId ? "Sélectionner un modèle" : "Sélectionnez d'abord un registre"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {templates.length === 0 ? (
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground">Aucun modèle actif</div>
+                      {templatesLoading ? (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">Chargement des modèles…</div>
+                      ) : templates.length === 0 ? (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          Aucun modèle de chargement actif n'est disponible pour votre coopérative. Créez ou activez un modèle dans « Modèles de chargement ».
+                        </div>
                       ) : templates.map((t) => {
                         const partnerName = partners.find((p) => p.id === t.partner_id)?.name;
                         return (

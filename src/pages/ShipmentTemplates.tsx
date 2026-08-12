@@ -15,6 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TemplatePreview } from "@/components/shipments/TemplatePreview";
 import { ImageUploader } from "@/components/ui/ImageUploader";
 import PageHeader from "@/components/PageHeader";
+import { useQueryClient } from "@tanstack/react-query";
+import { SHIPMENT_TEMPLATES_QUERY_KEY } from "@/hooks/useShipmentTemplates";
 
 interface Registre { id: string; name: string; cooperative_id: string | null }
 interface Partner { id: string; name: string }
@@ -87,10 +89,12 @@ export default function ShipmentTemplates() {
   const [editing, setEditing] = useState<Partial<Template> | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => { load(); }, []);
 
   async function load() {
+    queryClient.invalidateQueries({ queryKey: SHIPMENT_TEMPLATES_QUERY_KEY });
     setLoading(true);
     const [{ data: rs }, { data: ps }, { data: ts }] = await Promise.all([
       (supabase.from("registres") as any).select("id,name,cooperative_id").order("name"),
