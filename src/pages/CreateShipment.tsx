@@ -20,6 +20,7 @@ import ShipmentDetails from "@/components/ShipmentDetails";
 import ShipmentHistory from "@/components/ShipmentHistory";
 import { TemplatePreview, type TemplatePreviewData } from "@/components/shipments/TemplatePreview";
 import PageHeader from "@/components/PageHeader";
+import { useActiveShipmentTemplates } from "@/hooks/useShipmentTemplates";
 import { buildEligibleProducers, validateDistributionBeforeSave, MIN_REMAINING_WEIGHT_KG, MIN_DAYS_BETWEEN_DELIVERIES } from "@/lib/producer-eligibility";
 
 
@@ -44,7 +45,6 @@ export default function CreateShipment() {
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [newProject, setNewProject] = useState<{ name: string; code: string; partner_id: string; description: string; is_active: boolean }>({ name: "", code: "", partner_id: "", description: "", is_active: true });
   const [creatingProject, setCreatingProject] = useState(false);
-  const [templates, setTemplates] = useState<any[]>([]);
   const [templateId, setTemplateId] = useState<string>("");
   const [preview, setPreview] = useState<DistributionResult[]>([]);
   const [saving, setSaving] = useState(false);
