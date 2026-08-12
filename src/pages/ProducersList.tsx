@@ -530,17 +530,17 @@ export default function Producers() {
                 {sections.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Aucune section trouvée</p>
                 ) : (
-                  sections.map(([name, coop]) => (
-                    <div key={name} className="flex items-center justify-between rounded-md border p-2">
+                  sections.map((s) => (
+                    <div key={sectionKey(s.registreId, s.name)} className="flex items-center justify-between rounded-md border p-2">
                       <div>
-                        <p className="text-sm font-medium">{name}</p>
-                        <p className="text-xs text-muted-foreground">{coop}</p>
+                        <p className="text-sm font-medium">{s.name}</p>
+                        <p className="text-xs text-muted-foreground">{s.registreName}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{disabledSections.has(name) ? "Inactive" : "Active"}</span>
+                        <span className="text-xs text-muted-foreground">{disabledSections.has(sectionKey(s.registreId, s.name)) ? "Inactive" : "Active"}</span>
                         <Switch
-                          checked={!disabledSections.has(name)}
-                          onCheckedChange={() => toggleSection(name, coop)}
+                          checked={!disabledSections.has(sectionKey(s.registreId, s.name))}
+                          onCheckedChange={() => toggleSection(s.name, s.registreId)}
                         />
                       </div>
                     </div>
