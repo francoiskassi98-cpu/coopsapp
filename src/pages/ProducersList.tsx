@@ -103,6 +103,7 @@ export default function Producers() {
   // Sections désactivées (clé = registre_id||section, campagne active)
   const activeCampaign = normalizeCampaign(getCurrentCampaign());
   const [disabledSections, setDisabledSections] = useState<Set<string>>(new Set());
+  const [togglingSections, setTogglingSections] = useState<Set<string>>(new Set());
   const sectionKey = (registreId: string, name: string) => `${registreId}||${name}`;
 
   useEffect(() => {
@@ -127,7 +128,9 @@ export default function Producers() {
       return;
     }
     const key = sectionKey(registreId, sectionName);
+    if (togglingSections.has(key)) return;
     const isDisabled = disabledSections.has(key);
+    setTogglingSections((current) => new Set(current).add(key));
     const { error } = isDisabled
       ? await (supabase as any)
           .from("disabled_sections")
@@ -137,14 +140,29 @@ export default function Producers() {
           .eq("campaign_label", activeCampaign)
       : await (supabase as any)
           .from("disabled_sections")
-          .insert({ section_name: sectionName, registre_id: registreId });
+          .insert({ section_name: sectionName, registre_id: registreId, campaign_label: activeCampaign });
     if (error) {
       console.error("[disabled_sections] toggle", error);
       toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+      setTogglingSections((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
       return;
     }
+    setDisabledSections((current) => {
+      const next = new Set(current);
+      if (isDisabled) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+    setTogglingSections((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
     toast({ title: `Section "${sectionName}" ${isDisabled ? "réactivée" : "désactivée"}` });
-    await loadDisabledSections();
   }
 
   // Sections uniques (par registre) pour le filtre courant
@@ -541,6 +559,8 @@ export default function Producers() {
                         <span className="text-xs text-muted-foreground">{disabledSections.has(sectionKey(s.registreId, s.name)) ? "Inactive" : "Active"}</span>
                         <Switch
                           checked={!disabledSections.has(sectionKey(s.registreId, s.name))}
+                          disabled={togglingSections.has(sectionKey(s.registreId, s.name))}
+                          aria-label={`${disabledSections.has(sectionKey(s.registreId, s.name)) ? "Activer" : "Désactiver"} la section ${s.name}`}
                           onCheckedChange={() => toggleSection(s.name, s.registreId)}
                         />
                       </div>
