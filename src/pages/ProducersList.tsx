@@ -631,11 +631,11 @@ export default function Producers() {
                     </TableRow>
                   ) : (
                     filtered.map((p) => (
-                      <TableRow key={p.id} className={p.is_active === false || disabledSections.has(p.section) ? "opacity-50" : ""}>
+                      <TableRow key={p.id} className={p.is_active === false || disabledSections.has(sectionKey(p.registre_id, p.section)) ? "opacity-50" : ""}>
                         <TableCell>
                           {p.is_active === false ? (
                             <Badge variant="destructive" className="text-xs">Inactif</Badge>
-                          ) : disabledSections.has(p.section) ? (
+                          ) : disabledSections.has(sectionKey(p.registre_id, p.section)) ? (
                             <Badge variant="secondary" className="text-xs">Section off</Badge>
                           ) : (
                             <Badge variant="default" className="text-xs bg-green-600">Actif</Badge>
