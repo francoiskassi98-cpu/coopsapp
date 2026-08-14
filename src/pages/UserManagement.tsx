@@ -84,6 +84,9 @@ export default function UserManagement() {
   const [detailUser, setDetailUser] = useState<UserProfile | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
 
+  const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
