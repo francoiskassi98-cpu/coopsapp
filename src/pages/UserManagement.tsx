@@ -11,9 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, UserPlus, Eye, EyeOff, Users, Pencil, Ban, CheckCircle2, KeyRound, Mail, Calendar, Shield } from "lucide-react";
+import { Loader2, UserPlus, Eye, EyeOff, Users, Pencil, Ban, CheckCircle2, KeyRound, Mail, Calendar, Shield, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import PageHeader from "@/components/PageHeader";
 
