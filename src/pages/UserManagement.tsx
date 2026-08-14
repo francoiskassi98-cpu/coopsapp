@@ -267,6 +267,44 @@ export default function UserManagement() {
 
   const isSelf = (userId: string) => currentUser?.id === userId;
 
+  const handleDeleteUser = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { user_id: deleteTarget.user_id },
+      });
+      if (error || data?.error) {
+        console.error("[delete-user]", error || data?.error);
+        toast({
+          title: "Suppression impossible",
+          description: await edgeErrorMessage(
+            error, data,
+            "La suppression de l'utilisateur a échoué. Aucun accès n'a été supprimé partiellement.",
+          ),
+          variant: "destructive",
+        });
+        return;
+      }
+      setUsers((prev) => prev.filter((u) => u.user_id !== deleteTarget.user_id));
+      setDetailUser((d) => (d?.user_id === deleteTarget.user_id ? null : d));
+      setDeleteTarget(null);
+      toast({
+        title: "Utilisateur supprimé",
+        description: "Utilisateur supprimé avec succès. Son accès au système a été définitivement révoqué.",
+      });
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Erreur",
+        description: "La suppression de l'utilisateur a échoué. Aucun accès n'a été supprimé partiellement.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleResetPassword = async (u: UserProfile) => {
     setResetLoading(true);
     try {
