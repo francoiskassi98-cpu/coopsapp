@@ -510,6 +510,16 @@ export default function UserManagement() {
                             )}
                           </Button>
                         )}
+                        {isSuperAdmin && !isSelf(u.user_id) && (
+                          <Button
+                            variant="ghost" size="icon"
+                            onClick={() => setDeleteTarget(u)}
+                            title="Supprimer l'utilisateur"
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
