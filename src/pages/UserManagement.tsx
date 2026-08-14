@@ -11,9 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, UserPlus, Eye, EyeOff, Users, Pencil, Ban, CheckCircle2, KeyRound, Mail, Calendar, Shield } from "lucide-react";
+import { Loader2, UserPlus, Eye, EyeOff, Users, Pencil, Ban, CheckCircle2, KeyRound, Mail, Calendar, Shield, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import PageHeader from "@/components/PageHeader";
 
@@ -79,6 +83,9 @@ export default function UserManagement() {
 
   const [detailUser, setDetailUser] = useState<UserProfile | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
+
+  const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -259,6 +266,44 @@ export default function UserManagement() {
   };
 
   const isSelf = (userId: string) => currentUser?.id === userId;
+
+  const handleDeleteUser = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { user_id: deleteTarget.user_id },
+      });
+      if (error || data?.error) {
+        console.error("[delete-user]", error || data?.error);
+        toast({
+          title: "Suppression impossible",
+          description: await edgeErrorMessage(
+            error, data,
+            "La suppression de l'utilisateur a échoué. Aucun accès n'a été supprimé partiellement.",
+          ),
+          variant: "destructive",
+        });
+        return;
+      }
+      setUsers((prev) => prev.filter((u) => u.user_id !== deleteTarget.user_id));
+      setDetailUser((d) => (d?.user_id === deleteTarget.user_id ? null : d));
+      setDeleteTarget(null);
+      toast({
+        title: "Utilisateur supprimé",
+        description: "Utilisateur supprimé avec succès. Son accès au système a été définitivement révoqué.",
+      });
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Erreur",
+        description: "La suppression de l'utilisateur a échoué. Aucun accès n'a été supprimé partiellement.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleResetPassword = async (u: UserProfile) => {
     setResetLoading(true);
@@ -465,6 +510,16 @@ export default function UserManagement() {
                             )}
                           </Button>
                         )}
+                        {isSuperAdmin && !isSelf(u.user_id) && (
+                          <Button
+                            variant="ghost" size="icon"
+                            onClick={() => setDeleteTarget(u)}
+                            title="Supprimer l'utilisateur"
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -657,6 +712,30 @@ export default function UserManagement() {
           )}
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !deleting) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer définitivement cet utilisateur ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette opération révoquera définitivement l'accès de {deleteTarget?.username} ({deleteTarget?.email}) à
+              AgroServices Digital. L'utilisateur ne pourra plus se connecter. Les données métier qu'il a créées sont
+              conservées. Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDeleteUser(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Supprimer définitivement
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
