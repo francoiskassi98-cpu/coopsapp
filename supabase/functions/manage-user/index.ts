@@ -214,7 +214,24 @@ Deno.serve(async (req) => {
       if (getErr || !targetUser?.user?.email) {
         return json({ error: "Utilisateur introuvable" }, 404);
       }
-      const redirectTo = body.redirectTo || undefined;
+      // Allow-list stricte des origines autorisées pour le lien de récupération
+      const allowedOrigins = new Set([
+        "https://coopsapp.lovable.app",
+        "https://id-preview--4dc9a2b3-3771-430d-afb9-327fc3fd5bf1.lovable.app",
+        "http://localhost:8080",
+      ]);
+      let redirectTo: string | undefined;
+      if (typeof body.redirectTo === "string" && body.redirectTo.length <= 500) {
+        try {
+          const u = new URL(body.redirectTo);
+          if (allowedOrigins.has(u.origin) && u.pathname === "/reset-password") {
+            redirectTo = `${u.origin}/reset-password`;
+          }
+        } catch { /* URL invalide : ignorée */ }
+      }
+      if (body.redirectTo && !redirectTo) {
+        return json({ error: "URL de redirection non autorisée." }, 400);
+      }
       const { error: resetErr } = await adminClient.auth.resetPasswordForEmail(targetUser.user.email, redirectTo ? { redirectTo } : undefined);
       if (resetErr) {
         console.error(`[manage-user][${reqId}] reset error:`, resetErr.message);
