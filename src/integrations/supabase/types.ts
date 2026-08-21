@@ -21,11 +21,14 @@ export type Database = {
           changed_at: string
           changed_by: string | null
           changed_by_email: string | null
+          changed_by_role: string | null
+          cooperative_id: string | null
           id: string
           new_data: Json | null
           old_data: Json | null
           record_id: string | null
           registre: string | null
+          registre_id: string | null
           table_name: string
         }
         Insert: {
@@ -34,11 +37,14 @@ export type Database = {
           changed_at?: string
           changed_by?: string | null
           changed_by_email?: string | null
+          changed_by_role?: string | null
+          cooperative_id?: string | null
           id?: string
           new_data?: Json | null
           old_data?: Json | null
           record_id?: string | null
           registre?: string | null
+          registre_id?: string | null
           table_name: string
         }
         Update: {
@@ -47,11 +53,14 @@ export type Database = {
           changed_at?: string
           changed_by?: string | null
           changed_by_email?: string | null
+          changed_by_role?: string | null
+          cooperative_id?: string | null
           id?: string
           new_data?: Json | null
           old_data?: Json | null
           record_id?: string | null
           registre?: string | null
+          registre_id?: string | null
           table_name?: string
         }
         Relationships: []
