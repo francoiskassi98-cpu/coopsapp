@@ -1161,7 +1161,9 @@ export type Database = {
     Functions: {
       apply_shipment_potentials: { Args: { p_lines: Json }; Returns: number }
       can_access_registre: { Args: { _registre_id: string }; Returns: boolean }
+      can_write_registre: { Args: { _registre_id: string }; Returns: boolean }
       compute_campaign_label: { Args: { d: string }; Returns: string }
+      coop_subscription_active: { Args: { _coop_id: string }; Returns: boolean }
       create_cooperative_with_admin:
         | {
             Args: {
