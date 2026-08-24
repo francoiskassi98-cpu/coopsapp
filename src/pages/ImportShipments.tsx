@@ -237,23 +237,24 @@ export default function ImportShipments() {
             campaign_label: campaignLabel || null,
             delivery_start: deliveryStart,
             delivery_end: deliveryEnd,
-          })
-          .select()
+          } as never)
+          .select("id")
           .single();
 
         if (shipErr) throw shipErr;
         totalShipments++;
 
-        const deliveries = group
+        const deliveries: DeliveryInsert[] = group
           .filter((r) => producerMap.has(r.code_plantation))
           .map((r) => ({
-            shipment_id: shipment.id,
-            producer_id: producerMap.get(r.code_plantation)!.id,
+            shipment_id: (shipment as { id: string }).id,
+            producer_id: producerMap.get(r.code_plantation)!.id as string,
             receipt_number: r.numero_recu,
             delivery_date: r.date_livraison || deliveryStart,
             net_weight: r.poids_net,
             num_bags: r.nombre_sacs,
           }));
+
 
         if (deliveries.length > 0) {
           await chunkedInsertDeliveries(deliveries);
