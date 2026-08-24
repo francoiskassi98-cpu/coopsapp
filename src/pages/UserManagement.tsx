@@ -756,6 +756,10 @@ export default function UserManagement() {
                     <Shield className="h-3 w-3 mr-1" />
                     {ROLE_LABEL[detailUser.role] ?? detailUser.role}
                   </Badge>
+                  {detailUser.is_primary_admin && (
+                    <Badge variant="outline">Administrateur principal</Badge>
+                  )}
+
                   {detailUser.is_banned ? (
                     <Badge variant="destructive">Désactivé</Badge>
                   ) : (
