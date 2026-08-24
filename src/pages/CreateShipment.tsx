@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { distributeShipment, getCurrentCampaign, normalizeCampaign, type DistributionResult } from "@/lib/shipment-utils";
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
@@ -521,7 +522,7 @@ export default function CreateShipment() {
           code,
           description: newProject.description.trim() || null,
           is_active: newProject.is_active,
-        } as never)
+        } as Database["public"]["Tables"]["projects"]["Insert"])
         .select("id, name, code, description, is_active, cooperative_id")
         .single();
       if (error) throw error;
