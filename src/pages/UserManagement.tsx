@@ -69,7 +69,11 @@ async function edgeErrorMessage(error: unknown, data: unknown, fallback: string)
 export default function UserManagement() {
   const { user: currentUser, isSuperAdmin } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
+  // Statut d'ADMINISTRATEUR PRINCIPAL (renvoyé et contrôlé côté serveur)
+  const [isPrimaryAdmin, setIsPrimaryAdmin] = useState(false);
+  const [primaryCoopIds, setPrimaryCoopIds] = useState<string[]>([]);
   const [registres, setRegistres] = useState<Registre[]>([]);
+
   const [coops, setCoops] = useState<Cooperative[]>([]);
   const [filterCoop, setFilterCoop] = useState<string>(ALL);
   const [filterRole, setFilterRole] = useState<string>(ALL);
