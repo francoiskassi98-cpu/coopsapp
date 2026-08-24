@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ScrollToTop from "@/components/ScrollToTop";
+import RouteSeo from "@/components/RouteSeo";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 
@@ -56,6 +57,7 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <ScrollToTop />
+            <RouteSeo />
             <Suspense fallback={<PageFallback />}>
               <Routes>
                 <Route path="/auth" element={<Auth />} />
