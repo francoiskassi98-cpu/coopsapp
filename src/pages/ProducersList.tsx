@@ -115,7 +115,7 @@ export default function Producers() {
 
     });
 
-  }, [producers, coopFilter, search, sortConfig, sortData]);
+  }, [producers, coopFilter, search, sortData]);
 
   // --- Edit / Delete (existing) ---
   // Sections désactivées (clé = registre_id||section, campagne active)

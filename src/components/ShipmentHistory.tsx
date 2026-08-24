@@ -95,7 +95,7 @@ export default function ShipmentHistory() {
       if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
       return String(v);
     });
-  }, [shipments, selectedCoop, search, sortConfig, sortData]);
+  }, [shipments, selectedCoop, search, sortData]);
 
   return (
     <Card>
