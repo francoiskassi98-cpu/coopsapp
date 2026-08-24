@@ -198,7 +198,7 @@ export default function Producers() {
   }, [producers, coopFilter]);
 
 
-  function openEdit(p: any) {
+  function openEdit(p: ProducerListRow) {
     setEditForm({
       full_name: p.full_name,
       section: p.section,
