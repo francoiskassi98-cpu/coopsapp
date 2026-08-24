@@ -114,7 +114,13 @@ Deno.serve(async (req) => {
         if (r.registres) (registresByUser[r.user_id] ||= []).push(r.registres);
       }
       const cooperativesByUser: Record<string, Array<{ id: string; name: string; acronym: string | null }>> = {};
-      for (const r of (ucRowsAll || []) as Array<{ user_id: string; cooperatives: { id: string; name: string; acronym: string | null } | null }>) {
+      const primaryAdminUserIds: string[] = [];
+      const callerPrimaryCoopIds: string[] = [];
+      for (const r of (ucRowsAll || []) as Array<{ user_id: string; cooperative_id: string; is_primary_admin: boolean; cooperatives: { id: string; name: string; acronym: string | null } | null }>) {
+        if (r.is_primary_admin) {
+          if (r.user_id === caller.id) callerPrimaryCoopIds.push(r.cooperative_id);
+          if (!visible || visible.has(r.user_id)) primaryAdminUserIds.push(r.user_id);
+        }
         if (visible && !visible.has(r.user_id)) continue;
         if (r.cooperatives) (cooperativesByUser[r.user_id] ||= []).push(r.cooperatives);
       }
@@ -124,8 +130,12 @@ Deno.serve(async (req) => {
         cooperativesByUser,
         lastSignInMap,
         allowedUserIds: visible ? [...visible] : null,
+        primaryAdminUserIds: [...new Set(primaryAdminUserIds)],
+        callerIsPrimaryAdmin: isCoopAdmin && callerPrimaryCoopIds.length > 0,
+        callerPrimaryCoopIds,
       });
     }
+
 
     const { user_id, role, username, email, registres, cooperative_id } = body;
 
