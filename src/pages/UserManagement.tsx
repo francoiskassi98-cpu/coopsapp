@@ -33,7 +33,9 @@ interface UserProfile {
   created_at: string;
   role: string;
   is_banned: boolean;
+  is_primary_admin: boolean;
   last_sign_in_at: string | null;
+
 }
 
 interface Registre { id: string; name: string; cooperative_id: string }
