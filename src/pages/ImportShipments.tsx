@@ -221,8 +221,9 @@ export default function ImportShipments() {
         const deliveryStart = dates[0] || first.date_livraison;
         const deliveryEnd = dates[dates.length - 1] || first.date_livraison;
 
-        const { data: shipment, error: shipErr } = await (supabase as any)
+        const { data: shipment, error: shipErr } = await supabase
           .from("shipments")
+
           .insert({
             connaissement: first.connaissement || null,
             total_weight: totalWeight,
