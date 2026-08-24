@@ -843,7 +843,7 @@ export default function UserManagement() {
                     {resetLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <KeyRound className="h-4 w-4 mr-2" />}
                     Envoyer un lien de réinitialisation
                   </Button>
-                  {!isSelf(detailUser.user_id) && (
+                  {canToggleActive(detailUser) && (
                     <Button
                       className="w-full"
                       variant={detailUser.is_banned ? "default" : "destructive"}
