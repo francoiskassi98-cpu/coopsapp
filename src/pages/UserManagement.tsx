@@ -716,7 +716,7 @@ export default function UserManagement() {
               </Label>
               <RegistrePicker selected={editRegistres} onChange={setEditRegistres} coopId={editCoop} />
             </div>
-            {editUser && !isSelf(editUser.user_id) && (
+            {editUser && canToggleActive(editUser) && (
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div className="space-y-0.5">
                   <Label className="text-sm font-medium">Statut du compte</Label>
