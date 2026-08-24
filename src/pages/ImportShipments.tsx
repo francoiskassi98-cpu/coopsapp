@@ -27,11 +27,32 @@ export default function ImportShipments() {
   const [potentialWarnings, setPotentialWarnings] = useState<string[]>([]);
   const [delayWarnings, setDelayWarnings] = useState<string[]>([]);
 
+  /** Ligne minimale insérée dans `deliveries` lors d'un import historique. */
+  type DeliveryInsert = {
+    shipment_id: string;
+    producer_id: string;
+    receipt_number: string;
+    delivery_date: string;
+    net_weight: number;
+    num_bags: number;
+  };
+
+  /** Producteur tel que retourné par les recherches par code plantation. */
+  type ProducerLookup = {
+    id?: string;
+    plantation_code: string;
+    full_name?: string;
+    section?: string;
+    registre_id?: string;
+    remaining_potential?: number | string | null;
+    registres?: { name: string } | null;
+  };
+
   // Helper: chunked insert for deliveries
-  async function chunkedInsertDeliveries(rows: any[], chunkSize = 500) {
+  async function chunkedInsertDeliveries(rows: DeliveryInsert[], chunkSize = 500) {
     for (let i = 0; i < rows.length; i += chunkSize) {
       const chunk = rows.slice(i, i + chunkSize);
-      const { error } = await supabase.from("deliveries").insert(chunk);
+      const { error } = await supabase.from("deliveries").insert(chunk as never);
       if (error) throw error;
     }
   }
@@ -41,15 +62,20 @@ export default function ImportShipments() {
     selectCols: string,
     codes: string[],
     chunkSize = 500
-  ) {
-    const results: any[] = [];
+  ): Promise<ProducerLookup[]> {
+    const results: ProducerLookup[] = [];
     for (let i = 0; i < codes.length; i += chunkSize) {
       const chunk = codes.slice(i, i + chunkSize);
-      const { data } = await supabase.from("producers").select(selectCols).in("plantation_code", chunk);
+      const { data } = await supabase
+        .from("producers")
+        .select(selectCols)
+        .in("plantation_code", chunk)
+        .returns<ProducerLookup[]>();
       if (data) results.push(...data);
     }
     return results;
   }
+
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
