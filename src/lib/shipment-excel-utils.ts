@@ -173,10 +173,11 @@ export async function parseShipmentExcel(data: ArrayBuffer): Promise<{ rows: Shi
     const raw = rawRows[i];
     const rowNum = i + 2;
 
-    const row: Partial<ShipmentImportRow> = {};
+    const row: Partial<Record<keyof ShipmentImportRow, ExcelJS.CellValue>> = {};
     for (const [excelKey, fieldKey] of Object.entries(headerMap)) {
-      (row as any)[fieldKey] = raw[excelKey];
+      row[fieldKey] = raw[excelKey];
     }
+
 
     if (!row.nom_producteur) {
       errors.push({ row: rowNum, message: "Nom du producteur manquant" });
