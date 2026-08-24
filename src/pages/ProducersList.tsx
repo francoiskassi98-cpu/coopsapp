@@ -106,10 +106,14 @@ export default function Producers() {
         p.section.toLowerCase().includes(s)
       );
     });
-    return sortData(base, (item: any, col: string) => {
+    return sortData(base, (item, col) => {
       if (col === "delivery_potential" || col === "remaining_potential") return Number(item[col]);
-      return item[col];
+      const v = (item as Record<string, unknown>)[col];
+      return (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || v == null)
+        ? v
+        : String(v);
     });
+
   }, [producers, coopFilter, search, sortConfig]);
 
   // --- Edit / Delete (existing) ---
