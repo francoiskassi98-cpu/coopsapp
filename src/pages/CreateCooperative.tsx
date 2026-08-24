@@ -253,19 +253,22 @@ export default function CreateCooperative() {
               <div className="space-y-2"><Label>Téléphone *</Label>
                 <Input value={admin.phone} onChange={upd<AdminForm>(setAdmin, admin)("phone")} /></div>
               <div className="space-y-2 md:col-span-2">
-                <Label>Mot de passe * <span className="text-xs text-muted-foreground ml-1">(min 8, 1 maj, 1 min, 1 chiffre)</span></Label>
+                <Label>Mot de passe *</Label>
                 <div className="relative">
-                  <Input type={showPw ? "text" : "password"} value={admin.password}
+                  <Input type={showPw ? "text" : "password"} value={admin.password} minLength={PASSWORD_MIN_LENGTH}
                     onChange={upd<AdminForm>(setAdmin, admin)("password")} className="pr-10" />
                   <button type="button" onClick={() => setShowPw(!showPw)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1}>
                     {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                <PasswordRequirements value={admin.password} />
               </div>
               <div className="space-y-2 md:col-span-2"><Label>Confirmation du mot de passe *</Label>
-                <Input type={showPw ? "text" : "password"} value={admin.password_confirm}
-                  onChange={upd<AdminForm>(setAdmin, admin)("password_confirm")} /></div>
+                <Input type={showPw ? "text" : "password"} value={admin.password_confirm} minLength={PASSWORD_MIN_LENGTH}
+                  onChange={upd<AdminForm>(setAdmin, admin)("password_confirm")} />
+                <PasswordMatch password={admin.password} confirm={admin.password_confirm} /></div>
+
               <div className="md:col-span-2 rounded-md bg-muted/40 p-3 text-sm text-muted-foreground flex items-start gap-2">
                 <UserCog className="h-4 w-4 mt-0.5 shrink-0" />
                 <span>Cet utilisateur sera créé avec le rôle <strong className="text-foreground">Admin coopérative</strong> et associé automatiquement à la nouvelle coopérative.</span>
