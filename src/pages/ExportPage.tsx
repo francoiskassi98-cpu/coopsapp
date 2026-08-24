@@ -367,7 +367,7 @@ export default function ExportPage() {
         : "Tous-Registres";
       await exportToExcel(rows, `Potentiel-${registreName}-${campaignLabel()}.xlsx`, "Potentiel");
       toast({ title: "Export réussi" });
-    } catch (err: any) {
+    } catch (err: unknown) {
       notifyError("Erreur lors de l'export du potentiel par registre", err);
     }
     setLoading(null);
