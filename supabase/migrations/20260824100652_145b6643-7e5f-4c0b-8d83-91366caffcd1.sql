@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.set_project_cooperative() FROM PUBLIC, anon, authenticated;

@@ -38,7 +38,7 @@ interface ProjectOption {
   code: string | null;
   description: string | null;
   is_active: boolean;
-  registre_id: string;
+  cooperative_id: string;
 }
 
 interface SupabaseLikeError {
@@ -113,16 +113,19 @@ export default function CreateShipment() {
     setTemplateId(def?.id || "");
   }, [templates, templatesLoading, selectedCoopId, templateId]);
 
-  async function loadProjectsForCoop(coopId: string) {
-    if (!coopId) { setProjects([]); setProject(""); return; }
-    const { data } = await supabase
+  // Les projets appartiennent à la coopérative : aucun filtre par registre.
+  const loadProjects = useCallback(async () => {
+    const { data, error } = await supabase
       .from("projects")
-      .select("id, name, code, description, is_active, registre_id")
-      .eq("registre_id", coopId)
+      .select("id, name, code, description, is_active, cooperative_id")
       .eq("is_active", true)
       .order("name");
+    if (error) { console.error("[CreateShipment.projects]", error); setProjects([]); return; }
     setProjects((data || []) as ProjectOption[]);
-  }
+  }, []);
+
+  useEffect(() => { loadProjects(); }, [loadProjects]);
+
 
 
 
@@ -202,8 +205,6 @@ export default function CreateShipment() {
     setZone(coop?.name || "");
     loadNextReceiptForCooperative(coopId);
     setTemplateId("");
-    loadProjectsForCoop(coopId);
-    setProject("");
   };
 
   const selectedCoopStats = useMemo(() => {
@@ -492,7 +493,6 @@ export default function CreateShipment() {
   };
 
   const createProject = async () => {
-    if (!selectedCoopId) return;
     const name = newProject.name.trim();
     if (!name) {
       toast({ title: "Nom requis", description: "Renseignez un nom de projet.", variant: "destructive" });
@@ -508,19 +508,24 @@ export default function CreateShipment() {
     setCreatingProject(true);
     try {
       const code = newProject.code.trim() || `PRJ-${Date.now().toString(36).toUpperCase()}`;
+      // La coopérative est déduite du registre sélectionné, sinon côté serveur (trigger).
+      const coopId =
+        cooperatives.find((c) => c.id === selectedCoopId)?.cooperative_id ||
+        cooperatives.find((c) => c.cooperative_id)?.cooperative_id ||
+        undefined;
       const { data, error } = await supabase
         .from("projects")
         .insert({
-          registre_id: selectedCoopId,
+          ...(coopId ? { cooperative_id: coopId } : {}),
           name,
           code,
           description: newProject.description.trim() || null,
           is_active: newProject.is_active,
-        })
-        .select("id, name, code, description, is_active, registre_id")
+        } as never)
+        .select("id, name, code, description, is_active, cooperative_id")
         .single();
       if (error) throw error;
-      setProjects((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      await loadProjects();
       setProject(data.id);
       setProjectDialogOpen(false);
       toast({ title: "Projet créé", description: `« ${data.name} » ajouté et sélectionné.` });
@@ -689,9 +694,9 @@ export default function CreateShipment() {
                 <div className="space-y-2">
                   <Label>Projet *</Label>
                   <div className="flex gap-2">
-                    <Select value={project} onValueChange={setProject} disabled={!selectedCoopId}>
+                    <Select value={project} onValueChange={setProject}>
                       <SelectTrigger className="flex-1">
-                        <SelectValue placeholder={selectedCoopId ? "Sélectionner un projet" : "Sélectionnez d'abord un registre"} />
+                        <SelectValue placeholder="Sélectionner un projet" />
                       </SelectTrigger>
                       <SelectContent>
                         {projects.length === 0 ? (
@@ -706,10 +711,6 @@ export default function CreateShipment() {
                         type="button"
                         variant="outline"
                         onClick={() => {
-                          if (!selectedCoopId) {
-                            toast({ title: "Registre requis", description: "Sélectionnez d'abord un registre.", variant: "destructive" });
-                            return;
-                          }
                           setNewProject({ name: "", code: "", partner_id: "", description: "", is_active: true });
                           setProjectDialogOpen(true);
                         }}

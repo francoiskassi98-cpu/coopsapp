@@ -653,43 +653,43 @@ export type Database = {
       projects: {
         Row: {
           code: string | null
+          cooperative_id: string
           created_at: string
           created_by: string | null
           description: string | null
           id: string
           is_active: boolean
           name: string
-          registre_id: string
           updated_at: string
         }
         Insert: {
           code?: string | null
+          cooperative_id: string
           created_at?: string
           created_by?: string | null
           description?: string | null
           id?: string
           is_active?: boolean
           name: string
-          registre_id: string
           updated_at?: string
         }
         Update: {
           code?: string | null
+          cooperative_id?: string
           created_at?: string
           created_by?: string | null
           description?: string | null
           id?: string
           is_active?: boolean
           name?: string
-          registre_id?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "projects_registre_id_fkey"
-            columns: ["registre_id"]
+            foreignKeyName: "projects_cooperative_id_fkey"
+            columns: ["cooperative_id"]
             isOneToOne: false
-            referencedRelation: "registres"
+            referencedRelation: "cooperatives"
             referencedColumns: ["id"]
           },
         ]
