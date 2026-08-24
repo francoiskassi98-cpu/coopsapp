@@ -20,6 +20,9 @@ import { Separator } from "@/components/ui/separator";
 import { Loader2, UserPlus, Eye, EyeOff, Users, Pencil, Ban, CheckCircle2, KeyRound, Mail, Calendar, Shield, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import PageHeader from "@/components/PageHeader";
+import { PasswordRequirements } from "@/components/PasswordRequirements";
+import { isPasswordValid, PASSWORD_MIN_LENGTH, PASSWORD_REJECTED_MESSAGE } from "@/lib/password-policy";
+
 
 interface UserProfile {
   user_id: string;
