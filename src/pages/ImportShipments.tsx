@@ -169,15 +169,16 @@ export default function ImportShipments() {
       const allCodes = [...new Set(importRows.map((r) => r.code_plantation))];
       const producers = await chunkedProducerLookup("id, plantation_code, remaining_potential", allCodes);
 
-      const producerMap = new Map((producers || []).map((p: any) => [p.plantation_code, p]));
+      const producerMap = new Map<string, ProducerLookup>(producers.map((p) => [p.plantation_code, p]));
 
       const { data: existingPartners } = await supabase.from("partners").select("id, name");
-      const partnerMap = new Map<string, string>((existingPartners || []).map((p: any) => [String(p.name).toLowerCase(), p.id as string]));
+      const partnerMap = new Map<string, string>((existingPartners ?? []).map((p) => [p.name.toLowerCase(), p.id]));
 
       // Load registres for mapping zone -> registre_id
-      const { data: regsData } = await (supabase as any).from("registres").select("id, name, cooperative_id");
-      const regNameToId = new Map<string, string>((regsData || []).map((r: any) => [String(r.name).toLowerCase(), r.id as string]));
-      const regIdToCoopId = new Map<string, string>((regsData || []).map((r: any) => [r.id as string, r.cooperative_id as string]));
+      const { data: regsData } = await supabase.from("registres").select("id, name, cooperative_id");
+      const regNameToId = new Map<string, string>((regsData ?? []).map((r) => [r.name.toLowerCase(), r.id]));
+      const regIdToCoopId = new Map<string, string>((regsData ?? []).map((r) => [r.id, r.cooperative_id]));
+
 
       const groups = groupByShipment(importRows);
       let totalDeliveries = 0;
