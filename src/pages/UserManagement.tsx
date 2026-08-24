@@ -125,6 +125,9 @@ export default function UserManagement() {
       const lastSignInMap: Record<string, string | null> = manageResult.data?.lastSignInMap || {};
       const allowedUserIds: string[] | null = manageResult.data?.allowedUserIds ?? null;
       const allowedSet = allowedUserIds ? new Set(allowedUserIds) : null;
+      const primarySet = new Set<string>(manageResult.data?.primaryAdminUserIds ?? []);
+      setIsPrimaryAdmin(Boolean(manageResult.data?.callerIsPrimaryAdmin));
+      setPrimaryCoopIds(manageResult.data?.callerPrimaryCoopIds ?? []);
 
       if (profiles && roles) {
         const merged = profiles
@@ -138,7 +141,9 @@ export default function UserManagement() {
           created_at: p.created_at,
           role: roles.find((r) => r.user_id === p.user_id)?.role || "agent",
           is_banned: banMap[p.user_id] || false,
+          is_primary_admin: primarySet.has(p.user_id),
           last_sign_in_at: lastSignInMap[p.user_id] || null,
+
         }))
           .filter((u) => isSuperAdmin || u.role !== "super_admin");
         setUsers(merged);
