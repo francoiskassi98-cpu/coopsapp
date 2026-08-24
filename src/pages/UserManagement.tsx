@@ -33,7 +33,9 @@ interface UserProfile {
   created_at: string;
   role: string;
   is_banned: boolean;
+  is_primary_admin: boolean;
   last_sign_in_at: string | null;
+
 }
 
 interface Registre { id: string; name: string; cooperative_id: string }
@@ -67,7 +69,11 @@ async function edgeErrorMessage(error: unknown, data: unknown, fallback: string)
 export default function UserManagement() {
   const { user: currentUser, isSuperAdmin } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
+  // Statut d'ADMINISTRATEUR PRINCIPAL (renvoyé et contrôlé côté serveur)
+  const [isPrimaryAdmin, setIsPrimaryAdmin] = useState(false);
+  const [primaryCoopIds, setPrimaryCoopIds] = useState<string[]>([]);
   const [registres, setRegistres] = useState<Registre[]>([]);
+
   const [coops, setCoops] = useState<Cooperative[]>([]);
   const [filterCoop, setFilterCoop] = useState<string>(ALL);
   const [filterRole, setFilterRole] = useState<string>(ALL);
@@ -119,6 +125,9 @@ export default function UserManagement() {
       const lastSignInMap: Record<string, string | null> = manageResult.data?.lastSignInMap || {};
       const allowedUserIds: string[] | null = manageResult.data?.allowedUserIds ?? null;
       const allowedSet = allowedUserIds ? new Set(allowedUserIds) : null;
+      const primarySet = new Set<string>(manageResult.data?.primaryAdminUserIds ?? []);
+      setIsPrimaryAdmin(Boolean(manageResult.data?.callerIsPrimaryAdmin));
+      setPrimaryCoopIds(manageResult.data?.callerPrimaryCoopIds ?? []);
 
       if (profiles && roles) {
         const merged = profiles
@@ -132,7 +141,9 @@ export default function UserManagement() {
           created_at: p.created_at,
           role: roles.find((r) => r.user_id === p.user_id)?.role || "agent",
           is_banned: banMap[p.user_id] || false,
+          is_primary_admin: primarySet.has(p.user_id),
           last_sign_in_at: lastSignInMap[p.user_id] || null,
+
         }))
           .filter((u) => isSuperAdmin || u.role !== "super_admin");
         setUsers(merged);
@@ -297,6 +308,21 @@ export default function UserManagement() {
   };
 
   const isSelf = (userId: string) => currentUser?.id === userId;
+
+  /**
+   * Droit de (dés)activer un compte — miroir exact de la règle serveur.
+   * super_admin : tous sauf lui-même et les autres super_admin.
+   * coop_admin PRINCIPAL : agents et coop_admin secondaires de SA coopérative.
+   * coop_admin secondaire / agent : jamais.
+   */
+  const canToggleActive = (u: UserProfile): boolean => {
+    if (isSelf(u.user_id)) return false;
+    if (isSuperAdmin) return u.role !== "super_admin";
+    if (!isPrimaryAdmin) return false;
+    if (u.role === "super_admin" || u.is_primary_admin) return false;
+    return u.cooperatives.some((c) => primaryCoopIds.includes(c.id));
+  };
+
 
   const handleDeleteUser = async () => {
     if (!deleteTarget) return;
@@ -610,7 +636,7 @@ export default function UserManagement() {
                         >
                           <KeyRound className="h-4 w-4" />
                         </Button>
-                        {!isSelf(u.user_id) && (
+                        {canToggleActive(u) && (
                           <Button
                             variant="ghost" size="icon"
                             onClick={() => handleToggleActive(u, u.is_banned)}
@@ -690,7 +716,7 @@ export default function UserManagement() {
               </Label>
               <RegistrePicker selected={editRegistres} onChange={setEditRegistres} coopId={editCoop} />
             </div>
-            {editUser && !isSelf(editUser.user_id) && (
+            {editUser && canToggleActive(editUser) && (
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div className="space-y-0.5">
                   <Label className="text-sm font-medium">Statut du compte</Label>
@@ -730,6 +756,10 @@ export default function UserManagement() {
                     <Shield className="h-3 w-3 mr-1" />
                     {ROLE_LABEL[detailUser.role] ?? detailUser.role}
                   </Badge>
+                  {detailUser.is_primary_admin && (
+                    <Badge variant="outline">Administrateur principal</Badge>
+                  )}
+
                   {detailUser.is_banned ? (
                     <Badge variant="destructive">Désactivé</Badge>
                   ) : (
@@ -817,7 +847,7 @@ export default function UserManagement() {
                     {resetLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <KeyRound className="h-4 w-4 mr-2" />}
                     Envoyer un lien de réinitialisation
                   </Button>
-                  {!isSelf(detailUser.user_id) && (
+                  {canToggleActive(detailUser) && (
                     <Button
                       className="w-full"
                       variant={detailUser.is_banned ? "default" : "destructive"}

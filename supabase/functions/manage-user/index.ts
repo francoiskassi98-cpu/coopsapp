@@ -61,6 +61,20 @@ Deno.serve(async (req) => {
       return (data?.role as string) ?? null;
     };
 
+    // Coopératives où le caller est ADMINISTRATEUR PRINCIPAL (source de vérité serveur)
+    const primaryCoopIdsOf = async (userId: string): Promise<string[]> => {
+      const { data } = await adminClient
+        .from("user_cooperatives").select("cooperative_id")
+        .eq("user_id", userId).eq("is_primary_admin", true);
+      return (data || []).map((r: { cooperative_id: string }) => r.cooperative_id);
+    };
+
+    const coopIdsOf = async (userId: string): Promise<string[]> => {
+      const { data } = await adminClient
+        .from("user_cooperatives").select("cooperative_id").eq("user_id", userId);
+      return (data || []).map((r: { cooperative_id: string }) => r.cooperative_id);
+    };
+
     const body = await req.json();
     const { action } = body;
     console.log(`[manage-user][${reqId}] caller=${caller.id} action=${action} super=${isSuperAdmin}`);
@@ -69,8 +83,9 @@ Deno.serve(async (req) => {
       const [{ data: authUsers, error: listErr }, { data: urRows }, { data: ucRowsAll }] = await Promise.all([
         adminClient.auth.admin.listUsers({ perPage: 1000 }),
         adminClient.from("user_registres").select("user_id, registre_id, registres(id, name)"),
-        adminClient.from("user_cooperatives").select("user_id, cooperative_id, cooperatives(id, name, acronym)"),
+        adminClient.from("user_cooperatives").select("user_id, cooperative_id, is_primary_admin, cooperatives(id, name, acronym)"),
       ]);
+
       if (listErr) console.error(`[manage-user][${reqId}] listUsers error:`, listErr.message);
 
       let visible: Set<string> | null = null;
@@ -99,7 +114,13 @@ Deno.serve(async (req) => {
         if (r.registres) (registresByUser[r.user_id] ||= []).push(r.registres);
       }
       const cooperativesByUser: Record<string, Array<{ id: string; name: string; acronym: string | null }>> = {};
-      for (const r of (ucRowsAll || []) as Array<{ user_id: string; cooperatives: { id: string; name: string; acronym: string | null } | null }>) {
+      const primaryAdminUserIds: string[] = [];
+      const callerPrimaryCoopIds: string[] = [];
+      for (const r of (ucRowsAll || []) as Array<{ user_id: string; cooperative_id: string; is_primary_admin: boolean; cooperatives: { id: string; name: string; acronym: string | null } | null }>) {
+        if (r.is_primary_admin) {
+          if (r.user_id === caller.id) callerPrimaryCoopIds.push(r.cooperative_id);
+          if (!visible || visible.has(r.user_id)) primaryAdminUserIds.push(r.user_id);
+        }
         if (visible && !visible.has(r.user_id)) continue;
         if (r.cooperatives) (cooperativesByUser[r.user_id] ||= []).push(r.cooperatives);
       }
@@ -109,8 +130,12 @@ Deno.serve(async (req) => {
         cooperativesByUser,
         lastSignInMap,
         allowedUserIds: visible ? [...visible] : null,
+        primaryAdminUserIds: [...new Set(primaryAdminUserIds)],
+        callerIsPrimaryAdmin: isCoopAdmin && callerPrimaryCoopIds.length > 0,
+        callerPrimaryCoopIds,
       });
     }
+
 
     const { user_id, role, username, email, registres, cooperative_id } = body;
 
@@ -133,9 +158,41 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (action === "deactivate" && user_id === caller.id) {
-      return json({ error: "Vous ne pouvez pas désactiver votre propre compte" }, 400);
+    // ===== Autorisation stricte pour activation / désactivation de compte =====
+    let targetCoopIds: string[] = [];
+    let targetRoleForToggle: string | null = null;
+    if (action === "deactivate" || action === "activate") {
+      if (user_id === caller.id) {
+        return json({ error: "Vous ne pouvez pas désactiver votre propre compte." }, 400);
+      }
+      targetRoleForToggle = await roleOf(user_id);
+      targetCoopIds = await coopIdsOf(user_id);
+      const targetIsPrimary = (await adminClient
+        .from("user_cooperatives").select("id")
+        .eq("user_id", user_id).eq("is_primary_admin", true).limit(1)).data?.length ? true : false;
+
+      if (isSuperAdmin) {
+        if (targetRoleForToggle === "super_admin" && action === "deactivate") {
+          return json({ error: "Accès refusé : le compte administrateur système ne peut pas être désactivé par cet utilisateur." }, 403);
+        }
+      } else {
+        // coop_admin : uniquement l'ADMINISTRATEUR PRINCIPAL peut (dés)activer
+        const myPrimaryCoops = await primaryCoopIdsOf(caller.id);
+        if (!isCoopAdmin || myPrimaryCoops.length === 0) {
+          return json({ error: "Accès refusé : seul l'administrateur principal de la coopérative peut désactiver les comptes utilisateurs." }, 403);
+        }
+        if (!targetCoopIds.some((id) => myPrimaryCoops.includes(id))) {
+          return json({ error: "Accès refusé : vous ne pouvez gérer que les utilisateurs de votre propre coopérative." }, 403);
+        }
+        if (targetRoleForToggle === "super_admin") {
+          return json({ error: "Accès refusé : le compte administrateur système ne peut pas être désactivé par cet utilisateur." }, 403);
+        }
+        if (targetIsPrimary) {
+          return json({ error: "Accès refusé : l'administrateur principal ne peut être désactivé que par l'administrateur système." }, 403);
+        }
+      }
     }
+
 
     if (action === "update") {
       if (role && VALID_ROLES.includes(role)) {
@@ -233,17 +290,35 @@ Deno.serve(async (req) => {
       return json({ success: true });
     }
 
-    if (action === "deactivate") {
-      const { error } = await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "876000h" });
-      if (error) return json({ error: "Erreur serveur" }, 400);
+    if (action === "deactivate" || action === "activate") {
+      const disable = action === "deactivate";
+      const { data: targetUser } = await adminClient.auth.admin.getUserById(user_id);
+      const { error } = await adminClient.auth.admin.updateUserById(user_id, {
+        ban_duration: disable ? "876000h" : "none",
+      });
+      if (error) {
+        console.error(`[manage-user][${reqId}] ${action}:`, error.message);
+        return json({ error: "Erreur serveur" }, 400);
+      }
+      // Le profil reflète l'état d'accès (aucune donnée métier supprimée)
+      await adminClient.from("profiles").update({ active: !disable }).eq("user_id", user_id);
+
+      await adminClient.from("audit_logs").insert({
+        table_name: "profiles",
+        record_id: user_id,
+        action: disable ? "DISABLE_USER" : "ENABLE_USER",
+        old_data: { active: disable, user_id, email: targetUser?.user?.email ?? null, role: targetRoleForToggle },
+        new_data: { active: !disable, user_id, email: targetUser?.user?.email ?? null, role: targetRoleForToggle },
+        changed_by: caller.id,
+        changed_by_email: caller.email ?? null,
+        changed_by_role: isSuperAdmin ? "super_admin" : "coop_admin_principal",
+        cooperative_id: targetCoopIds[0] ?? null,
+      });
       return json({ success: true });
     }
 
-    if (action === "activate") {
-      const { error } = await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "none" });
-      if (error) return json({ error: "Erreur serveur" }, 400);
-      return json({ success: true });
-    }
+
+
 
     if (action === "reset_password") {
       const { data: targetUser, error: getErr } = await adminClient.auth.admin.getUserById(user_id);

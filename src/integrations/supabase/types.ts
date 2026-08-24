@@ -1083,18 +1083,21 @@ export type Database = {
           cooperative_id: string
           created_at: string
           id: string
+          is_primary_admin: boolean
           user_id: string
         }
         Insert: {
           cooperative_id: string
           created_at?: string
           id?: string
+          is_primary_admin?: boolean
           user_id: string
         }
         Update: {
           cooperative_id?: string
           created_at?: string
           id?: string
+          is_primary_admin?: boolean
           user_id?: string
         }
         Relationships: [
@@ -1222,6 +1225,10 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_coop_admin: { Args: never; Returns: boolean }
+      is_primary_coop_admin: {
+        Args: { _coop_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_super_admin: { Args: never; Returns: boolean }
       log_login_event: { Args: { p_user_agent?: string }; Returns: undefined }
       my_cooperative_ids: { Args: never; Returns: string[] }
