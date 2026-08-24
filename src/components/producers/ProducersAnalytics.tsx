@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { LucideIcon } from "lucide-react";
 import {
   Users, UserCheck, UserCog, Activity, TrendingUp, Package, Weight, PieChart as PieIcon, Layers, Building2,
 } from "lucide-react";
