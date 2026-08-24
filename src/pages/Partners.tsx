@@ -52,7 +52,7 @@ export default function Partners() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const loadCoops = async () => {
-    const { data, error } = await (supabase.from("cooperatives") as any)
+    const { data, error } = await supabase.from("cooperatives")
       .select("id,name")
       .is("deleted_at", null)
       .order("name");
@@ -60,12 +60,12 @@ export default function Partners() {
       console.error("[Partners] loadCoops", error);
       return;
     }
-    setCoops((data as Coop[]) || []);
+    setCoops(data ?? []);
   };
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await (supabase.from("partners") as any)
+    const { data, error } = await supabase.from("partners")
       .select("id,name,contact,logo_path,status,cooperative_id")
       .is("deleted_at", null)
       .order("name");
@@ -73,7 +73,7 @@ export default function Partners() {
       console.error("[Partners] load", error);
       toast.error("Impossible de charger les partenaires.");
     }
-    const list = (data as Partner[]) || [];
+    const list: Partner[] = data ?? [];
     setItems(list);
 
     const map: Record<string, string> = {};
@@ -200,8 +200,8 @@ export default function Partners() {
       cooperative_id: coopId,
     };
     const { error } = editing
-      ? await (supabase as any).from("partners").update(payload).eq("id", editing.id)
-      : await (supabase as any).from("partners").insert(payload);
+      ? await supabase.from("partners").update(payload).eq("id", editing.id)
+      : await supabase.from("partners").insert(payload);
     setSaving(false);
     if (error) {
       console.error("[Partners] save error", error);
