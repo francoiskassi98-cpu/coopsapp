@@ -22,6 +22,7 @@ const UserManagement = lazy(() => import("@/pages/UserManagement"));
 const SuperAdminDashboard = lazy(() => import("@/pages/SuperAdminDashboard"));
 const CooperativesManagement = lazy(() => import("@/pages/CooperativesManagement"));
 const AuditLog = lazy(() => import("@/pages/AuditLog"));
+const ProjectsManagement = lazy(() => import("@/pages/ProjectsManagement"));
 const CreateCooperative = lazy(() => import("@/pages/CreateCooperative"));
 const Trash = lazy(() => import("@/pages/Trash"));
 const LoginEvents = lazy(() => import("@/pages/LoginEvents"));
@@ -78,6 +79,7 @@ const App = () => (
                     </Route>
                     <Route element={<ProtectedRoute superAdminOnly />}>
                       <Route path="/gestion/dashboard" element={<SuperAdminDashboard />} />
+                      <Route path="/gestion/projets" element={<ProjectsManagement />} />
                       <Route path="/gestion/cooperatives" element={<CooperativesManagement />} />
                       <Route path="/gestion/cooperatives/nouvelle" element={<CreateCooperative />} />
                     </Route>
