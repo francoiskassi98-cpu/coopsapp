@@ -98,12 +98,13 @@ export default function ImportShipments() {
         codes
       );
 
-      const producerMap = new Map(
-        (producers || []).map((p: any) => [p.plantation_code, p])
+      const producerMap = new Map<string, ProducerLookup>(
+        producers.map((p) => [p.plantation_code, p])
       );
 
       const matched: MatchedProducer[] = codes.map((code) => {
-        const dbProducer: any = producerMap.get(code);
+        const dbProducer = producerMap.get(code);
+
         const fileRow = result.rows.find((r) => r.code_plantation === code);
         return {
           code_plantation: code,
