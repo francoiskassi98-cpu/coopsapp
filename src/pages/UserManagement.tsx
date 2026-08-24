@@ -309,6 +309,21 @@ export default function UserManagement() {
 
   const isSelf = (userId: string) => currentUser?.id === userId;
 
+  /**
+   * Droit de (dés)activer un compte — miroir exact de la règle serveur.
+   * super_admin : tous sauf lui-même et les autres super_admin.
+   * coop_admin PRINCIPAL : agents et coop_admin secondaires de SA coopérative.
+   * coop_admin secondaire / agent : jamais.
+   */
+  const canToggleActive = (u: UserProfile): boolean => {
+    if (isSelf(u.user_id)) return false;
+    if (isSuperAdmin) return u.role !== "super_admin";
+    if (!isPrimaryAdmin) return false;
+    if (u.role === "super_admin" || u.is_primary_admin) return false;
+    return u.cooperatives.some((c) => primaryCoopIds.includes(c.id));
+  };
+
+
   const handleDeleteUser = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
