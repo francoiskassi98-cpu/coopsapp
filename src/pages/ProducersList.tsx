@@ -320,12 +320,12 @@ export default function Producers() {
     if (uniq.length === 0) return map;
 
     // Fetch existing registres (RLS scopes them to accessible cooperatives)
-    const { data: existing, error: fetchErr } = await (supabase as any)
+    const { data: existing, error: fetchErr } = await supabase
       .from("registres")
       .select("id, name, cooperative_id");
     if (fetchErr) throw fetchErr;
     const byName = new Map<string, { id: string; cooperative_id: string }>();
-    (existing || []).forEach((r: any) => byName.set(r.name.trim().toLowerCase(), r));
+    (existing ?? []).forEach((r) => byName.set(r.name.trim().toLowerCase(), r));
 
     const missing: string[] = [];
     for (const name of uniq) {
@@ -351,13 +351,14 @@ export default function Producers() {
         cooperative_id: coopId,
         status: "active",
       }));
-      const { data: created, error: createErr } = await (supabase as any)
+      const { data: created, error: createErr } = await supabase
         .from("registres")
         .insert(toCreate)
         .select("id, name");
       if (createErr) throw createErr;
-      (created || []).forEach((r: any) => map.set(r.name.trim().toLowerCase(), r.id));
+      (created ?? []).forEach((r) => map.set(r.name.trim().toLowerCase(), r.id));
     }
+
     return map;
   }
 
