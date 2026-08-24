@@ -521,7 +521,7 @@ export default function CreateShipment() {
           code,
           description: newProject.description.trim() || null,
           is_active: newProject.is_active,
-        } as never)
+        } as { cooperative_id?: string; name: string; code: string; description: string | null; is_active: boolean })
         .select("id, name, code, description, is_active, cooperative_id")
         .single();
       if (error) throw error;
