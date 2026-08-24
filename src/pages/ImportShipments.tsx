@@ -265,7 +265,7 @@ export default function ImportShipments() {
           const producer = producerMap.get(r.code_plantation);
           if (producer) {
             const newPotential = Math.max(0, Number(producer.remaining_potential) - r.poids_net);
-            await supabase.from("producers").update({ remaining_potential: newPotential }).eq("id", producer.id);
+            await supabase.from("producers").update({ remaining_potential: newPotential }).eq("id", producer.id as string);
             producer.remaining_potential = newPotential;
           }
         }
@@ -274,7 +274,8 @@ export default function ImportShipments() {
       toast({ title: "Importation réussie", description: `${totalShipments} chargement(s) et ${totalDeliveries} livraison(s) importé(s).` });
       setDone(true);
       setRows([]);
-    } catch (err: any) {
+    } catch (err: unknown) {
+
       (console.error(err), toast({ title: "Erreur d'importation", description: "Une erreur est survenue.", variant: "destructive" }));
     } finally {
       setSaving(false);
