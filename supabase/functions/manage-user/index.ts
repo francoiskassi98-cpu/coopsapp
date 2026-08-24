@@ -75,13 +75,17 @@ Deno.serve(async (req) => {
       return (data || []).map((r: { cooperative_id: string }) => r.cooperative_id);
     };
 
+    const body = await req.json();
+    const { action } = body;
+    console.log(`[manage-user][${reqId}] caller=${caller.id} action=${action} super=${isSuperAdmin}`);
 
     if (action === "list") {
       const [{ data: authUsers, error: listErr }, { data: urRows }, { data: ucRowsAll }] = await Promise.all([
         adminClient.auth.admin.listUsers({ perPage: 1000 }),
         adminClient.from("user_registres").select("user_id, registre_id, registres(id, name)"),
-        adminClient.from("user_cooperatives").select("user_id, cooperative_id, cooperatives(id, name, acronym)"),
+        adminClient.from("user_cooperatives").select("user_id, cooperative_id, is_primary_admin, cooperatives(id, name, acronym)"),
       ]);
+
       if (listErr) console.error(`[manage-user][${reqId}] listUsers error:`, listErr.message);
 
       let visible: Set<string> | null = null;
