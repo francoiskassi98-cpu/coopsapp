@@ -12,6 +12,31 @@ import { toast } from "@/hooks/use-toast";
 import { Pencil, Package, Users, Weight, Truck, FileSpreadsheet, Loader2 } from "lucide-react";
 import { generateShipmentFiche } from "@/services/excel/shipment-fiche-excel";
 
+interface ShipmentRow {
+  id: string;
+  connaissement: string | null;
+  zone: string | null;
+  total_weight: number | string;
+  total_bags: number | string;
+  project: string;
+  destination: string;
+  campaign_label: string | null;
+  partner_id: string | null;
+  status: string;
+  delivery_start: string;
+  delivery_end: string;
+  driver_name: string | null;
+  truck_number: string | null;
+  trailer_number: string | null;
+  departure_date: string | null;
+  registres?: { id: string; name: string; cooperative_id: string; cooperatives?: { name: string } | null } | null;
+}
+
+interface DeliveryRow {
+  shipment_id: string;
+  producer_id: string;
+}
+
 interface ShipmentWithDetails {
   id: string;
   connaissement: string | null;
@@ -29,6 +54,10 @@ interface ShipmentWithDetails {
   status: string;
   delivery_start: string;
   delivery_end: string;
+  driver_name: string | null;
+  truck_number: string | null;
+  trailer_number: string | null;
+  departure_date: string | null;
 }
 
 export default function ShipmentDetails() {
@@ -69,7 +98,7 @@ export default function ShipmentDetails() {
     setLoading(true);
     try {
       // Fetch all shipments without limit
-      let allShipments: any[] = [];
+      let allShipments: ShipmentRow[] = [];
       let from = 0;
       const pageSize = 1000;
       while (true) {
@@ -80,7 +109,7 @@ export default function ShipmentDetails() {
           .range(from, from + pageSize - 1);
         if (error) throw error;
         if (!data || data.length === 0) break;
-        allShipments = allShipments.concat(data);
+        allShipments = allShipments.concat(data as unknown as ShipmentRow[]);
         if (data.length < pageSize) break;
         from += pageSize;
       }
@@ -95,7 +124,7 @@ export default function ShipmentDetails() {
       setCooperativesList(coopsData || []);
 
       // Fetch producer counts per shipment (all deliveries)
-      let allDeliveries: any[] = [];
+      let allDeliveries: DeliveryRow[] = [];
       from = 0;
       while (true) {
         const { data, error } = await supabase
@@ -104,7 +133,7 @@ export default function ShipmentDetails() {
           .range(from, from + pageSize - 1);
         if (error) break;
         if (!data || data.length === 0) break;
-        allDeliveries = allDeliveries.concat(data);
+        allDeliveries = allDeliveries.concat(data as DeliveryRow[]);
         if (data.length < pageSize) break;
         from += pageSize;
       }
@@ -119,24 +148,29 @@ export default function ShipmentDetails() {
         id: s.id,
         connaissement: s.connaissement,
         zone: s.zone,
-        cooperative_id: (s as any).registres?.id || null,
-        cooperative_name: (s as any).registres?.name || s.zone || null,
+        cooperative_id: s.registres?.id || null,
+        cooperative_name: s.registres?.name || s.zone || null,
         total_weight: Number(s.total_weight),
         total_bags: Number(s.total_bags),
         project: s.project,
         destination: s.destination,
-        campaign: (s as any).campaign_label || (s as any).campaign || "",
+        campaign: s.campaign_label || "",
         partner_id: s.partner_id,
         partner_name: s.partner_id ? partnerMap.get(s.partner_id) || "—" : "—",
         producer_count: producerCountMap.get(s.id)?.size || 0,
         status: s.status,
         delivery_start: s.delivery_start,
         delivery_end: s.delivery_end,
+        driver_name: s.driver_name,
+        truck_number: s.truck_number,
+        trailer_number: s.trailer_number,
+        departure_date: s.departure_date,
       }));
 
       setShipments(enriched);
-    } catch (err: any) {
-      (console.error(err), toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }));
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -155,10 +189,10 @@ export default function ShipmentDetails() {
     setEditConnaissement(s.connaissement || "");
     setEditTotalWeight(String(s.total_weight));
     setEditTotalBags(String(s.total_bags));
-    setEditDriver((s as any).driver_name || "");
-    setEditTruck((s as any).truck_number || "");
-    setEditTrailer((s as any).trailer_number || "");
-    setEditDeparture((s as any).departure_date || "");
+    setEditDriver(s.driver_name || "");
+    setEditTruck(s.truck_number || "");
+    setEditTrailer(s.trailer_number || "");
+    setEditDeparture(s.departure_date || "");
   };
 
   const handleSaveEdit = async () => {
@@ -184,15 +218,16 @@ export default function ShipmentDetails() {
           truck_number: editTruck.trim() || null,
           trailer_number: editTrailer.trim() || null,
           departure_date: editDeparture || null,
-        } as any)
+        })
         .eq("id", editingShipment.id);
 
       if (error) throw error;
       toast({ title: "Chargement modifié" });
       setEditingShipment(null);
       fetchAll();
-    } catch (err: any) {
-      (console.error(err), toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }));
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setSaving(false);
     }

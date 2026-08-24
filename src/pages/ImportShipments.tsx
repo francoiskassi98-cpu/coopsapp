@@ -276,7 +276,8 @@ export default function ImportShipments() {
       setRows([]);
     } catch (err: unknown) {
 
-      (console.error(err), toast({ title: "Erreur d'importation", description: "Une erreur est survenue.", variant: "destructive" }));
+      console.error(err);
+      toast({ title: "Erreur d'importation", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setSaving(false);
     }

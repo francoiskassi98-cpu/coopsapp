@@ -1,4 +1,4 @@
-import { Package, TrendingUp, Leaf, Truck, BarChart3 } from "lucide-react";
+import { Package, TrendingUp, Leaf, Truck, BarChart3, type LucideIcon } from "lucide-react";
 
 type Props = {
   totalPotential: number;
@@ -22,7 +22,7 @@ export default function KpiCards({ totalPotential, totalDelivered, remaining, sh
   const deliveredPct = totalPotential > 0 ? Math.min(100, (totalDelivered / totalPotential) * 100) : 0;
   const remainingPct = totalPotential > 0 ? Math.min(100, (remaining / totalPotential) * 100) : 0;
 
-  const cards: Array<{ label: string; value: string; sub: string; icon: any; tone: KpiTone; progress: number }> = [
+  const cards: Array<{ label: string; value: string; sub: string; icon: LucideIcon; tone: KpiTone; progress: number }> = [
     { label: "Potentiel total",       value: `${totalPotential.toLocaleString("fr-FR")} kg`, sub: "Objectif de collecte",                     icon: Leaf,      tone: "green",  progress: 100 },
     { label: "Poids livré total",     value: `${totalDelivered.toLocaleString("fr-FR")} kg`, sub: `${deliveryRate.toFixed(1)}% de l'objectif`, icon: Package,   tone: "blue",   progress: deliveredPct },
     { label: "Potentiel restant",     value: `${remaining.toLocaleString("fr-FR")} kg`,      sub: `${(100 - deliveryRate).toFixed(1)}% restant`, icon: TrendingUp, tone: "orange", progress: remainingPct },

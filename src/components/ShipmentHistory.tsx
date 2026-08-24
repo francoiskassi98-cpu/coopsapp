@@ -7,23 +7,39 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { RefreshCw, History } from "lucide-react";
 import { toast } from "sonner";
-import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
+import { useSortableTable, SortableHeader, type SortValue } from "@/hooks/useSortableTable";
+import type { PaginatedQuery } from "@/lib/database-utils";
+
+interface HistoryShipment {
+  id: string;
+  connaissement: string | null;
+  lot_number: string | null;
+  project: string | null;
+  destination: string | null;
+  total_weight: number | null;
+  total_bags: number | null;
+  created_at: string;
+  zone: string | null;
+  campaign_label: string | null;
+  partners?: { name: string | null } | null;
+  registres?: { name: string | null } | null;
+}
 
 export default function ShipmentHistory() {
-  const [shipments, setShipments] = useState<any[]>([]);
+  const [shipments, setShipments] = useState<HistoryShipment[]>([]);
   const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedCoop, setSelectedCoop] = useState("all");
 
-  async function fetchAllRows(query: any) {
-    let allData: any[] = [];
+  async function fetchAllRows<T>(query: PaginatedQuery): Promise<T[]> {
+    const allData: T[] = [];
     let from = 0;
     const pageSize = 1000;
     while (true) {
       const { data, error } = await query.range(from, from + pageSize - 1);
       if (error || !data || data.length === 0) break;
-      allData = allData.concat(data);
+      allData.push(...(data as T[]));
       if (data.length < pageSize) break;
       from += pageSize;
     }
@@ -34,8 +50,11 @@ export default function ShipmentHistory() {
     setLoading(true);
     try {
       const [shipmentsData, coopsData] = await Promise.all([
-        fetchAllRows(
-          supabase.from("shipments").select("*, partners(name), registres(name)").order("created_at", { ascending: false })
+        fetchAllRows<HistoryShipment>(
+          supabase
+            .from("shipments")
+            .select("*, partners(name), registres(name)")
+            .order("created_at", { ascending: false }) as unknown as PaginatedQuery
         ),
         supabase.from("registres").select("id, name").order("name"),
       ]);
@@ -57,21 +76,24 @@ export default function ShipmentHistory() {
 
   const filtered = useMemo(() => {
     const base = shipments.filter((s) => {
-      const coopName = (s.registres as any)?.name || s.zone || "";
+      const coopName = s.registres?.name || s.zone || "";
       const matchesCoop = selectedCoop === "all" || coopName === selectedCoop;
       const matchesSearch =
         !search ||
         s.connaissement?.toLowerCase().includes(search.toLowerCase()) ||
-        (s.partners as any)?.name?.toLowerCase().includes(search.toLowerCase()) ||
+        s.partners?.name?.toLowerCase().includes(search.toLowerCase()) ||
         coopName.toLowerCase().includes(search.toLowerCase());
       return matchesCoop && matchesSearch;
     });
-    return sortData(base, (item: any, col: string) => {
-      if (col === "total_weight" || col === "total_bags") return Number(item[col]);
-      if (col === "partner") return (item.partners as any)?.name || "";
-      if (col === "cooperative") return (item.registres as any)?.name || item.zone || "";
-      if (col === "created_at") return new Date(item[col]).getTime();
-      return item[col];
+    return sortData(base, (item, col): SortValue => {
+      if (col === "total_weight" || col === "total_bags") return Number(item[col as "total_weight" | "total_bags"]);
+      if (col === "partner") return item.partners?.name || "";
+      if (col === "cooperative") return item.registres?.name || item.zone || "";
+      if (col === "created_at") return new Date(item.created_at).getTime();
+      const v: unknown = (item as unknown as Record<string, unknown>)[col];
+      if (v == null) return null;
+      if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
+      return String(v);
     });
   }, [shipments, selectedCoop, search, sortConfig]);
 
@@ -136,8 +158,8 @@ export default function ShipmentHistory() {
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.connaissement || "—"}</TableCell>
                       <TableCell>{s.project}</TableCell>
-                      <TableCell>{(s.partners as any)?.name || "—"}</TableCell>
-                      <TableCell>{(s.registres as any)?.name || s.zone || "—"}</TableCell>
+                      <TableCell>{s.partners?.name || "—"}</TableCell>
+                      <TableCell>{s.registres?.name || s.zone || "—"}</TableCell>
                       <TableCell>{s.destination}</TableCell>
                       <TableCell>{Number(s.total_weight).toLocaleString("fr-FR")}</TableCell>
                       <TableCell>{s.total_bags}</TableCell>

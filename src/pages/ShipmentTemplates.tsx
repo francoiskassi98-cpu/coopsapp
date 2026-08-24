@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { PostgrestError } from "@supabase/supabase-js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,9 @@ interface Template {
   show_partner_logo: boolean;
 }
 
+type TemplateFieldValue = string | number | boolean | null;
+type TemplatePayload = Partial<Record<keyof Template | "created_by", TemplateFieldValue>>;
+
 const defaults: Partial<Template> = {
   template_name: "Modèle par défaut",
   is_default: false,
@@ -97,13 +101,13 @@ export default function ShipmentTemplates() {
     queryClient.invalidateQueries({ queryKey: SHIPMENT_TEMPLATES_QUERY_KEY });
     setLoading(true);
     const [{ data: rs }, { data: ps }, { data: ts }] = await Promise.all([
-      (supabase.from("registres") as any).select("id,name,cooperative_id").order("name"),
-      (supabase.from("partners") as any).select("id,name").order("name"),
-      (supabase.from("shipment_excel_templates") as any).select("*").order("created_at", { ascending: false }),
+      supabase.from("registres").select("id,name,cooperative_id").order("name"),
+      supabase.from("partners").select("id,name").order("name"),
+      supabase.from("shipment_excel_templates").select("*").order("created_at", { ascending: false }),
     ]);
-    setRegistres((rs || []) as Registre[]);
-    setPartners((ps || []) as Partner[]);
-    setTemplates((ts || []) as Template[]);
+    setRegistres((rs || []) as unknown as Registre[]);
+    setPartners((ps || []) as unknown as Partner[]);
+    setTemplates((ts || []) as unknown as Template[]);
     setLoading(false);
   }
 
@@ -137,40 +141,42 @@ export default function ShipmentTemplates() {
     setSaving(true);
     try {
       // Whitelist stricte pour éviter d'envoyer des colonnes inexistantes
-      const payload: Record<string, any> = {};
+      const payload: TemplatePayload = {};
       for (const k of PERSIST_FIELDS) {
-        if ((editing as any)[k] !== undefined) payload[k] = (editing as any)[k];
+        const v = editing[k];
+        if (v !== undefined) payload[k] = v as TemplateFieldValue;
       }
       // Normalisations
       if (payload.partner_id === "") payload.partner_id = null;
       if (payload.coop_logo_path === "") payload.coop_logo_path = null;
       if (payload.partner_logo_path === "") payload.partner_logo_path = null;
 
-      let error: any;
-      if ((editing as any).id) {
-        ({ error } = await (supabase.from("shipment_excel_templates") as any)
-          .update(payload).eq("id", (editing as any).id));
+      let error: PostgrestError | null = null;
+      if (editing.id) {
+        ({ error } = await supabase
+          .from("shipment_excel_templates")
+          .update(payload as never)
+          .eq("id", editing.id));
       } else {
         const { data: userRes } = await supabase.auth.getUser();
         payload.created_by = userRes.user?.id ?? null;
-        ({ error } = await (supabase.from("shipment_excel_templates") as any).insert(payload));
+        ({ error } = await supabase.from("shipment_excel_templates").insert(payload as never));
       }
       if (error) {
         console.error("[shipment_excel_templates] save error", { error, payload });
-        const msg = [error.message, error.details, error.hint].filter(Boolean).join(" — ");
         toast({
-          title: (editing as any).id ? "Échec de la modification" : "Échec de la création",
-          description: msg || "Vérifiez les champs obligatoires (registre, nom) et vos permissions.",
+          title: editing.id ? "Échec de la modification" : "Échec de la création",
+          description: "Vérifiez les champs obligatoires (registre, nom) et vos permissions.",
           variant: "destructive",
         });
         return;
       }
-      toast({ title: (editing as any).id ? "Modèle modifié" : "Modèle créé" });
+      toast({ title: editing.id ? "Modèle modifié" : "Modèle créé" });
       setEditing(null);
       load();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[shipment_excel_templates] save exception", e);
-      toast({ title: "Erreur inattendue", description: e?.message ?? "Réessayez.", variant: "destructive" });
+      toast({ title: "Erreur inattendue", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -178,12 +184,12 @@ export default function ShipmentTemplates() {
 
   async function remove() {
     if (!deleteId) return;
-    const { error } = await (supabase.from("shipment_excel_templates") as any).delete().eq("id", deleteId);
+    const { error } = await supabase.from("shipment_excel_templates").delete().eq("id", deleteId);
     if (error) {
       console.error("[shipment_excel_templates] delete error", error);
       toast({
         title: "Suppression impossible",
-        description: [error.message, error.hint].filter(Boolean).join(" — ") || "Une erreur est survenue.",
+        description: "Une erreur est survenue.",
         variant: "destructive",
       });
     } else {
@@ -285,7 +291,7 @@ export default function ShipmentTemplates() {
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-5xl max-h-[92vh] overflow-auto">
           <DialogHeader>
-            <DialogTitle>{(editing as any)?.id ? "Modifier le modèle" : "Nouveau modèle"}</DialogTitle>
+            <DialogTitle>{editing?.id ? "Modifier le modèle" : "Nouveau modèle"}</DialogTitle>
           </DialogHeader>
           {editing && (
             <Tabs defaultValue="config" className="w-full">
@@ -369,7 +375,7 @@ export default function ShipmentTemplates() {
                 </div>
                 <div>
                   <Label>Position des logos</Label>
-                  <Select value={editing.logo_position || "left"} onValueChange={(v: any) => setEditing({ ...editing, logo_position: v })}>
+                  <Select value={editing.logo_position || "left"} onValueChange={(v) => setEditing({ ...editing, logo_position: v as Template["logo_position"] })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="left">Gauche</SelectItem>
@@ -410,7 +416,7 @@ export default function ShipmentTemplates() {
                   Aperçu indicatif — les données présentées sont fictives.
                 </p>
                 <TemplatePreview
-                  {...(editing as any)}
+                  {...editing}
                   coopName={registres.find(r => r.id === editing.registre_id)?.name}
                 />
               </TabsContent>

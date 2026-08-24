@@ -24,6 +24,33 @@ interface TemplateConfig {
   show_partner_logo: boolean;
 }
 
+interface ShipmentFicheRow {
+  id: string;
+  connaissement: string | null;
+  lot_number: string | null;
+  project: string | null;
+  destination: string | null;
+  total_weight: number | null;
+  total_bags: number | null;
+  delivery_start: string | null;
+  departure_date: string | null;
+  driver_name: string | null;
+  truck_number: string | null;
+  trailer_number: string | null;
+  registre_id: string | null;
+  partner_id: string | null;
+  registres?: { name: string | null; cooperatives?: { name: string | null } | null } | null;
+  partners?: { name: string | null } | null;
+}
+
+interface DeliveryFicheRow {
+  receipt_number: string | null;
+  delivery_date: string | null;
+  net_weight: number | null;
+  num_bags: number | null;
+  producers?: { full_name: string | null; section: string | null; plantation_code: string | null } | null;
+}
+
 const FALLBACK_TEMPLATE: TemplateConfig = {
   title: "FICHE D'ACCOMPAGNEMENT CAMPAGNE",
   subtitle: null,
@@ -49,7 +76,8 @@ const FALLBACK_TEMPLATE: TemplateConfig = {
 
 async function loadTemplate(registreId: string | null): Promise<TemplateConfig> {
   if (!registreId) return FALLBACK_TEMPLATE;
-  const { data } = await (supabase.from("shipment_excel_templates") as any)
+  const { data } = await supabase
+    .from("shipment_excel_templates")
     .select("*")
     .eq("registre_id", registreId)
     .order("is_default", { ascending: false })
@@ -108,10 +136,12 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
       "id, connaissement, lot_number, project, destination, total_weight, total_bags, delivery_start, departure_date, driver_name, truck_number, trailer_number, registre_id, partner_id, registres(name, cooperatives(name)), partners(name)"
     )
     .eq("id", shipmentId)
+    .returns<ShipmentFicheRow[]>()
     .maybeSingle();
   if (sErr || !shipment) throw new Error("Chargement introuvable");
 
-  const tpl = await loadTemplate((shipment as any).registre_id);
+  const sh: ShipmentFicheRow = shipment;
+  const tpl = await loadTemplate(sh.registre_id);
 
   const { data: deliveries, error: dErr } = await supabase
     .from("deliveries")
@@ -119,15 +149,15 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
       "receipt_number, delivery_date, net_weight, num_bags, producers(full_name, section, plantation_code)"
     )
     .eq("shipment_id", shipmentId)
-    .order("receipt_number", { ascending: true });
+    .order("receipt_number", { ascending: true })
+    .returns<DeliveryFicheRow[]>();
   if (dErr) throw dErr;
 
-  const rows = deliveries || [];
+  const rows: DeliveryFicheRow[] = deliveries || [];
   const uniqueProducers = new Set(
-    rows.map((r: any) => r.producers?.plantation_code).filter(Boolean)
+    rows.map((r) => r.producers?.plantation_code).filter(Boolean)
   ).size;
 
-  const sh: any = shipment;
   const coopName = sh.registres?.cooperatives?.name || sh.registres?.name || "—";
   const partnerName = sh.partners?.name || "—";
 
@@ -192,7 +222,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
     if (!buf) return;
     const imgId = wb.addImage({ buffer: buf, extension: extOf(url) });
     ws.addImage(imgId, {
-      tl: { col, row: 0 } as any,
+      tl: { col, row: 0 },
       ext: { width, height },
       editAs: "oneCell",
     });
@@ -218,7 +248,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
     cell.alignment = leftMid;
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2F2F2" } };
   };
-  const writeValue = (cell: ExcelJS.Cell, value: any, numFmt?: string) => {
+  const writeValue = (cell: ExcelJS.Cell, value: ExcelJS.CellValue, numFmt?: string) => {
     cell.value = value;
     cell.font = { ...font, size: 11 };
     cell.alignment = leftMid;
@@ -228,9 +258,9 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   const setInfoRow = (
     rowIdx: number,
     leftLabel: string,
-    leftValue: any,
+    leftValue: ExcelJS.CellValue,
     rightLabel?: string,
-    rightValue?: any,
+    rightValue?: ExcelJS.CellValue,
     leftFmt?: string,
     rightFmt?: string
   ) => {
@@ -361,9 +391,9 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   // LIGNES PRODUCTEURS — dynamiques uniquement
   // ============================================================
   let r = HEADER_ROW + 1;
-  rows.forEach((d: any, idx: number) => {
+  rows.forEach((d, idx) => {
     const row = ws.getRow(r);
-    const values = [
+    const values: ExcelJS.CellValue[] = [
       idx + 1,
       d.producers?.full_name || "",
       d.receipt_number || "",
@@ -375,7 +405,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
     ];
     values.forEach((v, i) => {
       const cell = row.getCell(i + 1);
-      cell.value = v as any;
+      cell.value = v;
       cell.font = { ...font, size: 10 };
       cell.border = thin;
       cell.alignment = {
@@ -392,8 +422,8 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   });
 
   // ===== LIGNE TOTAL =====
-  const totalWeight = rows.reduce((s: number, d: any) => s + (Number(d.net_weight) || 0), 0);
-  const totalBags = rows.reduce((s: number, d: any) => s + (Number(d.num_bags) || 0), 0);
+  const totalWeight = rows.reduce((s, d) => s + (Number(d.net_weight) || 0), 0);
+  const totalBags = rows.reduce((s, d) => s + (Number(d.num_bags) || 0), 0);
   ws.mergeCells(`A${r}:F${r}`);
   const totalLabel = ws.getCell(`A${r}`);
   totalLabel.value = "TOTAL";
@@ -462,15 +492,18 @@ function argbToCss(argb?: string): string | undefined {
   return `#${v}`;
 }
 
+interface MergeRange { top: number; left: number; bottom: number; right: number }
+
 function buildMergeMap(ws: ExcelJS.Worksheet): {
   masters: Map<string, { rowSpan: number; colSpan: number }>;
   occupied: Set<string>;
 } {
   const masters = new Map<string, { rowSpan: number; colSpan: number }>();
   const occupied = new Set<string>();
-  const merges: string[] = Object.keys((ws as any)._merges || {});
-  for (const key of merges) {
-    const m = (ws as any)._merges[key];
+  const internal = ws as unknown as { _merges?: Record<string, MergeRange> };
+  const mergeMap = internal._merges || {};
+  for (const key of Object.keys(mergeMap)) {
+    const m = mergeMap[key];
     const top = m.top, left = m.left, bottom = m.bottom, right = m.right;
     masters.set(`${top}:${left}`, { rowSpan: bottom - top + 1, colSpan: right - left + 1 });
     for (let r = top; r <= bottom; r++) {
@@ -483,7 +516,7 @@ function buildMergeMap(ws: ExcelJS.Worksheet): {
 }
 
 function formatCellValue(cell: ExcelJS.Cell): string {
-  const v: any = cell.value;
+  const v = cell.value as unknown;
   if (v === null || v === undefined || v === "") return "";
   if (v instanceof Date) {
     const dd = String(v.getDate()).padStart(2, "0");
@@ -495,10 +528,10 @@ function formatCellValue(cell: ExcelJS.Cell): string {
     if (fmt.includes("#,##0")) return v.toLocaleString("fr-FR");
     return String(v);
   }
-  if (typeof v === "object" && "richText" in v) {
-    return (v.richText as any[]).map((t) => t.text).join("");
+  if (typeof v === "object" && v !== null && "richText" in v) {
+    return (v as { richText: { text: string }[] }).richText.map((t) => t.text).join("");
   }
-  if (typeof v === "object" && "text" in v) return String((v as any).text);
+  if (typeof v === "object" && v !== null && "text" in v) return String((v as { text: unknown }).text);
   return String(v);
 }
 
@@ -531,11 +564,11 @@ export async function renderShipmentFicheHtml(shipmentId: string): Promise<{
       const cell = ws.getCell(r, c);
       const text = formatCellValue(cell);
 
-      const font: any = cell.font || {};
-      const fill: any = cell.fill || {};
-      const align: any = cell.alignment || {};
-      const bg = fill?.fgColor?.argb ? argbToCss(fill.fgColor.argb) : undefined;
-      const color = font?.color?.argb ? argbToCss(font.color.argb) : "#111";
+      const font: Partial<ExcelJS.Font> = cell.font || {};
+      const fill = (cell.fill || {}) as Partial<ExcelJS.FillPattern>;
+      const align: Partial<ExcelJS.Alignment> = cell.alignment || {};
+      const bg = fill.fgColor?.argb ? argbToCss(fill.fgColor.argb) : undefined;
+      const color = font.color?.argb ? argbToCss(font.color.argb) : "#111";
       const border = cell.border?.top ? "1px solid #999" : "1px solid #e5e5e5";
 
       const style = [

@@ -16,6 +16,19 @@ import ImageUploader from "@/components/ui/ImageUploader";
 
 type Status = "trial" | "active" | "expired" | "suspended";
 
+interface CoopBase {
+  id: string;
+  name: string;
+  acronym: string | null;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  phone: string | null;
+  official_email: string | null;
+  manager_name: string | null;
+  logo_path: string | null;
+}
+
 interface Row {
   id: string;
   name: string;
@@ -57,20 +70,20 @@ export default function CooperativesManagement() {
 
   const load = async () => {
     setLoading(true);
-    const { data: coops } = await (supabase as any)
+    const { data: coops } = await supabase
       .from("cooperatives")
       .select("id,name,acronym,city,region,country,phone,official_email,manager_name,logo_path")
       .is("deleted_at", null)
       .order("name");
-    const list = (coops || []) as any[];
-    const enriched = await Promise.all(list.map(async (c: any) => {
+    const list: CoopBase[] = (coops || []) as CoopBase[];
+    const enriched = await Promise.all(list.map(async (c) => {
       const [{ data: sub }, { data: statusData }] = await Promise.all([
-        (supabase as any).from("subscriptions")
+        supabase.from("subscriptions")
           .select("plan_name,start_date,end_date,status")
           .eq("cooperative_id", c.id)
           .order("end_date", { ascending: false })
           .limit(1).maybeSingle(),
-        (supabase as any).rpc("get_subscription_status", { _coop_id: c.id }),
+        supabase.rpc("get_subscription_status", { _coop_id: c.id }),
       ]);
       const status: Status = (statusData as Status) ?? sub?.status ?? "trial";
       const days = sub?.end_date ? Math.max(0, Math.ceil((new Date(sub.end_date).getTime() - Date.now()) / 86_400_000)) : null;
@@ -94,7 +107,7 @@ export default function CooperativesManagement() {
   const submitEdit = async () => {
     if (!editing) return;
     setSaving(true);
-    const { error } = await (supabase as any).from("cooperatives").update(editForm).eq("id", editing.id);
+    const { error } = await supabase.from("cooperatives").update(editForm).eq("id", editing.id);
     setSaving(false);
     if (error) { console.error(error); toast.error("Une erreur est survenue."); return; }
     toast.success("Coopérative mise à jour.");
@@ -115,15 +128,15 @@ export default function CooperativesManagement() {
     if (!subEdit) return;
     setSaving(true);
     // Upsert la dernière souscription : on met à jour la plus récente ou on en insère une.
-    const { data: existing } = await (supabase as any).from("subscriptions")
+    const { data: existing } = await supabase.from("subscriptions")
       .select("id").eq("cooperative_id", subEdit.id)
       .order("end_date", { ascending: false }).limit(1).maybeSingle();
     if (existing?.id) {
-      const { error } = await (supabase as any).from("subscriptions")
+      const { error } = await supabase.from("subscriptions")
         .update(subForm).eq("id", existing.id);
       if (error) { console.error(error); toast.error("Une erreur est survenue."); setSaving(false); return; }
     } else {
-      const { error } = await (supabase as any).from("subscriptions")
+      const { error } = await supabase.from("subscriptions")
         .insert({ ...subForm, cooperative_id: subEdit.id });
       if (error) { console.error(error); toast.error("Une erreur est survenue."); setSaving(false); return; }
     }
@@ -134,11 +147,11 @@ export default function CooperativesManagement() {
 
   const toggleSuspend = async (r: Row) => {
     const nextStatus: Status = r.status === "suspended" ? "active" : "suspended";
-    const { data: existing } = await (supabase as any).from("subscriptions")
+    const { data: existing } = await supabase.from("subscriptions")
       .select("id").eq("cooperative_id", r.id)
       .order("end_date", { ascending: false }).limit(1).maybeSingle();
     if (!existing?.id) { toast.error("Aucun abonnement à modifier."); return; }
-    const { error } = await (supabase as any).from("subscriptions").update({ status: nextStatus }).eq("id", existing.id);
+    const { error } = await supabase.from("subscriptions").update({ status: nextStatus }).eq("id", existing.id);
     if (error) { console.error(error); toast.error("Une erreur est survenue."); return; }
     toast.success(nextStatus === "suspended" ? "Coopérative suspendue." : "Coopérative réactivée.");
     load();
@@ -146,15 +159,24 @@ export default function CooperativesManagement() {
 
   const remove = async (r: Row) => {
     if (!confirm(`Supprimer la coopérative "${r.name}" ? Cette action est définitive si aucune donnée n'y est rattachée.`)) return;
-    const [{ count: prodCount }, { count: shipCount }] = await Promise.all([
-      (supabase as any).from("producers").select("id", { count: "exact", head: true }).eq("cooperative", r.name),
-      (supabase as any).from("shipments").select("id", { count: "exact", head: true }).eq("cooperative_id", r.id),
-    ]);
+    // Les producteurs et chargements sont rattachés aux registres de la coopérative.
+    const { data: regs } = await supabase.from("registres").select("id").eq("cooperative_id", r.id);
+    const registreIds = (regs ?? []).map((x) => x.id);
+    let prodCount = 0;
+    let shipCount = 0;
+    if (registreIds.length > 0) {
+      const [{ count: pc }, { count: sc }] = await Promise.all([
+        supabase.from("producers").select("id", { count: "exact", head: true }).in("registre_id", registreIds),
+        supabase.from("shipments").select("id", { count: "exact", head: true }).in("registre_id", registreIds),
+      ]);
+      prodCount = pc ?? 0;
+      shipCount = sc ?? 0;
+    }
     if ((prodCount ?? 0) > 0 || (shipCount ?? 0) > 0) {
       toast.error("Suppression bloquée : la coopérative contient des producteurs ou des chargements. Utilisez la suspension.");
       return;
     }
-    const { error } = await (supabase as any).from("cooperatives").update({ deleted_at: new Date().toISOString() }).eq("id", r.id);
+    const { error } = await supabase.from("cooperatives").update({ deleted_at: new Date().toISOString() }).eq("id", r.id);
     if (error) { console.error(error); toast.error("Une erreur est survenue."); return; }
     toast.success("Coopérative supprimée."); load();
   };

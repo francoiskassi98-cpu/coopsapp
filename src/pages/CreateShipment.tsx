@@ -24,6 +24,33 @@ import { useActiveShipmentTemplates } from "@/hooks/useShipmentTemplates";
 import { buildEligibleProducers, validateDistributionBeforeSave, MIN_REMAINING_WEIGHT_KG, MIN_DAYS_BETWEEN_DELIVERIES } from "@/lib/producer-eligibility";
 
 
+interface PartnerOption {
+  id: string;
+  name: string;
+  cooperative_id?: string | null;
+  logo_path?: string | null;
+  status?: string | null;
+}
+
+interface ProjectOption {
+  id: string;
+  name: string;
+  code: string | null;
+  description: string | null;
+  is_active: boolean;
+  registre_id: string;
+}
+
+interface SupabaseLikeError {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+}
+
+const asError = (e: unknown): SupabaseLikeError =>
+  (typeof e === "object" && e !== null ? (e as SupabaseLikeError) : { message: String(e) });
+
 export default function CreateShipment() {
   const [totalWeight, setTotalWeight] = useState("");
   const [totalBags, setTotalBags] = useState("");
@@ -39,9 +66,9 @@ export default function CreateShipment() {
   const [zone, setZone] = useState("");
   const [destination, setDestination] = useState("");
   
-  const [partners, setPartners] = useState<any[]>([]);
+  const [partners, setPartners] = useState<PartnerOption[]>([]);
   const [newPartnerName, setNewPartnerName] = useState("");
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [newProject, setNewProject] = useState<{ name: string; code: string; partner_id: string; description: string; is_active: boolean }>({ name: "", code: "", partner_id: "", description: "", is_active: true });
   const [creatingProject, setCreatingProject] = useState(false);
@@ -88,31 +115,31 @@ export default function CreateShipment() {
 
   async function loadProjectsForCoop(coopId: string) {
     if (!coopId) { setProjects([]); setProject(""); return; }
-    const { data } = await (supabase as any)
+    const { data } = await supabase
       .from("projects")
       .select("id, name, code, description, is_active, registre_id")
       .eq("registre_id", coopId)
       .eq("is_active", true)
       .order("name");
-    setProjects((data || []) as any[]);
+    setProjects((data || []) as ProjectOption[]);
   }
 
 
 
   async function loadCooperatives() {
     // Load registres (business entity) — id + name
-    const { data: coopData } = await (supabase as any).from("registres").select("id, name, cooperative_id").order("name");
-    const coopList = (coopData || []) as { id: string; name: string }[];
+    const { data: coopData } = await supabase.from("registres").select("id, name, cooperative_id").order("name");
+    const coopList = (coopData || []) as { id: string; name: string; cooperative_id?: string }[];
     setCooperatives(coopList);
     const nameById: Record<string, string> = {};
     coopList.forEach((c) => { nameById[c.id] = c.name; });
 
     // Get producer stats by registre
-    let allProducers: any[] = [];
+    let allProducers: { registre_id: string; delivery_potential: number; remaining_potential: number }[] = [];
     let from = 0;
     const PAGE = 1000;
     while (true) {
-      const { data } = await (supabase as any).from("producers").select("registre_id, delivery_potential, remaining_potential").range(from, from + PAGE - 1);
+      const { data } = await supabase.from("producers").select("registre_id, delivery_potential, remaining_potential").range(from, from + PAGE - 1);
       if (!data || data.length === 0) break;
       allProducers = allProducers.concat(data);
       if (data.length < PAGE) break;
@@ -130,7 +157,7 @@ export default function CreateShipment() {
     setCoopPotential(potMap);
 
     // Get delivered by zone from active shipments
-    let allShipments: any[] = [];
+    let allShipments: { zone: string | null; total_weight: number }[] = [];
     from = 0;
     while (true) {
       const { data } = await supabase.from("shipments").select("zone, total_weight").eq("status", "active").range(from, from + PAGE - 1);
@@ -151,7 +178,7 @@ export default function CreateShipment() {
 
     // Appel RPC : MAX(receipt_number::bigint) filtré par cooperative_id
     // La fonction SQL fait le JOIN shipments→deliveries côté serveur en une seule requête.
-    const { data, error } = await (supabase as any).rpc("get_max_receipt_number", {
+    const { data, error } = await supabase.rpc("get_max_receipt_number", {
       p_registre_id: cooperativeId,
     });
 
@@ -205,14 +232,14 @@ export default function CreateShipment() {
     return m;
   }, [totalWeight, totalBags, connaissement, startDate, endDate, project, partnerId, selectedCoopId, destination, driverName, truckNumber, trailerNumber, departureDate, templateId]);
 
-  const formatTechnicalError = (error: any, context: string) => {
+  const formatTechnicalError = (error: unknown, context: string) => {
+    const e = asError(error);
     const parts = [
       context,
-      error?.code ? `Code: ${error.code}` : null,
-      error?.message ? `Message: ${error.message}` : null,
-      error?.details ? `Détails: ${error.details}` : null,
-      error?.hint ? `Indice: ${error.hint}` : null,
-      !error?.message && typeof error === "string" ? error : null,
+      e.code ? `Code: ${e.code}` : null,
+      e.message ? `Message: ${e.message}` : null,
+      e.details ? `Détails: ${e.details}` : null,
+      e.hint ? `Indice: ${e.hint}` : null,
     ].filter(Boolean);
     return parts.join("\n");
   };
@@ -228,9 +255,9 @@ export default function CreateShipment() {
     let eligibility;
     try {
       eligibility = await buildEligibleProducers(selectedCoopId, new Date(startDate));
-    } catch (error: any) {
+    } catch (error) {
       console.error("[CreateShipment] eligibility build failed", error);
-      toast({ title: "Erreur chargement producteurs", description: `${error?.message || "Erreur inconnue"}`, variant: "destructive" });
+      toast({ title: "Erreur chargement producteurs", description: "Une erreur est survenue.", variant: "destructive" });
       return;
     }
 
@@ -343,7 +370,7 @@ export default function CreateShipment() {
 
     const { data: shipment, error: shipErr } = await supabase
       .from("shipments")
-      .insert(shipmentPayload as any)
+      .insert(shipmentPayload)
       .select()
       .single();
 
@@ -365,7 +392,7 @@ export default function CreateShipment() {
       campaign_label: campaignLabel,
     }));
 
-    const { error: delErr } = await (supabase as any).from("deliveries").insert(deliveries);
+    const { error: delErr } = await supabase.from("deliveries").insert(deliveries);
     if (delErr) {
       const message = formatTechnicalError(delErr, "Échec création des livraisons");
       console.error("[CreateShipment] deliveries insert failed", { error: delErr, firstDelivery: deliveries[0], count: deliveries.length });
@@ -421,11 +448,11 @@ export default function CreateShipment() {
       const shipmentId = await persistShipment();
       toast({ title: "Chargement validé et enregistré avec succès.", description: `${count} fiches de livraison générées. N° chargement : ${shipmentId?.slice(0, 8) || "créé"}.` });
       resetForm();
-    } catch (err: any) {
+    } catch (err) {
       const message = formatTechnicalError(err, "Validation impossible");
       console.error("[CreateShipment] save failed", err);
       setSaveDiagnostic((current) => current || message);
-      toast({ title: "Validation impossible", description: err?.message || "Consultez le diagnostic affiché sous l’aperçu.", variant: "destructive" });
+      toast({ title: "Validation impossible", description: "Consultez le diagnostic affiché sous l’aperçu.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -444,7 +471,7 @@ export default function CreateShipment() {
       toast({ title: "Coopérative introuvable", description: "Impossible de déterminer la coopérative.", variant: "destructive" });
       return;
     }
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("partners")
       .insert({ name, cooperative_id: coopId })
       .select()
@@ -453,7 +480,7 @@ export default function CreateShipment() {
       console.error("[CreateShipment] addPartner failed", error);
       const desc = error.code === "23505"
         ? `Un partenaire nommé « ${name} » existe déjà.`
-        : `${error.message || "Erreur inconnue"}${error.hint ? " — " + error.hint : ""}`;
+        : "Une erreur est survenue.";
       toast({ title: "Création impossible", description: desc, variant: "destructive" });
       return;
     }
@@ -481,7 +508,7 @@ export default function CreateShipment() {
     setCreatingProject(true);
     try {
       const code = newProject.code.trim() || `PRJ-${Date.now().toString(36).toUpperCase()}`;
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("projects")
         .insert({
           registre_id: selectedCoopId,
@@ -497,9 +524,9 @@ export default function CreateShipment() {
       setProject(data.id);
       setProjectDialogOpen(false);
       toast({ title: "Projet créé", description: `« ${data.name} » ajouté et sélectionné.` });
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      toast({ title: "Création impossible", description: e?.message || "Erreur inconnue.", variant: "destructive" });
+      toast({ title: "Création impossible", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setCreatingProject(false);
     }
@@ -568,11 +595,11 @@ export default function CreateShipment() {
       await generateShipmentFiche(shipmentId);
       toast({ title: "Chargement validé et enregistré avec succès.", description: `${count} fiches générées et fiche Excel téléchargée. N° chargement : ${shipmentId.slice(0, 8)}.` });
       resetForm();
-    } catch (err: any) {
+    } catch (err) {
       const message = formatTechnicalError(err, "Enregistrement/téléchargement impossible");
       console.error("[CreateShipment] save and download failed", err);
       setSaveDiagnostic((current) => current || message);
-      toast({ title: "Enregistrement impossible", description: err?.message || "Consultez le diagnostic affiché sous l’aperçu.", variant: "destructive" });
+      toast({ title: "Enregistrement impossible", description: "Consultez le diagnostic affiché sous l’aperçu.", variant: "destructive" });
     } finally {
       setSaving(false);
     }

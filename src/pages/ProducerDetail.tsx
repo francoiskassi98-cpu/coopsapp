@@ -13,17 +13,55 @@ import { Loader2, ArrowLeft, User, MapPin, Truck, Coins, Activity, TrendingUp, S
 import PageHeader from "@/components/PageHeader";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { normalizeCampaign, getCurrentCampaign } from "@/lib/shipment-utils";
+import type { PaginatedQuery } from "@/lib/database-utils";
 
 const fmt = (n: number) => Number(n || 0).toLocaleString("fr-FR");
 
-async function fetchAll(query: any) {
-  let out: any[] = [];
+interface DeliveryDetailRow {
+  id: string;
+  receipt_number: string | null;
+  delivery_date: string;
+  net_weight: number | null;
+  num_bags: number | null;
+  campaign_label: string | null;
+  shipment_id: string | null;
+  shipments?: {
+    connaissement: string | null;
+    project: string | null;
+    destination: string | null;
+    partner_id: string | null;
+    partners?: { name: string | null } | null;
+  } | null;
+}
+
+interface BonusDetailRow {
+  id: string;
+  campaign_label: string | null;
+  period_start: string;
+  period_end: string;
+  volume_delivered: number | null;
+  rate: number | null;
+  calculated_bonus: number | null;
+  created_at: string;
+}
+
+interface AuditDetailRow {
+  id: string;
+  table_name: string;
+  action: string;
+  changed_by_email: string | null;
+  changed_at: string;
+  campaign_label: string | null;
+}
+
+async function fetchAll<T>(query: PaginatedQuery): Promise<T[]> {
+  const out: T[] = [];
   let from = 0;
   const size = 1000;
   while (true) {
     const { data, error } = await query.range(from, from + size - 1);
     if (error || !data || data.length === 0) break;
-    out = out.concat(data);
+    out.push(...(data as T[]));
     if (data.length < size) break;
     from += size;
   }
@@ -51,7 +89,7 @@ export default function ProducerDetail() {
       const { data } = await supabase
         .from("registres")
         .select("id, name, code, responsable, cooperative_id, cooperatives(name, city, country)")
-        .eq("id", producerQ.data.registre_id)
+        .eq("id", producerQ.data!.registre_id)
         .maybeSingle();
       return data;
     },
@@ -61,13 +99,12 @@ export default function ProducerDetail() {
     queryKey: ["producer-detail", "deliveries", id],
     enabled: !!id,
     queryFn: async () => {
-      return fetchAll(
-        (supabase as any)
-          .from("deliveries")
-          .select("id, receipt_number, delivery_date, net_weight, num_bags, campaign_label, shipment_id, shipments(connaissement, project, destination, partner_id, partners(name))")
-          .eq("producer_id", id!)
-          .order("delivery_date", { ascending: false })
-      );
+      const q = supabase
+        .from("deliveries")
+        .select("id, receipt_number, delivery_date, net_weight, num_bags, campaign_label, shipment_id, shipments(connaissement, project, destination, partner_id, partners(name))")
+        .eq("producer_id", id!)
+        .order("delivery_date", { ascending: false }) as unknown as PaginatedQuery;
+      return fetchAll<DeliveryDetailRow>(q);
     },
   });
 
@@ -75,11 +112,12 @@ export default function ProducerDetail() {
     queryKey: ["producer-detail", "bonus", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("producer_bonus_results")
         .select("id, campaign_label, period_start, period_end, volume_delivered, rate, calculated_bonus, created_at")
         .eq("producer_id", id!)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .returns<BonusDetailRow[]>();
       return data ?? [];
     },
   });
@@ -88,12 +126,13 @@ export default function ProducerDetail() {
     queryKey: ["producer-detail", "audit", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("audit_logs")
-        .select("id, table_name, action, changed_by_email, created_at, campaign_label")
+        .select("id, table_name, action, changed_by_email, changed_at, campaign_label")
         .eq("record_id", id!)
-        .order("created_at", { ascending: false })
-        .limit(200);
+        .order("changed_at", { ascending: false })
+        .limit(200)
+        .returns<AuditDetailRow[]>();
       return data ?? [];
     },
   });
@@ -112,12 +151,12 @@ export default function ProducerDetail() {
   const campaigns = useMemo(() => {
     const s = new Set<string>();
     s.add(getCurrentCampaign());
-    deliveries.forEach((d: any) => d.campaign_label && s.add(normalizeCampaign(d.campaign_label)));
+    deliveries.forEach((d) => d.campaign_label && s.add(normalizeCampaign(d.campaign_label)));
     return Array.from(s).sort().reverse();
   }, [deliveries]);
 
   const filteredDeliveries = useMemo(() => {
-    return deliveries.filter((d: any) => {
+    return deliveries.filter((d) => {
       if (campFilter !== "all" && normalizeCampaign(d.campaign_label) !== campFilter) return false;
       if (!search) return true;
       const s = search.toLowerCase();
@@ -135,7 +174,7 @@ export default function ProducerDetail() {
   // Aggregates
   const byCampaign = useMemo(() => {
     const map: Record<string, { volume: number; count: number }> = {};
-    deliveries.forEach((d: any) => {
+    deliveries.forEach((d) => {
       const c = normalizeCampaign(d.campaign_label) || "—";
       if (!map[c]) map[c] = { volume: 0, count: 0 };
       map[c].volume += Number(d.net_weight || 0);
@@ -147,19 +186,19 @@ export default function ProducerDetail() {
   }, [deliveries]);
 
   const totals = useMemo(() => {
-    const totalVolume = deliveries.reduce((s: number, d: any) => s + Number(d.net_weight || 0), 0);
+    const totalVolume = deliveries.reduce((s, d) => s + Number(d.net_weight || 0), 0);
     const count = deliveries.length;
     const avg = count ? totalVolume / count : 0;
-    const dates = deliveries.map((d: any) => new Date(d.delivery_date).getTime()).filter((n: number) => !isNaN(n));
+    const dates = deliveries.map((d) => new Date(d.delivery_date).getTime()).filter((n) => !isNaN(n));
     const first = dates.length ? new Date(Math.min(...dates)) : null;
     const last = dates.length ? new Date(Math.max(...dates)) : null;
-    const partners = new Set(deliveries.map((d: any) => d.shipments?.partners?.name).filter(Boolean));
+    const partners = new Set(deliveries.map((d) => d.shipments?.partners?.name).filter(Boolean));
     const avgCampaign = byCampaign.length ? totalVolume / byCampaign.length : 0;
     return { totalVolume, count, avg, first, last, partners: partners.size, avgCampaign };
   }, [deliveries, byCampaign]);
 
   const bonusTotals = useMemo(() => {
-    const total = bonuses.reduce((s: number, b: any) => s + Number(b.calculated_bonus || 0), 0);
+    const total = bonuses.reduce((s, b) => s + Number(b.calculated_bonus || 0), 0);
     return { total, count: bonuses.length };
   }, [bonuses]);
 
@@ -182,7 +221,7 @@ export default function ProducerDetail() {
     );
   }
 
-  const registre = registreQ.data as any;
+  const registre = registreQ.data;
   const coopName = registre?.cooperatives?.name;
 
   const kpis = [
@@ -364,7 +403,7 @@ export default function ProducerDetail() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {pagedDeliveries.map((d: any) => (
+                        {pagedDeliveries.map((d) => (
                           <TableRow key={d.id}>
                             <TableCell>{new Date(d.delivery_date).toLocaleDateString("fr-FR")}</TableCell>
                             <TableCell>{normalizeCampaign(d.campaign_label)}</TableCell>
@@ -451,7 +490,7 @@ export default function ProducerDetail() {
           <div className="grid gap-3 md:grid-cols-3">
             <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Primes reçues</p><p className="text-2xl font-semibold">{bonusTotals.count}</p></CardContent></Card>
             <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Montant total</p><p className="text-2xl font-semibold">{fmt(Math.round(bonusTotals.total))}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Volume pris en compte</p><p className="text-2xl font-semibold">{fmt(bonuses.reduce((s: number, b: any) => s + Number(b.volume_delivered || 0), 0))} kg</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Volume pris en compte</p><p className="text-2xl font-semibold">{fmt(bonuses.reduce((s, b) => s + Number(b.volume_delivered || 0), 0))} kg</p></CardContent></Card>
           </div>
           <Card>
             <CardHeader><CardTitle className="text-base">Détail des primes</CardTitle></CardHeader>
@@ -470,7 +509,7 @@ export default function ProducerDetail() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {bonuses.map((b: any) => (
+                    {bonuses.map((b) => (
                       <TableRow key={b.id}>
                         <TableCell>{normalizeCampaign(b.campaign_label)}</TableCell>
                         <TableCell>{new Date(b.period_start).toLocaleDateString("fr-FR")} → {new Date(b.period_end).toLocaleDateString("fr-FR")}</TableCell>
@@ -521,9 +560,9 @@ export default function ProducerDetail() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {audit.map((a: any) => (
+                    {audit.map((a) => (
                       <TableRow key={a.id}>
-                        <TableCell>{new Date(a.created_at).toLocaleString("fr-FR")}</TableCell>
+                        <TableCell>{new Date(a.changed_at).toLocaleString("fr-FR")}</TableCell>
                         <TableCell><Badge variant="outline">{a.action}</Badge></TableCell>
                         <TableCell className="font-mono text-xs">{a.table_name}</TableCell>
                         <TableCell>{a.campaign_label || "—"}</TableCell>
@@ -541,7 +580,7 @@ export default function ProducerDetail() {
   );
 }
 
-function Info({ label, value, mono }: { label: string; value: any; mono?: boolean }) {
+function Info({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   const display = value === null || value === undefined || value === "" ? "—" : String(value);
   return (
     <>

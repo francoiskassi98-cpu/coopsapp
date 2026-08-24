@@ -4,10 +4,31 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Loader2, ShieldCheck } from "lucide-react";
 
+interface OAuthAuthorizationDetails {
+  redirect_url?: string;
+  redirect_to?: string;
+  client?: { name?: string; client_id?: string; client_uri?: string } | null;
+  scope?: string;
+  scopes?: string[];
+}
+
+interface OAuthResult {
+  data: OAuthAuthorizationDetails | null;
+  error: { message: string } | null;
+}
+
+interface OAuthApi {
+  getAuthorizationDetails(id: string): Promise<OAuthResult>;
+  approveAuthorization(id: string): Promise<OAuthResult>;
+  denyAuthorization(id: string): Promise<OAuthResult>;
+}
+
+const oauthApi = (): OAuthApi => (supabase.auth as unknown as { oauth: OAuthApi }).oauth;
+
 export default function OAuthConsent() {
   const [params] = useSearchParams();
   const authorizationId = params.get("authorization_id") ?? "";
-  const [details, setDetails] = useState<any>(null);
+  const [details, setDetails] = useState<OAuthAuthorizationDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -21,7 +42,7 @@ export default function OAuthConsent() {
         window.location.href = "/auth?next=" + encodeURIComponent(next);
         return;
       }
-      const { data, error } = await (supabase.auth as any).oauth.getAuthorizationDetails(authorizationId);
+      const { data, error } = await oauthApi().getAuthorizationDetails(authorizationId);
       if (!active) return;
       if (error) return setError(error.message);
       const immediate = data?.redirect_url ?? data?.redirect_to;
@@ -33,7 +54,7 @@ export default function OAuthConsent() {
 
   async function decide(approve: boolean) {
     setBusy(true);
-    const oauth = (supabase.auth as any).oauth;
+    const oauth = oauthApi();
     const { data, error } = approve
       ? await oauth.approveAuthorization(authorizationId)
       : await oauth.denyAuthorization(authorizationId);

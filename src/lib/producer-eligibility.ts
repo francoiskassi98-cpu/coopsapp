@@ -223,7 +223,7 @@ export async function validateDistributionBeforeSave(
       .select("id, full_name, delivery_potential")
       .in("id", chunk);
     if (error) throw error;
-    (data || []).forEach((p: any) => {
+    (data || []).forEach((p) => {
       potentials[p.id] = { potential: Number(p.delivery_potential || 0), name: p.full_name || "Producteur" };
     });
   }
