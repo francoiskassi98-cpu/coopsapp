@@ -945,7 +945,7 @@ export default function Producers() {
             </div>
             <div>
               <Label>Registre</Label>
-              <Input value={editForm.cooperative || ""} onChange={(e) => setEditForm({ ...editForm, cooperative: e.target.value })} />
+              <Input value={editProducer?.cooperative || ""} disabled readOnly />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
