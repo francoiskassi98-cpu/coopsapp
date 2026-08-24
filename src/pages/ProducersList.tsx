@@ -383,15 +383,17 @@ export default function Producers() {
     };
   }
 
-  function describeSupabaseError(err: any, step: string): string {
+  function describeSupabaseError(err: unknown, step: string): string {
     if (!err) return `Étape « ${step} » : erreur inconnue.`;
+    const e = err as { code?: string; message?: string; details?: string; hint?: string };
     const parts: string[] = [`Étape « ${step} »`];
-    if (err.code) parts.push(`code ${err.code}`);
-    if (err.message) parts.push(err.message);
-    if (err.details) parts.push(`détails : ${err.details}`);
-    if (err.hint) parts.push(`indice : ${err.hint}`);
+    if (e.code) parts.push(`code ${e.code}`);
+    if (e.message) parts.push(e.message);
+    if (e.details) parts.push(`détails : ${e.details}`);
+    if (e.hint) parts.push(`indice : ${e.hint}`);
     return parts.join(" — ");
   }
+
 
   async function confirmImport() {
     if (parsedRows.length === 0) return;
