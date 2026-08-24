@@ -55,11 +55,7 @@ export default function Producers() {
   const [dragOver, setDragOver] = useState(false);
 
 
-  useEffect(() => {
-    loadProducers();
-  }, []);
-
-  async function loadProducers() {
+  const loadProducers = useCallback(async () => {
     setLoading(true);
     type FetchedProducer = ProducerDbRow & { registres?: { id: string; name: string } | null };
     let allData: FetchedProducer[] = [];
@@ -81,7 +77,11 @@ export default function Producers() {
     // Compat : expose le nom du registre sous `cooperative` pour tout le rendu existant
     setProducers(allData.map((p) => ({ ...p, cooperative: p.registres?.name || "" })));
     setLoading(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    loadProducers();
+  }, [loadProducers]);
 
 
   // Unique cooperatives for filter
@@ -115,7 +115,7 @@ export default function Producers() {
 
     });
 
-  }, [producers, coopFilter, search, sortConfig]);
+  }, [producers, coopFilter, search, sortConfig, sortData]);
 
   // --- Edit / Delete (existing) ---
   // Sections désactivées (clé = registre_id||section, campagne active)
@@ -124,11 +124,7 @@ export default function Producers() {
   const [togglingSections, setTogglingSections] = useState<Set<string>>(new Set());
   const sectionKey = (registreId: string, name: string) => `${registreId}||${name}`;
 
-  useEffect(() => {
-    loadDisabledSections();
-  }, []);
-
-  async function loadDisabledSections() {
+  const loadDisabledSections = useCallback(async () => {
     const { data, error } = await supabase
       .from("disabled_sections")
       .select("section_name, registre_id")
@@ -138,7 +134,11 @@ export default function Producers() {
       return;
     }
     setDisabledSections(new Set((data ?? []).map((d) => sectionKey(d.registre_id, d.section_name))));
-  }
+  }, [activeCampaign]);
+
+  useEffect(() => {
+    loadDisabledSections();
+  }, [loadDisabledSections]);
 
   async function toggleSection(sectionName: string, registreId?: string) {
     if (!registreId) {

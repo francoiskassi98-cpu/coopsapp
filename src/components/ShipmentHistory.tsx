@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -46,7 +46,7 @@ export default function ShipmentHistory() {
     return allData;
   }
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [shipmentsData, coopsData] = await Promise.all([
@@ -66,11 +66,11 @@ export default function ShipmentHistory() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const { sortConfig, toggleSort, sortData } = useSortableTable();
 
@@ -95,7 +95,7 @@ export default function ShipmentHistory() {
       if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
       return String(v);
     });
-  }, [shipments, selectedCoop, search, sortConfig]);
+  }, [shipments, selectedCoop, search, sortConfig, sortData]);
 
   return (
     <Card>
