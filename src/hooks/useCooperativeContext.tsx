@@ -51,11 +51,11 @@ export function useCooperativeContext() {
     setLoading(true);
     const coopId = cooperativeRefs[0].id;
     const [{ data: c }, { data: s }, { data: statusData }] = await Promise.all([
-      (supabase as any).from("cooperatives").select("id,name,acronym,logo_path,region,city,country,manager_name,president_name").eq("id", coopId).maybeSingle(),
-      (supabase as any).from("subscriptions").select("id,plan_name,start_date,end_date,status").eq("cooperative_id", coopId).order("end_date", { ascending: false }).limit(1).maybeSingle(),
-      (supabase as any).rpc("get_subscription_status", { _coop_id: coopId }),
+      supabase.from("cooperatives").select("id,name,acronym,logo_path,region,city,country,manager_name,president_name").eq("id", coopId).maybeSingle(),
+      supabase.from("subscriptions").select("id,plan_name,start_date,end_date,status").eq("cooperative_id", coopId).order("end_date", { ascending: false }).limit(1).maybeSingle(),
+      supabase.rpc("get_subscription_status", { _coop_id: coopId }),
     ]);
-    setCooperative((c as CooperativeInfo | null) ?? null);
+    setCooperative(c ?? null);
     if (s) {
       setSubscription({
         id: s.id,

@@ -52,10 +52,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const [{ data: roleRow }, { data: ucRows }, { data: profileRow }] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
-        (supabase.from("user_cooperatives") as any)
+        supabase.from("user_cooperatives")
           .select("cooperative_id, cooperatives(id, name)")
           .eq("user_id", userId),
-        (supabase.from("profiles") as any)
+        supabase.from("profiles")
           .select("username, email, full_name, phone")
           .eq("user_id", userId)
           .maybeSingle(),
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
           if (event === "SIGNED_IN") {
             try {
-              await (supabase.rpc as any)("log_login_event", { p_user_agent: navigator.userAgent });
+              await supabase.rpc("log_login_event", { p_user_agent: navigator.userAgent });
             } catch (e) { console.error("[useAuth] log_login_event", e); }
           }
         }, 0);

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { isPermissionError } from "@/lib/error-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";

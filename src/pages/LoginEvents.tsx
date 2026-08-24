@@ -13,11 +13,11 @@ export default function LoginEvents() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await (supabase.from("login_events") as any)
+      const { data } = await supabase.from("login_events")
         .select("id, email, user_agent, created_at")
         .order("created_at", { ascending: false })
         .limit(500);
-      setRows((data as Row[]) ?? []);
+      setRows(data ?? []);
       setLoading(false);
     })();
   }, []);
