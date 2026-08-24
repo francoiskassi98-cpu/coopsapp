@@ -44,7 +44,6 @@ const groups: NavGroup[] = [
     label: "Super administration",
     items: [
       { to: "/gestion/dashboard", label: "Dashboard global", icon: LayoutDashboard, superAdminOnly: true },
-      { to: "/gestion/projets", label: "Gestion des projets", icon: FolderKanban, superAdminOnly: true },
       { to: "/gestion/cooperatives", label: "Coopératives", icon: Building2, superAdminOnly: true },
     ],
   },
