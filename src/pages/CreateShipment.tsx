@@ -493,7 +493,6 @@ export default function CreateShipment() {
   };
 
   const createProject = async () => {
-    if (!selectedCoopId) return;
     const name = newProject.name.trim();
     if (!name) {
       toast({ title: "Nom requis", description: "Renseignez un nom de projet.", variant: "destructive" });
@@ -509,19 +508,24 @@ export default function CreateShipment() {
     setCreatingProject(true);
     try {
       const code = newProject.code.trim() || `PRJ-${Date.now().toString(36).toUpperCase()}`;
+      // La coopérative est déduite du registre sélectionné, sinon côté serveur (trigger).
+      const coopId =
+        cooperatives.find((c) => c.id === selectedCoopId)?.cooperative_id ||
+        cooperatives.find((c) => c.cooperative_id)?.cooperative_id ||
+        undefined;
       const { data, error } = await supabase
         .from("projects")
         .insert({
-          registre_id: selectedCoopId,
+          ...(coopId ? { cooperative_id: coopId } : {}),
           name,
           code,
           description: newProject.description.trim() || null,
           is_active: newProject.is_active,
-        })
-        .select("id, name, code, description, is_active, registre_id")
+        } as never)
+        .select("id, name, code, description, is_active, cooperative_id")
         .single();
       if (error) throw error;
-      setProjects((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      await loadProjects();
       setProject(data.id);
       setProjectDialogOpen(false);
       toast({ title: "Projet créé", description: `« ${data.name} » ajouté et sélectionné.` });
