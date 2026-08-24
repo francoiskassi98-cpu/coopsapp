@@ -193,10 +193,11 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
     const raw = rawRows[i];
     const rowNum = i + 2; // Excel row (1-indexed + header)
 
-    const row: Partial<ProducerRow> = {};
+    const row: Partial<Record<keyof ProducerRow, ExcelJS.CellValue>> = {};
     for (const [excelKey, def] of Object.entries(headerMap)) {
-      (row as any)[def.field] = raw[excelKey];
+      row[def.field] = raw[excelKey];
     }
+
 
     const rowErrors: ImportError[] = [];
 
