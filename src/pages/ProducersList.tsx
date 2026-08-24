@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle, ShieldOff } from "lucide-react";
-import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
+import { useSortableTable, SortableHeader, type SortValue } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { parseExcelFile, downloadImportTemplate, exportToExcel, downloadErrorReport, type ProducerRow, type ImportError, type ImportReport } from "@/lib/excel-utils";
 import PageHeader from "@/components/PageHeader";
@@ -106,7 +106,7 @@ export default function Producers() {
         p.section.toLowerCase().includes(s)
       );
     });
-    return sortData(base, (item, col) => {
+    return sortData(base, (item, col): SortValue => {
       if (col === "delivery_potential" || col === "remaining_potential") return Number(item[col]);
       const v = (item as Record<string, unknown>)[col];
       return (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || v == null)
@@ -445,7 +445,7 @@ export default function Producers() {
           const toInsert = newRows.map(({ row, registreId }) => toDbRow(row, registreId));
           for (let i = 0; i < toInsert.length; i += 200) {
             const batch = toInsert.slice(i, i + 200);
-            const { error } = await supabase.from("producers").insert(batch);
+            const { error } = await supabase.from("producers").insert(batch as never);
             if (error) {
               (error as { __batchIndex?: number }).__batchIndex = i;
               throw error;
@@ -500,7 +500,7 @@ export default function Producers() {
           step = "insertion des nouveaux producteurs";
           for (let i = 0; i < inserts.length; i += 200) {
             const batch = inserts.slice(i, i + 200);
-            const { error } = await supabase.from("producers").insert(batch);
+            const { error } = await supabase.from("producers").insert(batch as never);
             if (error) throw error;
           }
         }
