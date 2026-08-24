@@ -205,8 +205,6 @@ export default function CreateShipment() {
     setZone(coop?.name || "");
     loadNextReceiptForCooperative(coopId);
     setTemplateId("");
-    loadProjectsForCoop(coopId);
-    setProject("");
   };
 
   const selectedCoopStats = useMemo(() => {
