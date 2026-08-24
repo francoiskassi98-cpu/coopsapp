@@ -123,7 +123,7 @@ export default function ExportPage() {
     return selectedCampaign;
   };
 
-  const applyCampaignFilter = (q: any, column = "campaign_label") => {
+  const applyCampaignFilter = (q: PaginatedQuery, column = "campaign_label"): PaginatedQuery => {
     if (selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS) {
       return q.eq(column, selectedCampaign);
     }
@@ -134,7 +134,7 @@ export default function ExportPage() {
     if (!selectedRegistre) { notifyError("Sélectionnez un registre"); return; }
     setLoading("coop");
     try {
-      const registreShipments = await fetchAllRows(
+      const registreShipments = await fetchAllRows<ShipmentExportRow>(
         "shipments",
         "id, connaissement, project, destination, zone, total_weight, total_bags, partner_id, campaign_label, partners(name), registres(name)",
         {
@@ -151,12 +151,12 @@ export default function ExportPage() {
       }
 
       const shipmentIds = registreShipments.map((s) => s.id);
-      const deliveries: any[] = [];
+      const deliveries: DeliveryExportRow[] = [];
       const chunkSize = 100;
 
       for (let i = 0; i < shipmentIds.length; i += chunkSize) {
         const chunk = shipmentIds.slice(i, i + chunkSize);
-        const chunkDeliveries = await fetchAllRows(
+        const chunkDeliveries = await fetchAllRows<DeliveryExportRow>(
           "deliveries",
           "*, producers(full_name, section, plantation_code)",
           {
@@ -168,16 +168,16 @@ export default function ExportPage() {
         deliveries.push(...chunkDeliveries);
       }
 
-      const shipmentMap = Object.fromEntries(registreShipments.map((s) => [s.id, s]));
+      const shipmentMap = new Map(registreShipments.map((s) => [s.id, s]));
       const rows = deliveries.map((d) => {
-        const s: any = shipmentMap[d.shipment_id] || {};
+        const s = shipmentMap.get(d.shipment_id);
         return {
           "N°": "",
           "Connaissement": s?.connaissement || "",
           "N° Reçu": d.receipt_number,
-          "Nom complet": (d.producers as any)?.full_name || "",
-          "Code plantation": (d.producers as any)?.plantation_code || "",
-          "Section": (d.producers as any)?.section || "",
+          "Nom complet": d.producers?.full_name || "",
+          "Code plantation": d.producers?.plantation_code || "",
+          "Section": d.producers?.section || "",
           "Poids net (kg)": d.net_weight,
           "Nombre de sacs": d.num_bags,
           "Date livraison": d.delivery_date,
@@ -193,11 +193,12 @@ export default function ExportPage() {
       const registreName = registres.find(c => c.id === selectedRegistre)?.name || selectedRegistre;
       await exportToExcel(rows, `Chargements-${registreName}-${campaignLabel()}.xlsx`, "Chargement");
       toast({ title: "Export réussi" });
-    } catch (err: any) {
+    } catch (err: unknown) {
       notifyError("Erreur lors de l'export par registre", err);
     }
     setLoading(null);
   };
+
 
   const exportAllOrByConnaissement = async (mode: "all" | "connaissement") => {
     setLoading(mode);
