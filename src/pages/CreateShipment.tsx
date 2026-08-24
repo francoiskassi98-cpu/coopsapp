@@ -113,16 +113,19 @@ export default function CreateShipment() {
     setTemplateId(def?.id || "");
   }, [templates, templatesLoading, selectedCoopId, templateId]);
 
-  async function loadProjectsForCoop(coopId: string) {
-    if (!coopId) { setProjects([]); setProject(""); return; }
-    const { data } = await supabase
+  // Les projets appartiennent à la coopérative : aucun filtre par registre.
+  const loadProjects = useCallback(async () => {
+    const { data, error } = await supabase
       .from("projects")
-      .select("id, name, code, description, is_active, registre_id")
-      .eq("registre_id", coopId)
+      .select("id, name, code, description, is_active, cooperative_id")
       .eq("is_active", true)
       .order("name");
+    if (error) { console.error("[CreateShipment.projects]", error); setProjects([]); return; }
     setProjects((data || []) as ProjectOption[]);
-  }
+  }, []);
+
+  useEffect(() => { loadProjects(); }, [loadProjects]);
+
 
 
 
