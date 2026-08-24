@@ -290,17 +290,32 @@ Deno.serve(async (req) => {
       return json({ success: true });
     }
 
-    if (action === "deactivate") {
-      const { error } = await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "876000h" });
-      if (error) return json({ error: "Erreur serveur" }, 400);
-      return json({ success: true });
-    }
+    if (action === "deactivate" || action === "activate") {
+      const disable = action === "deactivate";
+      const { data: targetUser } = await adminClient.auth.admin.getUserById(user_id);
+      const { error } = await adminClient.auth.admin.updateUserById(user_id, {
+        ban_duration: disable ? "876000h" : "none",
+      });
+      if (error) {
+        console.error(`[manage-user][${reqId}] ${action}:`, error.message);
+        return json({ error: "Erreur serveur" }, 400);
+      }
+      // Le profil reflète l'état d'accès (aucune donnée métier supprimée)
+      await adminClient.from("profiles").update({ active: !disable }).eq("user_id", user_id);
 
-    if (action === "activate") {
-      const { error } = await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "none" });
-      if (error) return json({ error: "Erreur serveur" }, 400);
+      await adminClient.from("audit_logs").insert({
+        table_name: "profiles",
+        record_id: user_id,
+        action: disable ? "DISABLE_USER" : "ENABLE_USER",
+        old_data: { active: disable, user_id, email: targetUser?.user?.email ?? null, role: targetRoleForToggle },
+        new_data: { active: !disable, user_id, email: targetUser?.user?.email ?? null, role: targetRoleForToggle },
+        changed_by: caller.id,
+        changed_by_email: caller.email ?? null,
+        changed_by_role: isSuperAdmin ? "super_admin" : "coop_admin_principal",
+        cooperative_id: targetCoopIds[0] ?? null,
+      });
       return json({ success: true });
-    }
+
 
     if (action === "reset_password") {
       const { data: targetUser, error: getErr } = await adminClient.auth.admin.getUserById(user_id);
