@@ -14,14 +14,83 @@ import PageHeader from "@/components/PageHeader";
 
 const ALL_CAMPAIGNS = "__all__";
 
-const notifyError = (title: string, err?: any) => {
+/** Détails d'erreur remontés par PostgREST (uniquement pour la console). */
+type QueryErrorLike = { message?: string; details?: string; hint?: string } | null | undefined;
+
+const notifyError = (title: string, err?: unknown) => {
   if (err) console.error(`[Export] ${title}`, err);
-  const description = err?.message || err?.details || err?.hint || undefined;
+  const e = (err ?? null) as QueryErrorLike;
+  const description = e?.message || e?.details || e?.hint || undefined;
   toast({ title, description, variant: "destructive" });
 };
 
+interface ShipmentOption {
+  id: string;
+  connaissement: string | null;
+  zone: string | null;
+  registre_id: string;
+  campaign_label: string | null;
+}
+
+interface NamedRef { name: string | null }
+
+interface ShipmentExportRow {
+  id: string;
+  connaissement: string | null;
+  project: string | null;
+  destination: string | null;
+  zone: string | null;
+  total_weight: number | null;
+  total_bags: number | null;
+  partner_id: string | null;
+  campaign_label: string | null;
+  partners: NamedRef | null;
+  registres: NamedRef | null;
+}
+
+interface DeliveryExportRow {
+  shipment_id: string;
+  receipt_number: string;
+  net_weight: number;
+  num_bags: number;
+  delivery_date: string;
+  producers: { full_name: string | null; section: string | null; plantation_code: string | null } | null;
+  shipments?: {
+    connaissement: string | null;
+    project: string | null;
+    destination: string | null;
+    campaign_label: string | null;
+    zone: string | null;
+    registre_id: string | null;
+    registres: NamedRef | null;
+    partners: NamedRef | null;
+  } | null;
+}
+
+interface RegistryExportRow {
+  nom_complet: string;
+  section: string;
+  code_plantation: string;
+  potentiel_livraison: number | null;
+  potentiel_restant: number | null;
+  registre_id: string;
+  registres: NamedRef | null;
+}
+
+interface ProducerExportRow {
+  full_name: string;
+  section: string;
+  plantation_code: string;
+  delivery_potential: number | null;
+  remaining_potential: number | null;
+  registre_id: string;
+  registres: NamedRef | null;
+}
+
+type PotentialSheetRow = Record<string, string | number | null>;
+
 export default function ExportPage() {
-  const [shipments, setShipments] = useState<any[]>([]);
+  const [shipments, setShipments] = useState<ShipmentOption[]>([]);
   const [registres, setRegistres] = useState<{ id: string; name: string }[]>([]);
   const [selectedRegistre, setSelectedRegistre] = useState("");
   const [selectedConnaissement, setSelectedConnaissement] = useState("");
@@ -30,7 +99,7 @@ export default function ExportPage() {
   const [loading, setLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    let q: any = (supabase as any)
+    let q = supabase
       .from("shipments")
       .select("id, connaissement, zone, registre_id, campaign_label")
       .eq("status", "active")
@@ -38,15 +107,16 @@ export default function ExportPage() {
     if (selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS) {
       q = q.eq("campaign_label", selectedCampaign);
     }
-    q.then(({ data, error }: any) => {
+    q.then(({ data, error }) => {
       if (error) console.error("[Export] load shipments", error);
-      setShipments(data || []);
+      setShipments((data ?? []) as ShipmentOption[]);
     });
     supabase.from("registres").select("id, name").order("name").then(({ data, error }) => {
       if (error) console.error("[Export] load registres", error);
-      setRegistres((data as any) || []);
+      setRegistres(data ?? []);
     });
   }, [selectedCampaign]);
+
 
   const campaignLabel = () => {
     if (!selectedCampaign || selectedCampaign === ALL_CAMPAIGNS) return "Toutes-Campagnes";
