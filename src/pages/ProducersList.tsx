@@ -61,25 +61,28 @@ export default function Producers() {
 
   async function loadProducers() {
     setLoading(true);
-    let allData: any[] = [];
+    type FetchedProducer = ProducerDbRow & { registres?: { id: string; name: string } | null };
+    let allData: FetchedProducer[] = [];
     let from = 0;
     const PAGE = 1000;
     while (true) {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("producers")
         .select("*, registres(id, name)")
         .order("section", { ascending: true })
         .order("full_name", { ascending: true })
-        .range(from, from + PAGE - 1);
+        .range(from, from + PAGE - 1)
+        .returns<FetchedProducer[]>();
       if (!data || data.length === 0) break;
       allData = allData.concat(data);
       if (data.length < PAGE) break;
       from += PAGE;
     }
     // Compat : expose le nom du registre sous `cooperative` pour tout le rendu existant
-    setProducers(allData.map((p: any) => ({ ...p, cooperative: p.registres?.name || "" })));
+    setProducers(allData.map((p) => ({ ...p, cooperative: p.registres?.name || "" })));
     setLoading(false);
   }
+
 
   // Unique cooperatives for filter
   const cooperatives = useMemo(() => {
