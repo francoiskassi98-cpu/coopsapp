@@ -18,20 +18,30 @@ import PageHeader from "@/components/PageHeader";
 import { Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { normalizeCampaign, getCurrentCampaign } from "@/lib/shipment-utils";
+import type { Database } from "@/integrations/supabase/types";
 
 type ImportMode = "insert" | "update";
+
+type ProducerDbRow = Database["public"]["Tables"]["producers"]["Row"];
+/** Producteur enrichi du nom de son registre (exposé sous `cooperative` pour le rendu). */
+type ProducerListRow = ProducerDbRow & {
+  registres?: { id: string; name: string } | null;
+  cooperative: string;
+};
+type ProducerEditForm = Partial<ProducerDbRow>;
 
 export default function Producers() {
   const navigate = useNavigate();
   const { cooperativeRefs, isSuperAdmin } = useAuth();
-  const [producers, setProducers] = useState<any[]>([]);
+  const [producers, setProducers] = useState<ProducerListRow[]>([]);
   const [search, setSearch] = useState("");
   const [coopFilter, setCoopFilter] = useState("all");
   const [loading, setLoading] = useState(true);
-  const [detailProducer, setDetailProducer] = useState<any | null>(null);
-  const [editProducer, setEditProducer] = useState<any | null>(null);
-  const [deleteProducer, setDeleteProducer] = useState<any | null>(null);
-  const [editForm, setEditForm] = useState<any>({});
+  const [detailProducer, setDetailProducer] = useState<ProducerListRow | null>(null);
+  const [editProducer, setEditProducer] = useState<ProducerListRow | null>(null);
+  const [deleteProducer, setDeleteProducer] = useState<ProducerListRow | null>(null);
+  const [editForm, setEditForm] = useState<ProducerEditForm>({});
+
   const [saving, setSaving] = useState(false);
 
   // Import state
