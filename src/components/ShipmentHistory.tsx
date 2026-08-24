@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,20 @@ interface HistoryShipment {
   registres?: { name: string | null } | null;
 }
 
+async function fetchAllRows<T>(query: PaginatedQuery): Promise<T[]> {
+  const allData: T[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await query.range(from, from + pageSize - 1);
+    if (error || !data || data.length === 0) break;
+    allData.push(...(data as T[]));
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return allData;
+}
+
 export default function ShipmentHistory() {
   const [shipments, setShipments] = useState<HistoryShipment[]>([]);
   const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
@@ -32,21 +46,7 @@ export default function ShipmentHistory() {
   const [search, setSearch] = useState("");
   const [selectedCoop, setSelectedCoop] = useState("all");
 
-  async function fetchAllRows<T>(query: PaginatedQuery): Promise<T[]> {
-    const allData: T[] = [];
-    let from = 0;
-    const pageSize = 1000;
-    while (true) {
-      const { data, error } = await query.range(from, from + pageSize - 1);
-      if (error || !data || data.length === 0) break;
-      allData.push(...(data as T[]));
-      if (data.length < pageSize) break;
-      from += pageSize;
-    }
-    return allData;
-  }
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [shipmentsData, coopsData] = await Promise.all([
@@ -66,11 +66,11 @@ export default function ShipmentHistory() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const { sortConfig, toggleSort, sortData } = useSortableTable();
 
@@ -95,7 +95,7 @@ export default function ShipmentHistory() {
       if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
       return String(v);
     });
-  }, [shipments, selectedCoop, search, sortConfig]);
+  }, [shipments, selectedCoop, search, sortData]);
 
   return (
     <Card>

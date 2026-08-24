@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { TableHead } from "@/components/ui/table";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
@@ -13,16 +13,16 @@ export function useSortableTable(defaultColumn?: string) {
     direction: null,
   });
 
-  function toggleSort(column: string) {
+  const toggleSort = useCallback((column: string) => {
     setSortConfig((prev) => {
       if (prev.column !== column) return { column, direction: "asc" };
       if (prev.direction === "asc") return { column, direction: "desc" };
       if (prev.direction === "desc") return { column: "", direction: null };
       return { column, direction: "asc" };
     });
-  }
+  }, []);
 
-  function sortData<T>(data: T[], accessor: (item: T, column: string) => SortValue): T[] {
+  const sortData = useCallback(function <T>(data: T[], accessor: (item: T, column: string) => SortValue): T[] {
     if (!sortConfig.column || !sortConfig.direction) return data;
     return [...data].sort((a, b) => {
       const aVal = accessor(a, sortConfig.column);
@@ -37,7 +37,7 @@ export function useSortableTable(defaultColumn?: string) {
       const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
       return sortConfig.direction === "asc" ? cmp : -cmp;
     });
-  }
+  }, [sortConfig]);
 
   return { sortConfig, toggleSort, sortData };
 }

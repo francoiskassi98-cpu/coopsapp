@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -87,7 +87,7 @@ export default function UserManagement() {
   const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       const [{ data: profiles }, { data: roles }, manageResult, { data: registreList }] = await Promise.all([
@@ -126,10 +126,9 @@ export default function UserManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isSuperAdmin]);
 
-
-  useEffect(() => { fetchUsers(); }, [isSuperAdmin]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const toggleInList = (list: string[], value: string) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];

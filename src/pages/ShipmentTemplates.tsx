@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -95,9 +95,7 @@ export default function ShipmentTemplates() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  useEffect(() => { load(); }, []);
-
-  async function load() {
+  const load = useCallback(async () => {
     queryClient.invalidateQueries({ queryKey: SHIPMENT_TEMPLATES_QUERY_KEY });
     setLoading(true);
     const [{ data: rs }, { data: ps }, { data: ts }] = await Promise.all([
@@ -109,7 +107,9 @@ export default function ShipmentTemplates() {
     setPartners((ps || []) as unknown as Partner[]);
     setTemplates((ts || []) as unknown as Template[]);
     setLoading(false);
-  }
+  }, [queryClient]);
+
+  useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(
     () => registreFilter === "all" ? templates : templates.filter(t => t.registre_id === registreFilter),

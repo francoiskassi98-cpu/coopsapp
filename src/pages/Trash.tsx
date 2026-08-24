@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -27,19 +27,19 @@ const labels: Record<TableKey, string> = {
   partners: "Partenaires",
 };
 
+/**
+ * Les 4 tables de la corbeille partagent `id` et `deleted_at`.
+ * On s'appuie sur le typage d'une table représentative pour garder un
+ * query builder typé malgré le nom de table dynamique.
+ */
+const trashTable = (t: TableKey) => supabase.from(t as "partners");
+
 export default function Trash() {
   const [tab, setTab] = useState<TableKey>("cooperatives");
   const [rows, setRows] = useState<TrashRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  /**
-   * Les 4 tables de la corbeille partagent `id` et `deleted_at`.
-   * On s'appuie sur le typage d'une table représentative pour garder un
-   * query builder typé malgré le nom de table dynamique.
-   */
-  const trashTable = (t: TableKey) => supabase.from(t as "partners");
-
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await trashTable(tab)
       .select("*")
@@ -52,9 +52,9 @@ export default function Trash() {
     }
     setRows((data ?? []) as TrashRow[]);
     setLoading(false);
-  };
+  }, [tab]);
 
-  useEffect(() => { load(); }, [tab]);
+  useEffect(() => { load(); }, [load]);
 
   const restore = async (id: string) => {
     const { error } = await trashTable(tab).update({ deleted_at: null }).eq("id", id);
