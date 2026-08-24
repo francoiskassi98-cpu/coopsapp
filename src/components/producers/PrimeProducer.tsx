@@ -93,9 +93,8 @@ export default function PrimeProducer() {
       setSections([...new Set(all.map(p => p.section).filter(Boolean))].sort());
     })();
     (async () => {
-      let pq = supabase.from("projects").select("id,name").order("name");
-      if (coopId && coopId !== "all") pq = pq.eq("registre_id", coopId);
-      const { data, error } = await pq;
+      // Les projets sont partagés au niveau coopérative : pas de filtre par registre.
+      const { data, error } = await supabase.from("projects").select("id,name").order("name");
       if (error) { console.error("[PrimeProducer.projects]", error); setProjects([]); return; }
       setProjects(data ?? []);
     })();
