@@ -90,7 +90,7 @@ export default function ShipmentHistory() {
       if (col === "partner") return item.partners?.name || "";
       if (col === "cooperative") return item.registres?.name || item.zone || "";
       if (col === "created_at") return new Date(item.created_at).getTime();
-      const v: unknown = (item as Record<string, unknown>)[col];
+      const v: unknown = (item as unknown as Record<string, unknown>)[col];
       if (v == null) return null;
       if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
       return String(v);
