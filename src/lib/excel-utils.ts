@@ -230,7 +230,7 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
       ["latitude", "Latitude polygone"],
       ["longitude", "Longitude polygone"],
     ] as const) {
-      const v = (row as any)[field];
+      const v = row[field];
       if (v !== null && v !== undefined && String(v).trim() !== "" && !isFiniteNumber(v)) {
         rowErrors.push(makeError(rowNum, header, v, "Valeur non numérique", "Nombre décimal", "Utilisez un nombre (ex : 12.5). Laissez vide si inconnu."));
       }
