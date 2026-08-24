@@ -201,11 +201,12 @@ export default function ImportShipments() {
         if (first.partenaire) {
           partnerId = partnerMap.get(first.partenaire.toLowerCase()) || null;
           if (!partnerId) {
-            const { data: newPartner } = await (supabase as any)
+            const { data: newPartner } = await supabase
               .from("partners")
-              .insert({ name: first.partenaire, cooperative_id: regIdToCoopId.get(registreId) })
-              .select()
+              .insert({ name: first.partenaire, cooperative_id: regIdToCoopId.get(registreId) as string })
+              .select("id")
               .single();
+
             if (newPartner) {
               partnerId = newPartner.id;
               partnerMap.set(first.partenaire.toLowerCase(), newPartner.id);
