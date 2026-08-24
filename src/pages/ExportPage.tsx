@@ -288,11 +288,11 @@ export default function ExportPage() {
   const exportPotentialByRegistre = async () => {
     setLoading("potential");
     try {
-      let rows: any[] = [];
+      let rows: PotentialSheetRow[] = [];
       const registreFilter = selectedRegistre || null;
 
       if (selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS) {
-        const registry = await fetchAllRows(
+        const registry = await fetchAllRows<RegistryExportRow>(
           "producer_registry",
           "nom_complet, section, code_plantation, potentiel_livraison, potentiel_restant, registre_id, registres(name)",
           {
@@ -304,7 +304,7 @@ export default function ExportPage() {
             pageSize: 500,
           }
         );
-        rows = registry.map((p: any) => ({
+        rows = registry.map((p) => ({
           "Registre": p.registres?.name || "",
           "Nom complet": p.nom_complet,
           "Section": p.section,
@@ -316,7 +316,7 @@ export default function ExportPage() {
         // Fallback: si aucune ligne dans producer_registry pour cette campagne,
         // on retombe sur la table producers (registre courant).
         if (rows.length === 0) {
-          const producers = await fetchAllRows(
+          const producers = await fetchAllRows<ProducerExportRow>(
             "producers",
             "full_name, section, plantation_code, delivery_potential, remaining_potential, registre_id, registres(name)",
             {
@@ -324,7 +324,7 @@ export default function ExportPage() {
               pageSize: 500,
             }
           );
-          rows = producers.map((p: any) => ({
+          rows = producers.map((p) => ({
             "Registre": p.registres?.name || "",
             "Nom complet": p.full_name,
             "Section": p.section,
@@ -335,7 +335,7 @@ export default function ExportPage() {
         }
 
       } else {
-        const producers = await fetchAllRows(
+        const producers = await fetchAllRows<ProducerExportRow>(
           "producers",
           "full_name, section, plantation_code, delivery_potential, remaining_potential, registre_id, registres(name)",
           {
@@ -343,7 +343,7 @@ export default function ExportPage() {
             pageSize: 500,
           }
         );
-        rows = producers.map((p: any) => ({
+        rows = producers.map((p) => ({
           "Registre": p.registres?.name || "",
           "Nom complet": p.full_name,
           "Section": p.section,
@@ -352,6 +352,7 @@ export default function ExportPage() {
           "Potentiel restant (kg)": p.remaining_potential,
         }));
       }
+
 
       if (!rows.length) {
         notifyError("Aucun enregistrement trouvé pour les critères sélectionnés.");
