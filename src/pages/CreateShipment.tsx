@@ -38,7 +38,7 @@ interface ProjectOption {
   code: string | null;
   description: string | null;
   is_active: boolean;
-  registre_id: string;
+  cooperative_id: string;
 }
 
 interface SupabaseLikeError {
