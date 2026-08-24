@@ -68,6 +68,10 @@ async function fetchAll<T>(query: PaginatedQuery): Promise<T[]> {
   return out;
 }
 
+const EMPTY_DELIVERIES: DeliveryDetailRow[] = [];
+const EMPTY_BONUSES: BonusDetailRow[] = [];
+const EMPTY_AUDIT: AuditDetailRow[] = [];
+
 export default function ProducerDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -138,9 +142,9 @@ export default function ProducerDetail() {
   });
 
   const producer = producerQ.data;
-  const deliveries = deliveriesQ.data ?? [];
-  const bonuses = bonusQ.data ?? [];
-  const audit = auditQ.data ?? [];
+  const deliveries = deliveriesQ.data ?? EMPTY_DELIVERIES;
+  const bonuses = bonusQ.data ?? EMPTY_BONUSES;
+  const audit = auditQ.data ?? EMPTY_AUDIT;
 
   // Filters for deliveries
   const [search, setSearch] = useState("");
