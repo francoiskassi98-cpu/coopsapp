@@ -4,6 +4,8 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 export type SortDirection = "asc" | "desc" | null;
 export type SortConfig = { column: string; direction: SortDirection };
+/** Valeurs triables retournées par l'accesseur d'une colonne. */
+export type SortValue = string | number | boolean | Date | null | undefined;
 
 export function useSortableTable(defaultColumn?: string) {
   const [sortConfig, setSortConfig] = useState<SortConfig>({
@@ -20,7 +22,7 @@ export function useSortableTable(defaultColumn?: string) {
     });
   }
 
-  function sortData<T>(data: T[], accessor: (item: T, column: string) => any): T[] {
+  function sortData<T>(data: T[], accessor: (item: T, column: string) => SortValue): T[] {
     if (!sortConfig.column || !sortConfig.direction) return data;
     return [...data].sort((a, b) => {
       const aVal = accessor(a, sortConfig.column);
