@@ -108,10 +108,11 @@ export default function Producers() {
     });
     return sortData(base, (item, col): SortValue => {
       if (col === "delivery_potential" || col === "remaining_potential") return Number(item[col]);
-      const v = (item as Record<string, unknown>)[col];
-      return (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || v == null)
-        ? v
-        : String(v);
+      const v: unknown = (item as Record<string, unknown>)[col];
+      if (v == null) return null;
+      if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
+      return String(v);
+
     });
 
   }, [producers, coopFilter, search, sortConfig]);
