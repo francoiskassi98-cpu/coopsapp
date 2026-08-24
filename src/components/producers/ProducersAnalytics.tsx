@@ -81,7 +81,7 @@ async function fetchAll<T>(table: string, select = "*"): Promise<T[]> {
 }
 
 function KpiCard({ label, value, icon: Icon, tone = "blue", sub, loading }: {
-  label: string; value: string | number; icon: any; tone?: Tone; sub?: string; loading?: boolean;
+  label: string; value: string | number; icon: LucideIcon; tone?: Tone; sub?: string; loading?: boolean;
 }) {
   const t = TONE[tone];
   return (

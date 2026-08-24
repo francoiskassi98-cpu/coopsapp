@@ -17,7 +17,7 @@ interface Stats {
   total_producers: number;
 }
 
-function Kpi({ label, value, icon: Icon, tone = "primary" }: { label: string; value: number; icon: any; tone?: string }) {
+function Kpi({ label, value, icon: Icon, tone = "primary" }: { label: string; value: number; icon: LucideIcon; tone?: string }) {
   const tones: Record<string, string> = {
     primary: "bg-primary/10 text-primary",
     success: "bg-emerald-500/10 text-emerald-600",
@@ -46,7 +46,7 @@ export default function SuperAdminDashboard() {
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await (supabase as any).rpc("get_super_admin_stats");
+      const { data, error } = await supabase.rpc("get_super_admin_stats");
       if (!error && data?.[0]) setStats(data[0] as Stats);
       setLoading(false);
     })();

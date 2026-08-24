@@ -10,6 +10,16 @@ import PageHeader from "@/components/PageHeader";
 
 type TableKey = "cooperatives" | "producers" | "shipments" | "partners";
 
+/** Colonnes communes affichées dans la corbeille (tables hétérogènes). */
+type TrashRow = {
+  id: string;
+  deleted_at: string | null;
+  name?: string | null;
+  full_name?: string | null;
+  lot_number?: string | null;
+  connaissement?: string | null;
+};
+
 const labels: Record<TableKey, string> = {
   cooperatives: "Coopératives",
   producers: "Producteurs",
@@ -19,7 +29,7 @@ const labels: Record<TableKey, string> = {
 
 export default function Trash() {
   const [tab, setTab] = useState<TableKey>("cooperatives");
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<TrashRow[]>([]);
   const [loading, setLoading] = useState(false);
 
   const load = async () => {
@@ -33,7 +43,7 @@ export default function Trash() {
       console.error(error);
       toast.error("Une erreur est survenue.");
     }
-    setRows((data as any[]) ?? []);
+    setRows((data ?? []) as TrashRow[]);
     setLoading(false);
   };
 
@@ -54,7 +64,7 @@ export default function Trash() {
     load();
   };
 
-  const titleField = (r: any) =>
+  const titleField = (r: TrashRow) =>
     r.name || r.full_name || r.lot_number || r.connaissement || r.id?.slice(0, 8);
 
   return (
