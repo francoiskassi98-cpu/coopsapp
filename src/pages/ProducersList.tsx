@@ -128,7 +128,7 @@ export default function Producers() {
   }, []);
 
   async function loadDisabledSections() {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("disabled_sections")
       .select("section_name, registre_id")
       .eq("campaign_label", activeCampaign);
@@ -136,7 +136,7 @@ export default function Producers() {
       console.error("[disabled_sections] load", error);
       return;
     }
-    setDisabledSections(new Set((data || []).map((d: any) => sectionKey(d.registre_id, d.section_name))));
+    setDisabledSections(new Set((data ?? []).map((d) => sectionKey(d.registre_id, d.section_name))));
   }
 
   async function toggleSection(sectionName: string, registreId?: string) {
@@ -149,15 +149,16 @@ export default function Producers() {
     const isDisabled = disabledSections.has(key);
     setTogglingSections((current) => new Set(current).add(key));
     const { error } = isDisabled
-      ? await (supabase as any)
+      ? await supabase
           .from("disabled_sections")
           .delete()
           .eq("section_name", sectionName)
           .eq("registre_id", registreId)
           .eq("campaign_label", activeCampaign)
-      : await (supabase as any)
+      : await supabase
           .from("disabled_sections")
           .insert({ section_name: sectionName, registre_id: registreId, campaign_label: activeCampaign });
+
     if (error) {
       console.error("[disabled_sections] toggle", error);
       toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
