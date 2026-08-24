@@ -341,7 +341,7 @@ export async function downloadImportTemplate() {
   headerRow.height = 30;
 
   // Ligne exemple avec campagne courante préremplie
-  const example: Record<string, any> = {
+  const example: Record<string, string | number> = {
     cooperative: "COOP-EXEMPLE",
     campaign_label: currentCampaign(),
     full_name: "KOUAME KOFFI",
