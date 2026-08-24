@@ -67,7 +67,7 @@ export default function CreateShipment() {
   const [selectedCoopId, setSelectedCoopId] = useState<string>("");
 
   useEffect(() => {
-    supabase.from("partners").select("*").order("name").then(({ data }) => setPartners(data || []));
+    supabase.from("partners").select("id, name, cooperative_id, logo_path, status").order("name").then(({ data }) => setPartners(data || []));
     loadCooperatives();
   }, []);
 
