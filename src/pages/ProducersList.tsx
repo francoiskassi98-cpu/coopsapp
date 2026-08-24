@@ -427,7 +427,7 @@ export default function Producers() {
             .select("plantation_code")
             .in("plantation_code", chunk);
           if (error) throw error;
-          (data || []).forEach((p: any) => existingCodes.add(p.plantation_code));
+          (data ?? []).forEach((p) => existingCodes.add(p.plantation_code));
         }
 
         const newRows = rowsWithRegistre.filter(({ row }) => !existingCodes.has(row.plantation_code));
@@ -445,9 +445,9 @@ export default function Producers() {
           const toInsert = newRows.map(({ row, registreId }) => toDbRow(row, registreId));
           for (let i = 0; i < toInsert.length; i += 200) {
             const batch = toInsert.slice(i, i + 200);
-            const { error } = await (supabase as any).from("producers").insert(batch);
+            const { error } = await supabase.from("producers").insert(batch);
             if (error) {
-              (error as any).__batchIndex = i;
+              (error as { __batchIndex?: number }).__batchIndex = i;
               throw error;
             }
           }
@@ -468,13 +468,14 @@ export default function Producers() {
             .select("id, plantation_code")
             .in("plantation_code", chunk);
           if (error) throw error;
-          (data || []).forEach((p: any) => existingMap.set(p.plantation_code, p.id));
+          (data ?? []).forEach((p) => existingMap.set(p.plantation_code, p.id));
         }
 
         let updatedCount = 0;
         let insertedCount = 0;
-        const inserts: any[] = [];
-        const updates: { id: string; payload: any }[] = [];
+        type ProducerInsert = ReturnType<typeof toDbRow>;
+        const inserts: ProducerInsert[] = [];
+        const updates: { id: string; payload: Omit<ProducerInsert, "registre_id"> }[] = [];
 
         for (const { row, registreId } of rowsWithRegistre) {
           const payload = toDbRow(row, registreId);
@@ -512,7 +513,7 @@ export default function Producers() {
 
       setImportDone(true);
       await loadProducers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[import producers] échec:", { step, error: err });
       const detail = describeSupabaseError(err, step);
       toast({
