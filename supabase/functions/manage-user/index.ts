@@ -315,6 +315,9 @@ Deno.serve(async (req) => {
         cooperative_id: targetCoopIds[0] ?? null,
       });
       return json({ success: true });
+    }
+
+
 
 
     if (action === "reset_password") {
