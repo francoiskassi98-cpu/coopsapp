@@ -1,5 +1,14 @@
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeCampaign, getCurrentCampaign } from "@/lib/shipment-utils";
+import type { Tables } from "@/integrations/supabase/types";
+
+/** Colonnes producteurs nécessaires au calcul d'éligibilité. */
+type ProducerRow = Pick<
+  Tables<"producers">,
+  "id" | "full_name" | "section" | "plantation_code" | "delivery_potential" | "remaining_potential"
+>;
+/** Colonnes livraisons nécessaires au calcul d'éligibilité. */
+type DeliveryRow = Pick<Tables<"deliveries">, "producer_id" | "net_weight" | "delivery_date">;
 
 /** Règles métier du module Chargements */
 export const MIN_REMAINING_WEIGHT_KG = 50;
@@ -69,19 +78,19 @@ export async function buildEligibleProducers(
   const campaignLabel = normalizeCampaign(campaignLabelInput || getCurrentCampaign());
 
   // Sections désactivées (registre + campagne active)
-  const { data: disabledSectionsData, error: dsError } = await (supabase as any)
+  const { data: disabledSectionsData, error: dsError } = await supabase
     .from("disabled_sections")
     .select("section_name")
     .eq("registre_id", registreId)
     .eq("campaign_label", campaignLabel);
   if (dsError) console.error("[producer-eligibility] disabled_sections", dsError);
-  const disabledSections = new Set((disabledSectionsData || []).map((d: any) => d.section_name));
+  const disabledSections = new Set((disabledSectionsData ?? []).map((d) => d.section_name));
 
   // Producteurs actifs du registre
-  let producers: any[] = [];
+  let producers: ProducerRow[] = [];
   let from = 0;
   while (true) {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("producers")
       .select("id, full_name, section, plantation_code, delivery_potential, remaining_potential")
       .eq("is_active", true)
@@ -96,10 +105,10 @@ export async function buildEligibleProducers(
   }
 
   // Livraisons de la campagne active pour ce registre
-  let deliveries: any[] = [];
+  let deliveries: DeliveryRow[] = [];
   from = 0;
   while (true) {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("deliveries")
       .select("producer_id, net_weight, delivery_date")
       .eq("registre_id", registreId)
@@ -209,7 +218,7 @@ export async function validateDistributionBeforeSave(
   const ids = Array.from(new Set(lines.map((l) => l.producer_id)));
   for (let i = 0; i < ids.length; i += 200) {
     const chunk = ids.slice(i, i + 200);
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("producers")
       .select("id, full_name, delivery_potential")
       .in("id", chunk);
