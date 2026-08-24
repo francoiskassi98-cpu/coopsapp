@@ -694,9 +694,9 @@ export default function CreateShipment() {
                 <div className="space-y-2">
                   <Label>Projet *</Label>
                   <div className="flex gap-2">
-                    <Select value={project} onValueChange={setProject} disabled={!selectedCoopId}>
+                    <Select value={project} onValueChange={setProject}>
                       <SelectTrigger className="flex-1">
-                        <SelectValue placeholder={selectedCoopId ? "Sélectionner un projet" : "Sélectionnez d'abord un registre"} />
+                        <SelectValue placeholder="Sélectionner un projet" />
                       </SelectTrigger>
                       <SelectContent>
                         {projects.length === 0 ? (
@@ -711,10 +711,6 @@ export default function CreateShipment() {
                         type="button"
                         variant="outline"
                         onClick={() => {
-                          if (!selectedCoopId) {
-                            toast({ title: "Registre requis", description: "Sélectionnez d'abord un registre.", variant: "destructive" });
-                            return;
-                          }
                           setNewProject({ name: "", code: "", partner_id: "", description: "", is_active: true });
                           setProjectDialogOpen(true);
                         }}
