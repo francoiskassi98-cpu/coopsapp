@@ -158,9 +158,41 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (action === "deactivate" && user_id === caller.id) {
-      return json({ error: "Vous ne pouvez pas désactiver votre propre compte" }, 400);
+    // ===== Autorisation stricte pour activation / désactivation de compte =====
+    let targetCoopIds: string[] = [];
+    let targetRoleForToggle: string | null = null;
+    if (action === "deactivate" || action === "activate") {
+      if (user_id === caller.id) {
+        return json({ error: "Vous ne pouvez pas désactiver votre propre compte." }, 400);
+      }
+      targetRoleForToggle = await roleOf(user_id);
+      targetCoopIds = await coopIdsOf(user_id);
+      const targetIsPrimary = (await adminClient
+        .from("user_cooperatives").select("id")
+        .eq("user_id", user_id).eq("is_primary_admin", true).limit(1)).data?.length ? true : false;
+
+      if (isSuperAdmin) {
+        if (targetRoleForToggle === "super_admin" && action === "deactivate") {
+          return json({ error: "Accès refusé : le compte administrateur système ne peut pas être désactivé par cet utilisateur." }, 403);
+        }
+      } else {
+        // coop_admin : uniquement l'ADMINISTRATEUR PRINCIPAL peut (dés)activer
+        const myPrimaryCoops = await primaryCoopIdsOf(caller.id);
+        if (!isCoopAdmin || myPrimaryCoops.length === 0) {
+          return json({ error: "Accès refusé : seul l'administrateur principal de la coopérative peut désactiver les comptes utilisateurs." }, 403);
+        }
+        if (!targetCoopIds.some((id) => myPrimaryCoops.includes(id))) {
+          return json({ error: "Accès refusé : vous ne pouvez gérer que les utilisateurs de votre propre coopérative." }, 403);
+        }
+        if (targetRoleForToggle === "super_admin") {
+          return json({ error: "Accès refusé : le compte administrateur système ne peut pas être désactivé par cet utilisateur." }, 403);
+        }
+        if (targetIsPrimary) {
+          return json({ error: "Accès refusé : l'administrateur principal ne peut être désactivé que par l'administrateur système." }, 403);
+        }
+      }
     }
+
 
     if (action === "update") {
       if (role && VALID_ROLES.includes(role)) {
