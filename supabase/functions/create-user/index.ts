@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     }
 
 
-    const { email, password, username, role, registres } = await req.json();
+    const { email, password, username, role, registres, cooperative_id } = await req.json();
     if (!email || !password || !username) {
       return json({ error: "Champs requis manquants" }, 400);
     }
@@ -67,6 +67,17 @@ Deno.serve(async (req) => {
       return json({ error: "Au moins un registre est requis." }, 400);
     }
 
+    // Coopérative de rattachement (obligatoire hors super_admin)
+    const coopId: string | null = typeof cooperative_id === "string" && cooperative_id.trim() ? cooperative_id.trim() : null;
+    if (role !== "super_admin" && !coopId) {
+      return json({ error: "La coopérative de rattachement est obligatoire." }, 400);
+    }
+    if (coopId) {
+      const { data: coopRow } = await adminClient
+        .from("cooperatives").select("id").eq("id", coopId).maybeSingle();
+      if (!coopRow) return json({ error: "Coopérative introuvable." }, 400);
+    }
+
     // Résolution des coopératives associées aux registres (scoping RLS)
     let coopIds: string[] = [];
     if (registreIds.length > 0) {
@@ -78,14 +89,20 @@ Deno.serve(async (req) => {
       coopIds = [...new Set(regRows.map((r) => r.cooperative_id).filter(Boolean))];
     }
 
-    // Un coop_admin ne peut affecter que des registres de ses propres coopératives
+    // Cohérence stricte : les registres doivent appartenir à la coopérative choisie
+    if (coopId && coopIds.some((id) => id !== coopId)) {
+      return json({ error: "Les registres sélectionnés doivent appartenir à la coopérative choisie." }, 400);
+    }
+    if (coopId) coopIds = [...new Set([...coopIds, coopId])];
+
+    // Un coop_admin ne peut créer des utilisateurs que dans ses propres coopératives
     if (!isSuperAdmin) {
       const { data: myCoops } = await adminClient
         .from("user_cooperatives").select("cooperative_id").eq("user_id", caller.id);
       const allowed = new Set((myCoops || []).map((c: { cooperative_id: string }) => c.cooperative_id));
       if (coopIds.length === 0 || coopIds.some((id) => !allowed.has(id))) {
         return json({
-          error: "Accès refusé : vous ne pouvez créer des utilisateurs que pour les registres de votre coopérative.",
+          error: "Accès refusé : vous ne pouvez créer des utilisateurs que pour votre coopérative.",
         }, 403);
       }
     }
@@ -133,6 +150,22 @@ Deno.serve(async (req) => {
           return json({ error: "Utilisateur créé mais le rattachement à la coopérative a échoué." }, 400);
         }
       }
+    }
+
+    // Rattachement explicite à la coopérative (source de vérité serveur)
+    if (coopId) {
+      const { data: ucExisting } = await adminClient
+        .from("user_cooperatives").select("cooperative_id").eq("user_id", newId).eq("cooperative_id", coopId).maybeSingle();
+      if (!ucExisting) {
+        const { error: ucErr2 } = await adminClient
+          .from("user_cooperatives").insert({ user_id: newId, cooperative_id: coopId });
+        if (ucErr2) {
+          console.error("[create-user] user_cooperatives coopId:", ucErr2.message);
+          return json({ error: "Utilisateur créé mais le rattachement à la coopérative a échoué." }, 400);
+        }
+      }
+      // Isolation stricte : aucune autre coopérative
+      await adminClient.from("user_cooperatives").delete().eq("user_id", newId).neq("cooperative_id", coopId);
     }
 
     // Envoi de l'e-mail de bienvenue avec le mot de passe temporaire
