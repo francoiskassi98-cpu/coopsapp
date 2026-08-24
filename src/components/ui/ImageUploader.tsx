@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { isPermissionError } from "@/lib/error-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -113,9 +114,9 @@ export function ImageUploader({
       }
       onChange(path);
       toast({ title: "Image téléversée" });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("upload error", e);
-      const denied = e?.statusCode === "403" || e?.status === 403 || /policy|unauthorized|denied/i.test(e?.message ?? "");
+      const denied = isPermissionError(e);
       toast({
         title: "Téléversement impossible",
         description: denied

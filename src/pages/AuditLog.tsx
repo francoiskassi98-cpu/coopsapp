@@ -16,23 +16,9 @@ import { currentCampaign, campaignsBetween } from "@/lib/campaign";
 import { useAuth } from "@/hooks/useAuth";
 import { useRegistres } from "@/hooks/useRegistres";
 import ExcelJS from "exceljs";
+import type { Tables } from "@/integrations/supabase/types";
 
-type AuditRow = {
-  id: string;
-  table_name: string;
-  record_id: string | null;
-  action: string;
-  old_data: any;
-  new_data: any;
-  changed_by: string | null;
-  changed_by_email: string | null;
-  changed_by_role: string | null;
-  registre: string | null;
-  registre_id: string | null;
-  cooperative_id: string | null;
-  campaign_label: string | null;
-  changed_at: string;
-};
+type AuditRow = Tables<"audit_logs">;
 
 const TABLES = [
   "producers", "producer_registry", "shipments", "deliveries",
@@ -91,15 +77,18 @@ export default function AuditLog() {
     enabled: isSuperAdmin,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("cooperatives").select("id,name").is("deleted_at", null).order("name");
       if (error) { console.error("[AuditLog.load] étape=cooperatives", error); return []; }
-      return (data ?? []) as { id: string; name: string }[];
+      return data ?? [];
     },
   });
 
-  const applyFilters = (q: any) => {
-    let qb = q;
+  /** Construit la requête audit_logs filtrée (typée sur le schéma généré). */
+  const auditQuery = (withCount: boolean) => {
+    let qb = withCount
+      ? supabase.from("audit_logs").select("*", { count: "exact" })
+      : supabase.from("audit_logs").select("*");
     if (filters.table !== "all") qb = qb.eq("table_name", filters.table);
     if (filters.action !== "all") qb = qb.eq("action", filters.action);
     if (filters.role !== "all") qb = qb.eq("changed_by_role", filters.role);
@@ -116,9 +105,7 @@ export default function AuditLog() {
     queryKey: ["audit-logs", filters, page],
     queryFn: async () => {
       const from = page * PAGE_SIZE;
-      const { data, error, count } = await applyFilters(
-        (supabase as any).from("audit_logs").select("*", { count: "exact" }),
-      )
+      const { data, error, count } = await auditQuery(true)
         .order("changed_at", { ascending: false })
         .range(from, from + PAGE_SIZE - 1);
 
@@ -129,7 +116,7 @@ export default function AuditLog() {
         });
         throw new Error(`${error.message}${error.code ? ` (code ${error.code})` : ""}`);
       }
-      return { rows: (data ?? []) as AuditRow[], count: count ?? 0 };
+      return { rows: data ?? [], count: count ?? 0 };
     },
   });
 
@@ -152,14 +139,14 @@ export default function AuditLog() {
       let from = 0;
       // Export paginé (max 10 000 lignes) pour ne pas saturer la mémoire.
       while (from < 10_000) {
-        const { data, error } = await applyFilters(
-          (supabase as any).from("audit_logs").select("*"),
-        ).order("changed_at", { ascending: false }).range(from, from + 999);
+        const { data, error } = await auditQuery(false)
+          .order("changed_at", { ascending: false })
+          .range(from, from + 999);
         if (error) {
           console.error("[AuditLog.load] étape=export", error);
           throw new Error(error.message);
         }
-        const batch = (data ?? []) as AuditRow[];
+        const batch: AuditRow[] = data ?? [];
         all.push(...batch);
         if (batch.length < 1000) break;
         from += 1000;
@@ -197,9 +184,9 @@ export default function AuditLog() {
       a.download = `journal-audit-${new Date().toISOString().slice(0, 10)}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[AuditLog.load] export", e);
-      toast.error(`Export impossible : ${e?.message ?? "erreur inconnue"}`);
+      toast.error("Export impossible. Une erreur est survenue.");
     } finally {
       setExporting(false);
     }

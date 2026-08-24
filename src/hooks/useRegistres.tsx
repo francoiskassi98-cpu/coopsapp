@@ -18,12 +18,12 @@ export function useRegistres() {
   const { data = [], isLoading } = useQuery({
     queryKey: ["registres", "accessible"],
     queryFn: async (): Promise<RegistreRef[]> => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("registres")
         .select("id,name,cooperative_id")
         .order("name");
       if (error) { console.error("[useRegistres]", error); return []; }
-      return (data ?? []) as RegistreRef[];
+      return data ?? [];
     },
     staleTime: 5 * 60 * 1000,
   });

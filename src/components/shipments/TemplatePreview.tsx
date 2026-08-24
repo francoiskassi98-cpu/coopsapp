@@ -51,7 +51,8 @@ interface TemplatePreviewProps {
   slogan?: string | null;
   coop_logo_path?: string | null;
   partner_logo_path?: string | null;
-  logo_position?: "left" | "center" | "right" | "split";
+  /** Position des logos ; la colonne DB est un texte libre, normalisé ici. */
+  logo_position?: LogoPosition | (string & {}) | null;
   custom_header?: string | null;
   custom_footer?: string | null;
   show_driver?: boolean;
@@ -92,8 +93,13 @@ const defaultProducers = [
   { name: "TRAORE Paul", receipt: "000125", section: "A", plant: "PL-003", date: "21/06/2026", weight: "1 470", bags: 23 },
 ];
 
+const LOGO_POSITIONS = ["left", "center", "right", "split"] as const;
+export type LogoPosition = (typeof LOGO_POSITIONS)[number];
+
 export function TemplatePreview(props: TemplatePreviewProps) {
-  const pos = props.logo_position || "split";
+  const pos: LogoPosition = LOGO_POSITIONS.includes(props.logo_position as LogoPosition)
+    ? (props.logo_position as LogoPosition)
+    : "split";
   const coopLogoUrl = useSignedImage(props.coop_logo_path);
   const partnerLogoUrl = useSignedImage(props.partner_logo_path);
   const coopLogo = coopLogoUrl ? (

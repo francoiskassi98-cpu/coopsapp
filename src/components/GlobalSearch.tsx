@@ -14,8 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useDebounce } from "@/hooks/useDebounce";
+import type { LucideIcon } from "lucide-react";
 
-type Hit = { id: string; label: string; sub?: string; route: string; icon: any };
+type Hit = { id: string; label: string; sub?: string; route: string; icon: LucideIcon };
 
 
 export default function GlobalSearch() {
@@ -47,17 +48,17 @@ export default function GlobalSearch() {
       setLoading(true);
       const term = `%${debounced}%`;
       const [{ data: prods }, { data: coops }, { data: parts }, { data: ships }] = await Promise.all([
-        (supabase.from("producers") as any).select("id, full_name, plantation_code, cooperative").or(`full_name.ilike.${term},plantation_code.ilike.${term}`).is("deleted_at", null).limit(6),
-        (supabase.from("cooperatives") as any).select("id, name, acronym").or(`name.ilike.${term},acronym.ilike.${term}`).is("deleted_at", null).limit(4),
-        (supabase.from("partners") as any).select("id, name").ilike("name", term).is("deleted_at", null).limit(4),
-        (supabase.from("shipments") as any).select("id, connaissement, lot_number, project").or(`connaissement.ilike.${term},lot_number.ilike.${term}`).is("deleted_at", null).limit(6),
+        supabase.from("producers").select("id, full_name, plantation_code, section").or(`full_name.ilike.${term},plantation_code.ilike.${term}`).is("deleted_at", null).limit(6),
+        supabase.from("cooperatives").select("id, name, acronym").or(`name.ilike.${term},acronym.ilike.${term}`).is("deleted_at", null).limit(4),
+        supabase.from("partners").select("id, name").ilike("name", term).is("deleted_at", null).limit(4),
+        supabase.from("shipments").select("id, connaissement, lot_number, project").or(`connaissement.ilike.${term},lot_number.ilike.${term}`).is("deleted_at", null).limit(6),
       ]);
       if (cancelled) return;
       const list: Hit[] = [
-        ...((prods ?? []).map((p: any) => ({ id: p.id, label: p.full_name, sub: `${p.plantation_code} • ${p.cooperative ?? ""}`, route: "/producteurs", icon: Users }))),
-        ...((coops ?? []).map((c: any) => ({ id: c.id, label: c.name, sub: c.acronym, route: "/gestion", icon: Building2 }))),
-        ...((parts ?? []).map((p: any) => ({ id: p.id, label: p.name, route: "/partenaires", icon: Handshake }))),
-        ...((ships ?? []).map((s: any) => ({ id: s.id, label: s.lot_number || s.connaissement || s.id.slice(0, 8), sub: s.project, route: "/chargements", icon: Truck }))),
+        ...((prods ?? []).map((p) => ({ id: p.id, label: p.full_name, sub: `${p.plantation_code} • ${p.section ?? ""}`, route: "/producteurs", icon: Users }))),
+        ...((coops ?? []).map((c) => ({ id: c.id, label: c.name, sub: c.acronym, route: "/gestion", icon: Building2 }))),
+        ...((parts ?? []).map((p) => ({ id: p.id, label: p.name, route: "/partenaires", icon: Handshake }))),
+        ...((ships ?? []).map((s) => ({ id: s.id, label: s.lot_number || s.connaissement || s.id.slice(0, 8), sub: s.project, route: "/chargements", icon: Truck }))),
       ];
       setHits(list);
       setLoading(false);
@@ -71,7 +72,7 @@ export default function GlobalSearch() {
     navigate(route);
   };
 
-  const groupBy = (label: string, icon: any) => hits.filter((h) => h.icon === icon);
+  const groupBy = (label: string, icon: LucideIcon) => hits.filter((h) => h.icon === icon);
 
   return (
     <>

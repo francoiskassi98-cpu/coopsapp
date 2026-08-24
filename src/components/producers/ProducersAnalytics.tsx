@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { LucideIcon } from "lucide-react";
 import {
   Users, UserCheck, UserCog, Activity, TrendingUp, Package, Weight, PieChart as PieIcon, Layers, Building2,
 } from "lucide-react";
@@ -81,7 +82,7 @@ async function fetchAll<T>(table: string, select = "*"): Promise<T[]> {
 }
 
 function KpiCard({ label, value, icon: Icon, tone = "blue", sub, loading }: {
-  label: string; value: string | number; icon: any; tone?: Tone; sub?: string; loading?: boolean;
+  label: string; value: string | number; icon: LucideIcon; tone?: Tone; sub?: string; loading?: boolean;
 }) {
   const t = TONE[tone];
   return (

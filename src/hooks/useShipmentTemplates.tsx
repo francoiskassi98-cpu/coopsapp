@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRegistres } from "@/hooks/useRegistres";
+import type { Tables } from "@/integrations/supabase/types";
+
+export type ShipmentTemplate = Tables<"shipment_excel_templates">;
 
 export const SHIPMENT_TEMPLATES_QUERY_KEY = ["shipment_excel_templates"] as const;
 
@@ -28,7 +31,7 @@ export function useActiveShipmentTemplates(registreId: string | null | undefined
         ? `registre_id.in.(${scopeIds.join(",")}),registre_id.is.null`
         : `registre_id.is.null`;
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("shipment_excel_templates")
         .select("*")
         .eq("is_active", true)
@@ -49,9 +52,9 @@ export function useActiveShipmentTemplates(registreId: string | null | undefined
         });
         throw error;
       }
-      return (data ?? []) as any[];
+      return (data ?? []) as ShipmentTemplate[];
     },
   });
 
-  return { templates: data as any[], loading: isLoading || loadingRegistres, error };
+  return { templates: data as ShipmentTemplate[], loading: isLoading || loadingRegistres, error };
 }

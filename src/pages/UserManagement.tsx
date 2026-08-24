@@ -91,13 +91,13 @@ export default function UserManagement() {
     setLoading(true);
     try {
       const [{ data: profiles }, { data: roles }, manageResult, { data: registreList }] = await Promise.all([
-        (supabase.from("profiles") as any).select("user_id, username, email, created_at"),
+        supabase.from("profiles").select("user_id, username, email, created_at"),
         supabase.from("user_roles").select("*"),
         supabase.functions.invoke("manage-user", { body: { action: "list" } }),
         supabase.from("registres").select("id, name").order("name"),
       ]);
 
-      setRegistres((registreList || []) as Registre[]);
+      setRegistres(registreList ?? []);
       const banMap: Record<string, boolean> = manageResult.data?.banMap || {};
       const registresByUser: Record<string, Array<{ id: string; name: string }>> = manageResult.data?.registresByUser || {};
       const lastSignInMap: Record<string, string | null> = manageResult.data?.lastSignInMap || {};
@@ -105,7 +105,7 @@ export default function UserManagement() {
       const allowedSet = allowedUserIds ? new Set(allowedUserIds) : null;
 
       if (profiles && roles) {
-        const merged = (profiles as any[])
+        const merged = profiles
           .filter((p) => !allowedSet || allowedSet.has(p.user_id))
           .map((p) => ({
           user_id: p.user_id,
@@ -113,7 +113,7 @@ export default function UserManagement() {
           email: p.email,
           registres: registresByUser[p.user_id] || [],
           created_at: p.created_at,
-          role: roles.find((r: any) => r.user_id === p.user_id)?.role || "agent",
+          role: roles.find((r) => r.user_id === p.user_id)?.role || "agent",
           is_banned: banMap[p.user_id] || false,
           last_sign_in_at: lastSignInMap[p.user_id] || null,
         }))

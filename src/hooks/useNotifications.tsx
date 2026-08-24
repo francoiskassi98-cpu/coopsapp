@@ -23,12 +23,12 @@ export function useNotifications() {
       setLoading(false);
       return;
     }
-    const { data } = await (supabase.from("notifications") as any)
+    const { data } = await supabase.from("notifications")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(30);
-    setItems((data as Notification[]) ?? []);
+    setItems(data ?? []);
     setLoading(false);
   }, [user]);
 
@@ -53,14 +53,14 @@ export function useNotifications() {
 
   const markAllRead = async () => {
     if (!user) return;
-    await (supabase.from("notifications") as any)
+    await supabase.from("notifications")
       .update({ read_at: new Date().toISOString() })
       .eq("user_id", user.id)
       .is("read_at", null);
   };
 
   const markRead = async (id: string) => {
-    await (supabase.from("notifications") as any).update({ read_at: new Date().toISOString() }).eq("id", id);
+    await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id);
   };
 
   const unread = items.filter((n) => !n.read_at).length;
