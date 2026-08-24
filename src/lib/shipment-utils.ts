@@ -164,33 +164,5 @@ export function distributeShipment(
   return results;
 }
 
-/**
- * Normalize any campaign string to the standard format "YYYY-YYYY".
- * Handles variants like "Campagne 2025-2026", "campagne 2025 - 2026",
- * "Principale 2025–2026", etc.
- */
-export function normalizeCampaign(raw: string): string {
-  if (!raw) return raw;
-  // Extract two 4-digit years from the string
-  const years = raw.match(/(\d{4})/g);
-  if (years && years.length >= 2) {
-    return `${years[0]}-${years[1]}`;
-  }
-  // If only one year found, return as-is trimmed
-  return raw.trim();
-}
-
-export function getCurrentCampaign(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  if (month >= 10) {
-    return `${year}-${year + 1}`;
-  }
-  return `${year - 1}-${year}`;
-}
-
-export function isCampaignStart(): boolean {
-  const now = new Date();
-  return now.getMonth() === 9 && now.getDate() <= 7;
-}
+// Campagne : source unique de vérité dans `@/lib/campaign`.
+export { normalizeCampaign, currentCampaign as getCurrentCampaign, isCampaignStart } from "@/lib/campaign";
