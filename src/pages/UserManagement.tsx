@@ -29,13 +29,17 @@ interface UserProfile {
   username: string;
   email: string;
   registres: Array<{ id: string; name: string }>;
+  cooperatives: Array<{ id: string; name: string; acronym: string | null }>;
   created_at: string;
   role: string;
   is_banned: boolean;
   last_sign_in_at: string | null;
 }
 
-interface Registre { id: string; name: string }
+interface Registre { id: string; name: string; cooperative_id: string }
+interface Cooperative { id: string; name: string; acronym: string | null }
+
+const ALL = "__all__";
 
 const ROLE_LABEL: Record<string, string> = {
   super_admin: "Super administrateur",
@@ -64,6 +68,10 @@ export default function UserManagement() {
   const { user: currentUser, isSuperAdmin } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [registres, setRegistres] = useState<Registre[]>([]);
+  const [coops, setCoops] = useState<Cooperative[]>([]);
+  const [filterCoop, setFilterCoop] = useState<string>(ALL);
+  const [filterRole, setFilterRole] = useState<string>(ALL);
+  const [filterStatus, setFilterStatus] = useState<string>(ALL);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -75,12 +83,14 @@ export default function UserManagement() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<string>("agent");
   const [selectedRegistres, setSelectedRegistres] = useState<string[]>([]); // IDs
+  const [selectedCoop, setSelectedCoop] = useState<string>("");
 
   const [editUser, setEditUser] = useState<UserProfile | null>(null);
   const [editUsername, setEditUsername] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState("agent");
   const [editRegistres, setEditRegistres] = useState<string[]>([]); // IDs
+  const [editCoop, setEditCoop] = useState<string>("");
   const [editActive, setEditActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -93,16 +103,19 @@ export default function UserManagement() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const [{ data: profiles }, { data: roles }, manageResult, { data: registreList }] = await Promise.all([
+      const [{ data: profiles }, { data: roles }, manageResult, { data: registreList }, { data: coopList }] = await Promise.all([
         supabase.from("profiles").select("user_id, username, email, created_at"),
         supabase.from("user_roles").select("*"),
         supabase.functions.invoke("manage-user", { body: { action: "list" } }),
-        supabase.from("registres").select("id, name").order("name"),
+        supabase.from("registres").select("id, name, cooperative_id").order("name"),
+        supabase.from("cooperatives").select("id, name, acronym").is("deleted_at", null).order("name"),
       ]);
 
       setRegistres(registreList ?? []);
+      setCoops(coopList ?? []);
       const banMap: Record<string, boolean> = manageResult.data?.banMap || {};
       const registresByUser: Record<string, Array<{ id: string; name: string }>> = manageResult.data?.registresByUser || {};
+      const cooperativesByUser: Record<string, Array<{ id: string; name: string; acronym: string | null }>> = manageResult.data?.cooperativesByUser || {};
       const lastSignInMap: Record<string, string | null> = manageResult.data?.lastSignInMap || {};
       const allowedUserIds: string[] | null = manageResult.data?.allowedUserIds ?? null;
       const allowedSet = allowedUserIds ? new Set(allowedUserIds) : null;
@@ -115,6 +128,7 @@ export default function UserManagement() {
           username: p.username,
           email: p.email,
           registres: registresByUser[p.user_id] || [],
+          cooperatives: cooperativesByUser[p.user_id] || [],
           created_at: p.created_at,
           role: roles.find((r) => r.user_id === p.user_id)?.role || "agent",
           is_banned: banMap[p.user_id] || false,
@@ -151,6 +165,10 @@ export default function UserManagement() {
       toast({ title: "Accès refusé", description: "Seul le Super Administrateur est autorisé à créer un compte Super Administrateur.", variant: "destructive" });
       return;
     }
+    if (role !== "super_admin" && !selectedCoop) {
+      toast({ title: "Coopérative requise", description: "Sélectionnez la coopérative de rattachement.", variant: "destructive" });
+      return;
+    }
     if ((role === "agent" || role === "coop_admin") && selectedRegistres.length === 0) {
       toast({ title: "Registres requis", description: "Sélectionnez au moins un registre.", variant: "destructive" });
       return;
@@ -158,7 +176,7 @@ export default function UserManagement() {
     setCreating(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-user", {
-        body: { email, password, username, role, registres: selectedRegistres },
+        body: { email, password, username, role, registres: selectedRegistres, cooperative_id: selectedCoop || null },
       });
       if (error || data?.error) {
         console.error("[create-user]", error || data?.error);
@@ -171,7 +189,7 @@ export default function UserManagement() {
       }
 
       toast({ title: "Utilisateur créé", description: `${username} a été ajouté.` });
-      setUsername(""); setEmail(""); setPassword(""); setRole("agent"); setSelectedRegistres([]);
+      setUsername(""); setEmail(""); setPassword(""); setRole("agent"); setSelectedRegistres([]); setSelectedCoop("");
       setShowForm(false);
       fetchUsers();
     } catch (err) {
@@ -192,6 +210,7 @@ export default function UserManagement() {
     setEditEmail(u.email);
     setEditRole(u.role);
     setEditRegistres(u.registres.map((r) => r.id));
+    setEditCoop(u.cooperatives[0]?.id ?? "");
     setEditActive(!u.is_banned);
   };
 
@@ -199,6 +218,10 @@ export default function UserManagement() {
     if (!editUser) return;
     if (editRole === "super_admin" && !isSuperAdmin) {
       toast({ title: "Accès refusé", description: "Seul le Super Administrateur peut attribuer ce rôle.", variant: "destructive" });
+      return;
+    }
+    if (editRole !== "super_admin" && !editCoop) {
+      toast({ title: "Coopérative requise", description: "Sélectionnez la coopérative de rattachement.", variant: "destructive" });
       return;
     }
     if ((editRole === "agent" || editRole === "coop_admin") && editRegistres.length === 0) {
@@ -215,6 +238,7 @@ export default function UserManagement() {
           email: editEmail,
           role: editRole,
           registres: editRegistres,
+          cooperative_id: editCoop || null,
         },
       });
       if (error || data?.error) {
@@ -344,12 +368,27 @@ export default function UserManagement() {
   const fmtDate = (d: string | null | undefined) =>
     d ? new Date(d).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" }) : "Jamais";
 
-  const RegistrePicker = ({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) => (
+  const coopLabel = (c: { name: string; acronym: string | null }) => (c.acronym ? `${c.acronym} — ${c.name}` : c.name);
+
+  const CoopSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger><SelectValue placeholder="Sélectionner une coopérative" /></SelectTrigger>
+      <SelectContent>
+        {coops.map((c) => (
+          <SelectItem key={c.id} value={c.id}>{coopLabel(c)}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const RegistrePicker = ({ selected, onChange, coopId }: { selected: string[]; onChange: (v: string[]) => void; coopId: string }) => {
+    const list = coopId ? registres.filter((r) => r.cooperative_id === coopId) : registres;
+    return (
     <div className="max-h-48 overflow-y-auto rounded-md border p-3 space-y-2">
-      {registres.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Aucun registre disponible.</p>
+      {list.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{coopId ? "Aucun registre pour cette coopérative." : "Sélectionnez d'abord une coopérative."}</p>
       ) : (
-        registres.map((c) => (
+        list.map((c) => (
           <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
             <Checkbox
               checked={selected.includes(c.id)}
@@ -360,7 +399,16 @@ export default function UserManagement() {
         ))
       )}
     </div>
-  );
+    );
+  };
+
+  const visibleUsers = users.filter((u) => {
+    if (filterCoop !== ALL && !u.cooperatives.some((c) => c.id === filterCoop)) return false;
+    if (filterRole !== ALL && u.role !== filterRole) return false;
+    if (filterStatus === "active" && u.is_banned) return false;
+    if (filterStatus === "inactive" && !u.is_banned) return false;
+    return true;
+  });
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -417,6 +465,15 @@ export default function UserManagement() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>
+                  Coopérative {role !== "super_admin" && <span className="text-destructive">*</span>}
+                </Label>
+                <CoopSelect
+                  value={selectedCoop}
+                  onChange={(v) => { setSelectedCoop(v); setSelectedRegistres([]); }}
+                />
+              </div>
               <div className="space-y-2 md:col-span-2">
                 <Label>
                   Registres {(role === "agent" || role === "coop_admin") && <span className="text-destructive">*</span>}
@@ -424,7 +481,7 @@ export default function UserManagement() {
                     (sélection multiple — l'utilisateur accédera aux données de tous ses registres)
                   </span>
                 </Label>
-                <RegistrePicker selected={selectedRegistres} onChange={setSelectedRegistres} />
+                <RegistrePicker selected={selectedRegistres} onChange={setSelectedRegistres} coopId={selectedCoop} />
               </div>
               <div className="md:col-span-2 flex gap-2">
                 <Button type="submit" disabled={creating}>
@@ -439,7 +496,46 @@ export default function UserManagement() {
       )}
 
       <Card>
-        <CardHeader><CardTitle className="text-lg">Utilisateurs enregistrés</CardTitle></CardHeader>
+        <CardHeader className="pb-3"><CardTitle className="text-lg">Filtres</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Coopérative</Label>
+            <Select value={filterCoop} onValueChange={setFilterCoop}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Toutes les coopératives</SelectItem>
+                {coops.map((c) => (<SelectItem key={c.id} value={c.id}>{coopLabel(c)}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Rôle</Label>
+            <Select value={filterRole} onValueChange={setFilterRole}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Tous les rôles</SelectItem>
+                {isSuperAdmin && <SelectItem value="super_admin">Super administrateur</SelectItem>}
+                <SelectItem value="coop_admin">Admin de coopérative</SelectItem>
+                <SelectItem value="agent">Agent</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Statut</Label>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Tous les statuts</SelectItem>
+                <SelectItem value="active">Actif</SelectItem>
+                <SelectItem value="inactive">Désactivé</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-lg">Utilisateurs enregistrés ({visibleUsers.length})</CardTitle></CardHeader>
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
@@ -450,6 +546,7 @@ export default function UserManagement() {
                   <TableHead>Nom d'utilisateur</TableHead>
                   <TableHead>E-mail</TableHead>
                   <TableHead>Rôle</TableHead>
+                  <TableHead>Coopérative</TableHead>
                   <TableHead>Registres</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead>Créé le</TableHead>
@@ -457,7 +554,7 @@ export default function UserManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((u) => (
+                {visibleUsers.map((u) => (
                   <TableRow
                     key={u.user_id}
                     onClick={() => setDetailUser(u)}
@@ -469,6 +566,17 @@ export default function UserManagement() {
                       <Badge variant={u.role === "super_admin" ? "default" : u.role === "coop_admin" ? "default" : "secondary"}>
                         {ROLE_LABEL[u.role] ?? u.role}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {u.cooperatives.length === 0 ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {u.cooperatives.map((c) => (
+                            <Badge key={c.id} variant="outline" className="text-xs">{c.acronym || c.name}</Badge>
+                          ))}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm">
                       {u.registres.length === 0 ? (
@@ -533,10 +641,10 @@ export default function UserManagement() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {users.length === 0 && (
+                {visibleUsers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      Aucun utilisateur enregistré
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                      Aucun utilisateur pour cette sélection
                     </TableCell>
                   </TableRow>
                 )}
@@ -572,11 +680,15 @@ export default function UserManagement() {
               </Select>
             </div>
             <div className="space-y-2">
+              <Label>Coopérative {editRole !== "super_admin" && <span className="text-destructive">*</span>}</Label>
+              <CoopSelect value={editCoop} onChange={(v) => { setEditCoop(v); setEditRegistres([]); }} />
+            </div>
+            <div className="space-y-2">
               <Label>
                 Registres {(editRole === "agent" || editRole === "coop_admin") && <span className="text-destructive">*</span>}
                 <span className="text-xs text-muted-foreground ml-2">(sélection multiple)</span>
               </Label>
-              <RegistrePicker selected={editRegistres} onChange={setEditRegistres} />
+              <RegistrePicker selected={editRegistres} onChange={setEditRegistres} coopId={editCoop} />
             </div>
             {editUser && !isSelf(editUser.user_id) && (
               <div className="flex items-center justify-between rounded-lg border p-3">
@@ -648,6 +760,17 @@ export default function UserManagement() {
                       <div className="text-xs text-muted-foreground">Dernière connexion</div>
                       <div className="font-medium">{fmtDate(detailUser.last_sign_in_at)}</div>
                     </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <Label className="text-sm">Coopérative</Label>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {detailUser.cooperatives.length === 0
+                      ? <span className="text-sm text-muted-foreground">Aucune coopérative</span>
+                      : detailUser.cooperatives.map((c) => (<Badge key={c.id} variant="outline">{coopLabel(c)}</Badge>))}
                   </div>
                 </div>
 

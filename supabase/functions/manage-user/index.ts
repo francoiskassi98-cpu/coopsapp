@@ -66,9 +66,10 @@ Deno.serve(async (req) => {
     console.log(`[manage-user][${reqId}] caller=${caller.id} action=${action} super=${isSuperAdmin}`);
 
     if (action === "list") {
-      const [{ data: authUsers, error: listErr }, { data: urRows }] = await Promise.all([
+      const [{ data: authUsers, error: listErr }, { data: urRows }, { data: ucRowsAll }] = await Promise.all([
         adminClient.auth.admin.listUsers({ perPage: 1000 }),
         adminClient.from("user_registres").select("user_id, registre_id, registres(id, name)"),
+        adminClient.from("user_cooperatives").select("user_id, cooperative_id, cooperatives(id, name, acronym)"),
       ]);
       if (listErr) console.error(`[manage-user][${reqId}] listUsers error:`, listErr.message);
 
@@ -97,15 +98,21 @@ Deno.serve(async (req) => {
         if (visible && !visible.has(r.user_id)) continue;
         if (r.registres) (registresByUser[r.user_id] ||= []).push(r.registres);
       }
+      const cooperativesByUser: Record<string, Array<{ id: string; name: string; acronym: string | null }>> = {};
+      for (const r of (ucRowsAll || []) as Array<{ user_id: string; cooperatives: { id: string; name: string; acronym: string | null } | null }>) {
+        if (visible && !visible.has(r.user_id)) continue;
+        if (r.cooperatives) (cooperativesByUser[r.user_id] ||= []).push(r.cooperatives);
+      }
       return json({
         banMap,
         registresByUser,
+        cooperativesByUser,
         lastSignInMap,
         allowedUserIds: visible ? [...visible] : null,
       });
     }
 
-    const { user_id, role, username, email, registres } = body;
+    const { user_id, role, username, email, registres, cooperative_id } = body;
 
     if (!user_id || !action) return json({ error: "Paramètres manquants" }, 400);
 
@@ -144,6 +151,15 @@ Deno.serve(async (req) => {
       if (email) {
         await adminClient.auth.admin.updateUserById(user_id, { email });
       }
+      const coopId: string | null = typeof cooperative_id === "string" && cooperative_id.trim() ? cooperative_id.trim() : null;
+      if (coopId) {
+        const { data: coopRow } = await adminClient.from("cooperatives").select("id").eq("id", coopId).maybeSingle();
+        if (!coopRow) return json({ error: "Coopérative introuvable." }, 400);
+        if (!isSuperAdmin && !myCoopIds.includes(coopId)) {
+          return json({ error: "Accès refusé : coopérative hors de votre périmètre." }, 403);
+        }
+      }
+
       if (Array.isArray(registres)) {
         const registreIds: string[] = [...new Set(registres.map((r: unknown) => String(r).trim()).filter(Boolean))];
         const effectiveRole = role || (await roleOf(user_id));
@@ -159,6 +175,10 @@ Deno.serve(async (req) => {
             return json({ error: "Un ou plusieurs registres sélectionnés sont introuvables." }, 400);
           }
           coopIds = [...new Set(regRows.map((r) => r.cooperative_id).filter(Boolean))];
+        }
+
+        if (coopId && coopIds.some((id) => id !== coopId)) {
+          return json({ error: "Les registres sélectionnés doivent appartenir à la coopérative choisie." }, 400);
         }
 
         if (!isSuperAdmin) {
@@ -191,6 +211,22 @@ Deno.serve(async (req) => {
               console.error(`[manage-user][${reqId}] user_cooperatives:`, ucErr.message);
               return json({ error: "Le rattachement à la coopérative a échoué." }, 400);
             }
+          }
+        }
+      }
+
+      // Rattachement coopérative : source de vérité côté serveur
+      if (coopId) {
+        await adminClient.from("user_cooperatives").delete().eq("user_id", user_id).neq("cooperative_id", coopId);
+        const { data: existing } = await adminClient
+          .from("user_cooperatives").select("cooperative_id")
+          .eq("user_id", user_id).eq("cooperative_id", coopId).maybeSingle();
+        if (!existing) {
+          const { error: ucErr } = await adminClient
+            .from("user_cooperatives").insert({ user_id, cooperative_id: coopId });
+          if (ucErr) {
+            console.error(`[manage-user][${reqId}] user_cooperatives:`, ucErr.message);
+            return json({ error: "Le rattachement à la coopérative a échoué." }, 400);
           }
         }
       }
