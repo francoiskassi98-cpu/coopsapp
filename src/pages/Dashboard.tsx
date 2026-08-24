@@ -15,20 +15,41 @@ import CoopPerformance from "@/components/dashboard/CoopPerformance";
 import CoopTable from "@/components/dashboard/CoopTable";
 import DashboardFilters from "@/components/dashboard/DashboardFilters";
 import { useRegistres } from "@/hooks/useRegistres";
+import type { PaginatedQuery } from "@/lib/database-utils";
 import ReportDialog from "@/components/dashboard/ReportDialog";
 import ReportGenerator from "@/components/dashboard/ReportGenerator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const PIE_COLORS = ["hsl(25, 65%, 32%)", "hsl(140, 35%, 40%)", "hsl(35, 70%, 55%)", "hsl(200, 50%, 50%)", "hsl(280, 40%, 50%)", "hsl(0, 50%, 50%)", "hsl(60, 50%, 45%)"];
 
-async function fetchAllRows(query: any) {
-  let allData: any[] = [];
+interface DashboardProducer {
+  delivery_potential: number | null;
+  remaining_potential: number | null;
+  registre_id: string | null;
+}
+
+interface DashboardShipment {
+  id: string;
+  project: string;
+  destination: string;
+  total_weight: number | null;
+  total_bags: number | null;
+  created_at: string;
+  campaign_label: string | null;
+  zone: string | null;
+  connaissement: string | null;
+  registre_id: string | null;
+  partners?: { name: string | null } | null;
+}
+
+async function fetchAllRows<T>(query: PaginatedQuery): Promise<T[]> {
+  const allData: T[] = [];
   let from = 0;
   const pageSize = 1000;
   while (true) {
     const { data, error } = await query.range(from, from + pageSize - 1);
     if (error || !data || data.length === 0) break;
-    allData = allData.concat(data);
+    allData.push(...(data as T[]));
     if (data.length < pageSize) break;
     from += pageSize;
   }
@@ -52,16 +73,18 @@ export default function Dashboard() {
 
   const { data: allProducers = [], isLoading: loadingProducers } = useQuery({
     queryKey: ["dashboard", "producers"],
-    queryFn: () => fetchAllRows((supabase as any).from("producers").select("delivery_potential, remaining_potential, registre_id")),
+    queryFn: () => fetchAllRows<DashboardProducer>(
+      supabase.from("producers").select("delivery_potential, remaining_potential, registre_id") as unknown as PaginatedQuery
+    ),
   });
 
   const { data: allShipments = [], isLoading: loadingShipments } = useQuery({
     queryKey: ["dashboard", "shipments"],
-    queryFn: () => fetchAllRows(
-      (supabase as any)
+    queryFn: () => fetchAllRows<DashboardShipment>(
+      supabase
         .from("shipments")
         .select("id, project, destination, total_weight, total_bags, created_at, campaign_label, zone, connaissement, registre_id, partners(name)")
-        .order("created_at", { ascending: false })
+        .order("created_at", { ascending: false }) as unknown as PaginatedQuery
     ),
   });
 
@@ -124,7 +147,7 @@ export default function Dashboard() {
   const byPartner = useMemo(() => {
     const map: Record<string, number> = {};
     shipments.forEach((s) => {
-      const pName = (s.partners as any)?.name || "Inconnu";
+      const pName = s.partners?.name || "Inconnu";
       map[pName] = (map[pName] || 0) + Number(s.total_weight);
     });
     return Object.entries(map).map(([name, value]) => ({ name, value }));
@@ -143,14 +166,14 @@ export default function Dashboard() {
 
   const coopStats = useMemo(() => {
     const coopPotentialMap: Record<string, number> = {};
-    producers.forEach((p: any) => {
-      const coop = registreName[p.registre_id] || "Inconnu";
+    producers.forEach((p) => {
+      const coop = registreName[p.registre_id ?? ""] || "Inconnu";
       coopPotentialMap[coop] = (coopPotentialMap[coop] || 0) + Number(p.delivery_potential);
     });
 
     const coopDeliveredMap: Record<string, { delivered: number; count: number }> = {};
-    shipments.forEach((s: any) => {
-      const coop = registreName[s.registre_id] || s.zone || "Inconnu";
+    shipments.forEach((s) => {
+      const coop = registreName[s.registre_id ?? ""] || s.zone || "Inconnu";
       if (!coopDeliveredMap[coop]) coopDeliveredMap[coop] = { delivered: 0, count: 0 };
       coopDeliveredMap[coop].delivered += Number(s.total_weight);
       coopDeliveredMap[coop].count += 1;
@@ -172,7 +195,7 @@ export default function Dashboard() {
 
 
   const coopDetailShipments = coopDetailName
-    ? shipments.filter((s: any) => (registreName[s.registre_id] || s.zone || "Inconnu") === coopDetailName)
+    ? shipments.filter((s) => (registreName[s.registre_id ?? ""] || s.zone || "Inconnu") === coopDetailName)
     : [];
 
   return (
@@ -310,7 +333,7 @@ export default function Dashboard() {
                   <TableRow key={s.id}>
                     <TableCell className="font-medium">{s.connaissement || "—"}</TableCell>
                     <TableCell>{s.project}</TableCell>
-                    <TableCell>{(s.partners as any)?.name || "—"}</TableCell>
+                    <TableCell>{s.partners?.name || "—"}</TableCell>
                     <TableCell>{s.destination}</TableCell>
                     <TableCell>{Number(s.total_weight).toLocaleString("fr-FR")}</TableCell>
                     <TableCell>{s.total_bags}</TableCell>
