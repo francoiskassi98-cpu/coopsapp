@@ -636,7 +636,7 @@ export default function UserManagement() {
                         >
                           <KeyRound className="h-4 w-4" />
                         </Button>
-                        {!isSelf(u.user_id) && (
+                        {canToggleActive(u) && (
                           <Button
                             variant="ghost" size="icon"
                             onClick={() => handleToggleActive(u, u.is_banned)}
