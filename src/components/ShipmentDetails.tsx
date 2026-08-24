@@ -169,7 +169,8 @@ export default function ShipmentDetails() {
 
       setShipments(enriched);
     } catch (err) {
-      (console.error(err), toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }));
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -225,7 +226,8 @@ export default function ShipmentDetails() {
       setEditingShipment(null);
       fetchAll();
     } catch (err) {
-      (console.error(err), toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" }));
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
