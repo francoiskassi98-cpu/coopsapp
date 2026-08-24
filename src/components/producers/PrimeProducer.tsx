@@ -57,13 +57,15 @@ export default function PrimeProducer() {
   useEffect(() => {
     (async () => {
       const [{ data: c }, { data: cp }] = await Promise.all([
-        (supabase as any).from("registres").select("id,name").order("name"),
-        (supabase as any).from("shipments").select("campaign_label").not("campaign_label","is",null).limit(2000),
+        supabase.from("registres").select("id,name").order("name"),
+        supabase.from("shipments").select("campaign_label").not("campaign_label", "is", null).limit(2000),
       ]);
-      const list = ((c || []) as any[]).map((r) => ({ id: r.id, name: r.name })) as Coop[];
+      const list: Coop[] = (c ?? []).map((r) => ({ id: r.id, name: r.name }));
       setCoops(list);
-      const labels = Array.from(new Set(((cp as any[]) || []).map((r) => r.campaign_label).filter(Boolean))).sort().reverse();
-      setCampaigns(labels.map((l) => ({ id: l, nom: l })) as Campaign[]);
+      const labels = Array.from(
+        new Set((cp ?? []).map((r) => r.campaign_label).filter((l): l is string => !!l)),
+      ).sort().reverse();
+      setCampaigns(labels.map((l) => ({ id: l, nom: l })));
       // Sélection auto : un seul registre accessible → on le sélectionne, sinon « Tous »
       setCoopId((prev) => prev || (list.length === 1 ? list[0].id : "all"));
     })();
@@ -76,14 +78,14 @@ export default function PrimeProducer() {
       let all: ProducerOpt[] = [];
       let from = 0;
       while (true) {
-        let q = (supabase as any).from("producers")
+        let q = supabase.from("producers")
           .select("id,full_name,section,registre_id")
           .order("full_name")
           .range(from, from + 999);
         if (coopId && coopId !== "all") q = q.eq("registre_id", coopId);
         const { data } = await q;
         if (!data || data.length === 0) break;
-        all = all.concat(data as ProducerOpt[]);
+        all = all.concat(data);
         if (data.length < 1000) break;
         from += 1000;
       }
@@ -91,11 +93,11 @@ export default function PrimeProducer() {
       setSections([...new Set(all.map(p => p.section).filter(Boolean))].sort());
     })();
     (async () => {
-      let pq = (supabase as any).from("projects").select("id,name").order("name");
+      let pq = supabase.from("projects").select("id,name").order("name");
       if (coopId && coopId !== "all") pq = pq.eq("registre_id", coopId);
       const { data, error } = await pq;
       if (error) { console.error("[PrimeProducer.projects]", error); setProjects([]); return; }
-      setProjects((data || []) as ProjectOpt[]);
+      setProjects(data ?? []);
     })();
     setSection("all");
     setProducerId("all");
@@ -121,7 +123,7 @@ export default function PrimeProducer() {
       const deliveries: Array<{ producer_id: string | null; net_weight: number | null }> = [];
       let from = 0;
       while (true) {
-        let dq = (supabase as any).from("deliveries")
+        let dq = supabase.from("deliveries")
           .select("id,producer_id,net_weight,delivery_date,shipments!inner(registre_id,campaign_label,is_cancelled,project_id)")
           .gte("delivery_date", startDate)
           .lte("delivery_date", endDate)
@@ -134,7 +136,7 @@ export default function PrimeProducer() {
         const { data, error } = await dq.range(from, from + 999);
         if (error) throw error;
         if (!data || data.length === 0) break;
-        deliveries.push(...(data as any));
+        deliveries.push(...data);
         if (data.length < 1000) break;
         from += 1000;
       }
@@ -159,13 +161,21 @@ export default function PrimeProducer() {
       const coopNameById = new Map(coops.map(c => [c.id, c.name]));
       for (let i = 0; i < plantationIds.length; i += 500) {
         const chunk = plantationIds.slice(i, i + 500);
-        let pq = (supabase as any).from("producers")
+        let pq = supabase.from("producers")
           .select("id,producer_code,full_name,section,registre_id")
           .in("id", chunk);
         if (section !== "all") pq = pq.eq("section", section);
         const { data, error } = await pq;
         if (error) throw error;
-        (data || []).forEach((p: any) => plantMap.set(p.id, { ...p, cooperative: coopNameById.get(p.registre_id) || "" }));
+        (data ?? []).forEach((p) =>
+          plantMap.set(p.id, {
+            id: p.id,
+            producer_code: p.producer_code ?? "",
+            full_name: p.full_name,
+            section: p.section,
+            cooperative: coopNameById.get(p.registre_id) ?? "",
+          }),
+        );
       }
 
       // 4) Regrouper par producer_code
@@ -236,7 +246,7 @@ export default function PrimeProducer() {
     }
     setSaving(true);
     try {
-      const { data: setting, error } = await (supabase.from("producer_bonus_settings") as any).insert({
+      const { data: setting, error } = await supabase.from("producer_bonus_settings").insert({
         registre_id: coopId,
         campaign_label: campaignId !== "all" ? campaignId : currentCampaign(),
         section: section !== "all" ? section : null,
@@ -260,7 +270,7 @@ export default function PrimeProducer() {
         period_end: endDate,
       }));
       for (let i = 0; i < results.length; i += 500) {
-        const { error: ie } = await (supabase.from("producer_bonus_results") as any).insert(results.slice(i, i + 500));
+        const { error: ie } = await supabase.from("producer_bonus_results").insert(results.slice(i, i + 500));
         if (ie) throw ie;
       }
       toast({ title: "Enregistré", description: "Le calcul de prime a été sauvegardé." });
@@ -364,7 +374,7 @@ export default function PrimeProducer() {
             </div>
             <div>
               <Label className="text-xs">Type de prime</Label>
-              <Select value={bonusType} onValueChange={(v: any) => setBonusType(v)}>
+              <Select value={bonusType} onValueChange={(v) => setBonusType(v as "total" | "per_kg")}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="per_kg">Montant par kg</SelectItem>
