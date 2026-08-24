@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToExcel } from "@/lib/excel-utils";
 import { fetchAllRows } from "@/lib/database-utils";
-import { useCampaigns, useActiveCampaign } from "@/hooks/useActiveCampaign";
+import { useCampaignLabels } from "@/hooks/useCampaign";
 import { toast } from "@/hooks/use-toast";
 import { FileSpreadsheet, Download, Users, Ship, MapPin, Loader2, Calendar } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
@@ -25,16 +25,9 @@ export default function ExportPage() {
   const [registres, setRegistres] = useState<{ id: string; name: string }[]>([]);
   const [selectedRegistre, setSelectedRegistre] = useState("");
   const [selectedConnaissement, setSelectedConnaissement] = useState("");
-  const [selectedCampaign, setSelectedCampaign] = useState<string>("");
+  const { labels: campaigns, activeCampaign } = useCampaignLabels();
+  const [selectedCampaign, setSelectedCampaign] = useState<string>(activeCampaign);
   const [loading, setLoading] = useState<string | null>(null);
-  const { campaigns } = useCampaigns();
-  const { campaign: activeCampaign } = useActiveCampaign();
-
-  useEffect(() => {
-    if (!selectedCampaign && activeCampaign) {
-      setSelectedCampaign(activeCampaign.id);
-    }
-  }, [activeCampaign, selectedCampaign]);
 
   useEffect(() => {
     let q: any = (supabase as any)
@@ -57,7 +50,7 @@ export default function ExportPage() {
 
   const campaignLabel = () => {
     if (!selectedCampaign || selectedCampaign === ALL_CAMPAIGNS) return "Toutes-Campagnes";
-    return campaigns.find((c) => c.id === selectedCampaign)?.nom || "Campagne";
+    return selectedCampaign;
   };
 
   const applyCampaignFilter = (q: any, column = "campaign_label") => {
@@ -328,11 +321,9 @@ export default function ExportPage() {
                 Tous les exports ci-dessous seront filtrés sur cette campagne. Sélectionnez « Toutes les campagnes » pour exporter l'historique complet.
               </CardDescription>
             </div>
-            {activeCampaign && (
-              <Badge variant="secondary" className="shrink-0">
-                Active : {activeCampaign.nom}
-              </Badge>
-            )}
+            <Badge variant="secondary" className="shrink-0">
+              Active : {activeCampaign}
+            </Badge>
           </div>
         </CardHeader>
         <CardContent>
@@ -341,8 +332,8 @@ export default function ExportPage() {
             <SelectContent>
               <SelectItem value={ALL_CAMPAIGNS}>Toutes les campagnes (historique global)</SelectItem>
               {campaigns.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.nom}{c.utilise_pour_chargement ? " (active)" : ""}
+                <SelectItem key={c} value={c}>
+                  {c}{c === activeCampaign ? " (active)" : ""}
                 </SelectItem>
               ))}
             </SelectContent>

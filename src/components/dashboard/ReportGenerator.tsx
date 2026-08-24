@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -6,44 +6,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Loader2, FileDown, Presentation } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { generateReport } from "@/lib/pptx-report-generator";
 import { loadReportData } from "@/hooks/useReportData";
-import { normalizeCampaign } from "@/lib/shipment-utils";
+import { useCampaignLabels } from "@/hooks/useCampaign";
 
-
-interface Campaign { id: string; nom: string }
 
 export default function ReportGenerator() {
   const { user } = useAuth();
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [campaignId, setCampaignId] = useState<string>("");
+  const { labels: campaigns, activeCampaign } = useCampaignLabels();
+  const [campaignId, setCampaignId] = useState<string>(activeCampaign);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [generating, setGenerating] = useState(false);
   
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await (supabase as any)
-          .from("shipments")
-          .select("campaign_label")
-          .not("campaign_label", "is", null)
-          .limit(2000);
-        const labels = Array.from(new Set(((data as any[]) || []).map((r) => r.campaign_label).filter(Boolean))).sort().reverse();
-        const current = (await import("@/lib/campaign")).currentCampaign();
-        if (!labels.includes(current)) labels.unshift(current);
-        const list = labels.map((l) => ({ id: l, nom: l, utilise_pour_chargement: l === current, active: l === current }));
-        setCampaigns(list as Campaign[]);
-        setCampaignId(current);
-      } catch (e) {
-        console.error(e);
-        toast.error("Une erreur est survenue.");
-      }
-    })();
-  }, []);
 
   const handleGenerate = async () => {
     if (!campaignId) {
@@ -52,12 +28,12 @@ export default function ReportGenerator() {
     }
     setGenerating(true);
     try {
-      const camp = campaigns.find((c) => c.id === campaignId);
+
       const payload = await loadReportData(
         "campaign",
         {
           campaignId,
-          campaignName: camp?.nom ?? "",
+          campaignName: campaignId,
           cooperatives: [],
           project: null,
           destination: null,
@@ -96,7 +72,7 @@ export default function ReportGenerator() {
                 <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                 <SelectContent>
                   {campaigns.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{normalizeCampaign(c.nom)}</SelectItem>
+                    <SelectItem key={c} value={c}>{c}{c === activeCampaign ? " (active)" : ""}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

@@ -1159,7 +1159,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      apply_shipment_potentials: { Args: { p_lines: Json }; Returns: number }
       can_access_registre: { Args: { _registre_id: string }; Returns: boolean }
       can_write_registre: { Args: { _registre_id: string }; Returns: boolean }
       compute_campaign_label: { Args: { d: string }; Returns: string }
@@ -1186,33 +1185,6 @@ export type Database = {
             }
             Returns: string
           }
-      export_all_deliveries: {
-        Args: never
-        Returns: {
-          created_at: string
-          delivery_date: string
-          id: string
-          net_weight: number
-          num_bags: number
-          producer_id: string
-          receipt_number: string
-          shipment_id: string
-        }[]
-      }
-      export_all_producers: {
-        Args: never
-        Returns: {
-          delivery_potential: number
-          full_name: string
-          id: string
-          is_active: boolean
-          plantation_code: string
-          registre_id: string
-          remaining_potential: number
-          section: string
-          sexe: string
-        }[]
-      }
       get_dashboard_stats_by_registre: {
         Args: { p_campaign_label?: string; p_registre_id: string }
         Returns: {
@@ -1253,7 +1225,6 @@ export type Database = {
       is_super_admin: { Args: never; Returns: boolean }
       log_login_event: { Args: { p_user_agent?: string }; Returns: undefined }
       my_cooperative_ids: { Args: never; Returns: string[] }
-      my_cooperative_names: { Args: never; Returns: string[] }
       my_registre_ids: { Args: never; Returns: string[] }
       next_lot_number: {
         Args: { p_campaign_label: string; p_registre: string }

@@ -39,3 +39,9 @@ export function campaignsBetween(from?: Date | string | null, to?: Date | string
   }
   return Array.from(set).sort();
 }
+
+/** Vrai durant la première semaine d'une nouvelle campagne (début septembre). */
+export function isCampaignStart(): boolean {
+  const now = new Date();
+  return now.getMonth() === 8 && now.getDate() <= 7;
+}
