@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToExcel } from "@/lib/excel-utils";
-import { fetchAllRows } from "@/lib/database-utils";
+import { fetchAllRows, type PaginatedQuery } from "@/lib/database-utils";
 import { useCampaignLabels } from "@/hooks/useCampaign";
 import { toast } from "@/hooks/use-toast";
 import { FileSpreadsheet, Download, Users, Ship, MapPin, Loader2, Calendar } from "lucide-react";
