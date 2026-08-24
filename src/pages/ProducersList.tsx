@@ -11,27 +11,37 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle, ShieldOff } from "lucide-react";
-import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
+import { useSortableTable, SortableHeader, type SortValue } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { parseExcelFile, downloadImportTemplate, exportToExcel, downloadErrorReport, type ProducerRow, type ImportError, type ImportReport } from "@/lib/excel-utils";
 import PageHeader from "@/components/PageHeader";
 import { Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { normalizeCampaign, getCurrentCampaign } from "@/lib/shipment-utils";
+import type { Database } from "@/integrations/supabase/types";
 
 type ImportMode = "insert" | "update";
+
+type ProducerDbRow = Database["public"]["Tables"]["producers"]["Row"];
+/** Producteur enrichi du nom de son registre (exposé sous `cooperative` pour le rendu). */
+type ProducerListRow = ProducerDbRow & {
+  registres?: { id: string; name: string } | null;
+  cooperative: string;
+};
+type ProducerEditForm = Partial<ProducerDbRow>;
 
 export default function Producers() {
   const navigate = useNavigate();
   const { cooperativeRefs, isSuperAdmin } = useAuth();
-  const [producers, setProducers] = useState<any[]>([]);
+  const [producers, setProducers] = useState<ProducerListRow[]>([]);
   const [search, setSearch] = useState("");
   const [coopFilter, setCoopFilter] = useState("all");
   const [loading, setLoading] = useState(true);
-  const [detailProducer, setDetailProducer] = useState<any | null>(null);
-  const [editProducer, setEditProducer] = useState<any | null>(null);
-  const [deleteProducer, setDeleteProducer] = useState<any | null>(null);
-  const [editForm, setEditForm] = useState<any>({});
+  const [detailProducer, setDetailProducer] = useState<ProducerListRow | null>(null);
+  const [editProducer, setEditProducer] = useState<ProducerListRow | null>(null);
+  const [deleteProducer, setDeleteProducer] = useState<ProducerListRow | null>(null);
+  const [editForm, setEditForm] = useState<ProducerEditForm>({});
+
   const [saving, setSaving] = useState(false);
 
   // Import state
@@ -51,25 +61,28 @@ export default function Producers() {
 
   async function loadProducers() {
     setLoading(true);
-    let allData: any[] = [];
+    type FetchedProducer = ProducerDbRow & { registres?: { id: string; name: string } | null };
+    let allData: FetchedProducer[] = [];
     let from = 0;
     const PAGE = 1000;
     while (true) {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("producers")
         .select("*, registres(id, name)")
         .order("section", { ascending: true })
         .order("full_name", { ascending: true })
-        .range(from, from + PAGE - 1);
+        .range(from, from + PAGE - 1)
+        .returns<FetchedProducer[]>();
       if (!data || data.length === 0) break;
       allData = allData.concat(data);
       if (data.length < PAGE) break;
       from += PAGE;
     }
     // Compat : expose le nom du registre sous `cooperative` pour tout le rendu existant
-    setProducers(allData.map((p: any) => ({ ...p, cooperative: p.registres?.name || "" })));
+    setProducers(allData.map((p) => ({ ...p, cooperative: p.registres?.name || "" })));
     setLoading(false);
   }
+
 
   // Unique cooperatives for filter
   const cooperatives = useMemo(() => {
@@ -93,10 +106,15 @@ export default function Producers() {
         p.section.toLowerCase().includes(s)
       );
     });
-    return sortData(base, (item: any, col: string) => {
+    return sortData(base, (item, col): SortValue => {
       if (col === "delivery_potential" || col === "remaining_potential") return Number(item[col]);
-      return item[col];
+      const v: unknown = (item as Record<string, unknown>)[col];
+      if (v == null) return null;
+      if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
+      return String(v);
+
     });
+
   }, [producers, coopFilter, search, sortConfig]);
 
   // --- Edit / Delete (existing) ---
@@ -111,7 +129,7 @@ export default function Producers() {
   }, []);
 
   async function loadDisabledSections() {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("disabled_sections")
       .select("section_name, registre_id")
       .eq("campaign_label", activeCampaign);
@@ -119,7 +137,7 @@ export default function Producers() {
       console.error("[disabled_sections] load", error);
       return;
     }
-    setDisabledSections(new Set((data || []).map((d: any) => sectionKey(d.registre_id, d.section_name))));
+    setDisabledSections(new Set((data ?? []).map((d) => sectionKey(d.registre_id, d.section_name))));
   }
 
   async function toggleSection(sectionName: string, registreId?: string) {
@@ -132,15 +150,16 @@ export default function Producers() {
     const isDisabled = disabledSections.has(key);
     setTogglingSections((current) => new Set(current).add(key));
     const { error } = isDisabled
-      ? await (supabase as any)
+      ? await supabase
           .from("disabled_sections")
           .delete()
           .eq("section_name", sectionName)
           .eq("registre_id", registreId)
           .eq("campaign_label", activeCampaign)
-      : await (supabase as any)
+      : await supabase
           .from("disabled_sections")
           .insert({ section_name: sectionName, registre_id: registreId, campaign_label: activeCampaign });
+
     if (error) {
       console.error("[disabled_sections] toggle", error);
       toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
@@ -180,7 +199,7 @@ export default function Producers() {
   }, [producers, coopFilter]);
 
 
-  function openEdit(p: any) {
+  function openEdit(p: ProducerListRow) {
     setEditForm({
       full_name: p.full_name,
       section: p.section,
@@ -302,12 +321,12 @@ export default function Producers() {
     if (uniq.length === 0) return map;
 
     // Fetch existing registres (RLS scopes them to accessible cooperatives)
-    const { data: existing, error: fetchErr } = await (supabase as any)
+    const { data: existing, error: fetchErr } = await supabase
       .from("registres")
       .select("id, name, cooperative_id");
     if (fetchErr) throw fetchErr;
     const byName = new Map<string, { id: string; cooperative_id: string }>();
-    (existing || []).forEach((r: any) => byName.set(r.name.trim().toLowerCase(), r));
+    (existing ?? []).forEach((r) => byName.set(r.name.trim().toLowerCase(), r));
 
     const missing: string[] = [];
     for (const name of uniq) {
@@ -333,13 +352,14 @@ export default function Producers() {
         cooperative_id: coopId,
         status: "active",
       }));
-      const { data: created, error: createErr } = await (supabase as any)
+      const { data: created, error: createErr } = await supabase
         .from("registres")
         .insert(toCreate)
         .select("id, name");
       if (createErr) throw createErr;
-      (created || []).forEach((r: any) => map.set(r.name.trim().toLowerCase(), r.id));
+      (created ?? []).forEach((r) => map.set(r.name.trim().toLowerCase(), r.id));
     }
+
     return map;
   }
 
@@ -364,15 +384,17 @@ export default function Producers() {
     };
   }
 
-  function describeSupabaseError(err: any, step: string): string {
+  function describeSupabaseError(err: unknown, step: string): string {
     if (!err) return `Étape « ${step} » : erreur inconnue.`;
+    const e = err as { code?: string; message?: string; details?: string; hint?: string };
     const parts: string[] = [`Étape « ${step} »`];
-    if (err.code) parts.push(`code ${err.code}`);
-    if (err.message) parts.push(err.message);
-    if (err.details) parts.push(`détails : ${err.details}`);
-    if (err.hint) parts.push(`indice : ${err.hint}`);
+    if (e.code) parts.push(`code ${e.code}`);
+    if (e.message) parts.push(e.message);
+    if (e.details) parts.push(`détails : ${e.details}`);
+    if (e.hint) parts.push(`indice : ${e.hint}`);
     return parts.join(" — ");
   }
+
 
   async function confirmImport() {
     if (parsedRows.length === 0) return;
@@ -406,7 +428,7 @@ export default function Producers() {
             .select("plantation_code")
             .in("plantation_code", chunk);
           if (error) throw error;
-          (data || []).forEach((p: any) => existingCodes.add(p.plantation_code));
+          (data ?? []).forEach((p) => existingCodes.add(p.plantation_code));
         }
 
         const newRows = rowsWithRegistre.filter(({ row }) => !existingCodes.has(row.plantation_code));
@@ -424,9 +446,9 @@ export default function Producers() {
           const toInsert = newRows.map(({ row, registreId }) => toDbRow(row, registreId));
           for (let i = 0; i < toInsert.length; i += 200) {
             const batch = toInsert.slice(i, i + 200);
-            const { error } = await (supabase as any).from("producers").insert(batch);
+            const { error } = await supabase.from("producers").insert(batch as never);
             if (error) {
-              (error as any).__batchIndex = i;
+              (error as { __batchIndex?: number }).__batchIndex = i;
               throw error;
             }
           }
@@ -447,13 +469,14 @@ export default function Producers() {
             .select("id, plantation_code")
             .in("plantation_code", chunk);
           if (error) throw error;
-          (data || []).forEach((p: any) => existingMap.set(p.plantation_code, p.id));
+          (data ?? []).forEach((p) => existingMap.set(p.plantation_code, p.id));
         }
 
         let updatedCount = 0;
         let insertedCount = 0;
-        const inserts: any[] = [];
-        const updates: { id: string; payload: any }[] = [];
+        type ProducerInsert = ReturnType<typeof toDbRow>;
+        const inserts: ProducerInsert[] = [];
+        const updates: { id: string; payload: Omit<ProducerInsert, "registre_id"> }[] = [];
 
         for (const { row, registreId } of rowsWithRegistre) {
           const payload = toDbRow(row, registreId);
@@ -478,7 +501,7 @@ export default function Producers() {
           step = "insertion des nouveaux producteurs";
           for (let i = 0; i < inserts.length; i += 200) {
             const batch = inserts.slice(i, i + 200);
-            const { error } = await supabase.from("producers").insert(batch);
+            const { error } = await supabase.from("producers").insert(batch as never);
             if (error) throw error;
           }
         }
@@ -491,7 +514,7 @@ export default function Producers() {
 
       setImportDone(true);
       await loadProducers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[import producers] échec:", { step, error: err });
       const detail = describeSupabaseError(err, step);
       toast({
@@ -923,7 +946,7 @@ export default function Producers() {
             </div>
             <div>
               <Label>Registre</Label>
-              <Input value={editForm.cooperative || ""} onChange={(e) => setEditForm({ ...editForm, cooperative: e.target.value })} />
+              <Input value={editProducer?.cooperative || ""} disabled readOnly />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

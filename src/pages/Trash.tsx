@@ -32,9 +32,16 @@ export default function Trash() {
   const [rows, setRows] = useState<TrashRow[]>([]);
   const [loading, setLoading] = useState(false);
 
+  /**
+   * Les 4 tables de la corbeille partagent `id` et `deleted_at`.
+   * On s'appuie sur le typage d'une table représentative pour garder un
+   * query builder typé malgré le nom de table dynamique.
+   */
+  const trashTable = (t: TableKey) => supabase.from(t as "partners");
+
   const load = async () => {
     setLoading(true);
-    const { data, error } = await (supabase.from(tab) as any)
+    const { data, error } = await trashTable(tab)
       .select("*")
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false })
@@ -50,7 +57,7 @@ export default function Trash() {
   useEffect(() => { load(); }, [tab]);
 
   const restore = async (id: string) => {
-    const { error } = await (supabase.from(tab) as any).update({ deleted_at: null }).eq("id", id);
+    const { error } = await trashTable(tab).update({ deleted_at: null }).eq("id", id);
     if (error) { console.error(error); toast.error("Une erreur est survenue."); return; }
     toast.success("Élément restauré");
     load();
@@ -58,11 +65,12 @@ export default function Trash() {
 
   const purge = async (id: string) => {
     if (!confirm("Suppression définitive ?")) return;
-    const { error } = await (supabase.from(tab) as any).delete().eq("id", id);
+    const { error } = await trashTable(tab).delete().eq("id", id);
     if (error) { console.error(error); toast.error("Une erreur est survenue."); return; }
     toast.success("Supprimé définitivement");
     load();
   };
+
 
   const titleField = (r: TrashRow) =>
     r.name || r.full_name || r.lot_number || r.connaissement || r.id?.slice(0, 8);

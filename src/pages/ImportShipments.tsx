@@ -27,11 +27,32 @@ export default function ImportShipments() {
   const [potentialWarnings, setPotentialWarnings] = useState<string[]>([]);
   const [delayWarnings, setDelayWarnings] = useState<string[]>([]);
 
+  /** Ligne minimale insérée dans `deliveries` lors d'un import historique. */
+  type DeliveryInsert = {
+    shipment_id: string;
+    producer_id: string;
+    receipt_number: string;
+    delivery_date: string;
+    net_weight: number;
+    num_bags: number;
+  };
+
+  /** Producteur tel que retourné par les recherches par code plantation. */
+  type ProducerLookup = {
+    id?: string;
+    plantation_code: string;
+    full_name?: string;
+    section?: string;
+    registre_id?: string;
+    remaining_potential?: number | string | null;
+    registres?: { name: string } | null;
+  };
+
   // Helper: chunked insert for deliveries
-  async function chunkedInsertDeliveries(rows: any[], chunkSize = 500) {
+  async function chunkedInsertDeliveries(rows: DeliveryInsert[], chunkSize = 500) {
     for (let i = 0; i < rows.length; i += chunkSize) {
       const chunk = rows.slice(i, i + chunkSize);
-      const { error } = await supabase.from("deliveries").insert(chunk);
+      const { error } = await supabase.from("deliveries").insert(chunk as never);
       if (error) throw error;
     }
   }
@@ -41,15 +62,20 @@ export default function ImportShipments() {
     selectCols: string,
     codes: string[],
     chunkSize = 500
-  ) {
-    const results: any[] = [];
+  ): Promise<ProducerLookup[]> {
+    const results: ProducerLookup[] = [];
     for (let i = 0; i < codes.length; i += chunkSize) {
       const chunk = codes.slice(i, i + chunkSize);
-      const { data } = await supabase.from("producers").select(selectCols).in("plantation_code", chunk);
+      const { data } = await supabase
+        .from("producers")
+        .select(selectCols)
+        .in("plantation_code", chunk)
+        .returns<ProducerLookup[]>();
       if (data) results.push(...data);
     }
     return results;
   }
+
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -72,12 +98,13 @@ export default function ImportShipments() {
         codes
       );
 
-      const producerMap = new Map(
-        (producers || []).map((p: any) => [p.plantation_code, p])
+      const producerMap = new Map<string, ProducerLookup>(
+        producers.map((p) => [p.plantation_code, p])
       );
 
       const matched: MatchedProducer[] = codes.map((code) => {
-        const dbProducer: any = producerMap.get(code);
+        const dbProducer = producerMap.get(code);
+
         const fileRow = result.rows.find((r) => r.code_plantation === code);
         return {
           code_plantation: code,
@@ -142,15 +169,16 @@ export default function ImportShipments() {
       const allCodes = [...new Set(importRows.map((r) => r.code_plantation))];
       const producers = await chunkedProducerLookup("id, plantation_code, remaining_potential", allCodes);
 
-      const producerMap = new Map((producers || []).map((p: any) => [p.plantation_code, p]));
+      const producerMap = new Map<string, ProducerLookup>(producers.map((p) => [p.plantation_code, p]));
 
       const { data: existingPartners } = await supabase.from("partners").select("id, name");
-      const partnerMap = new Map<string, string>((existingPartners || []).map((p: any) => [String(p.name).toLowerCase(), p.id as string]));
+      const partnerMap = new Map<string, string>((existingPartners ?? []).map((p) => [p.name.toLowerCase(), p.id]));
 
       // Load registres for mapping zone -> registre_id
-      const { data: regsData } = await (supabase as any).from("registres").select("id, name, cooperative_id");
-      const regNameToId = new Map<string, string>((regsData || []).map((r: any) => [String(r.name).toLowerCase(), r.id as string]));
-      const regIdToCoopId = new Map<string, string>((regsData || []).map((r: any) => [r.id as string, r.cooperative_id as string]));
+      const { data: regsData } = await supabase.from("registres").select("id, name, cooperative_id");
+      const regNameToId = new Map<string, string>((regsData ?? []).map((r) => [r.name.toLowerCase(), r.id]));
+      const regIdToCoopId = new Map<string, string>((regsData ?? []).map((r) => [r.id, r.cooperative_id]));
+
 
       const groups = groupByShipment(importRows);
       let totalDeliveries = 0;
@@ -173,11 +201,12 @@ export default function ImportShipments() {
         if (first.partenaire) {
           partnerId = partnerMap.get(first.partenaire.toLowerCase()) || null;
           if (!partnerId) {
-            const { data: newPartner } = await (supabase as any)
+            const { data: newPartner } = await supabase
               .from("partners")
-              .insert({ name: first.partenaire, cooperative_id: regIdToCoopId.get(registreId) })
-              .select()
+              .insert({ name: first.partenaire, cooperative_id: regIdToCoopId.get(registreId) as string })
+              .select("id")
               .single();
+
             if (newPartner) {
               partnerId = newPartner.id;
               partnerMap.set(first.partenaire.toLowerCase(), newPartner.id);
@@ -192,8 +221,9 @@ export default function ImportShipments() {
         const deliveryStart = dates[0] || first.date_livraison;
         const deliveryEnd = dates[dates.length - 1] || first.date_livraison;
 
-        const { data: shipment, error: shipErr } = await (supabase as any)
+        const { data: shipment, error: shipErr } = await supabase
           .from("shipments")
+
           .insert({
             connaissement: first.connaissement || null,
             total_weight: totalWeight,
@@ -207,23 +237,24 @@ export default function ImportShipments() {
             campaign_label: campaignLabel || null,
             delivery_start: deliveryStart,
             delivery_end: deliveryEnd,
-          })
-          .select()
+          } as never)
+          .select("id")
           .single();
 
         if (shipErr) throw shipErr;
         totalShipments++;
 
-        const deliveries = group
+        const deliveries: DeliveryInsert[] = group
           .filter((r) => producerMap.has(r.code_plantation))
           .map((r) => ({
-            shipment_id: shipment.id,
-            producer_id: producerMap.get(r.code_plantation)!.id,
+            shipment_id: (shipment as { id: string }).id,
+            producer_id: producerMap.get(r.code_plantation)!.id as string,
             receipt_number: r.numero_recu,
             delivery_date: r.date_livraison || deliveryStart,
             net_weight: r.poids_net,
             num_bags: r.nombre_sacs,
           }));
+
 
         if (deliveries.length > 0) {
           await chunkedInsertDeliveries(deliveries);
@@ -234,7 +265,7 @@ export default function ImportShipments() {
           const producer = producerMap.get(r.code_plantation);
           if (producer) {
             const newPotential = Math.max(0, Number(producer.remaining_potential) - r.poids_net);
-            await supabase.from("producers").update({ remaining_potential: newPotential }).eq("id", producer.id);
+            await supabase.from("producers").update({ remaining_potential: newPotential }).eq("id", producer.id as string);
             producer.remaining_potential = newPotential;
           }
         }
@@ -243,7 +274,8 @@ export default function ImportShipments() {
       toast({ title: "Importation réussie", description: `${totalShipments} chargement(s) et ${totalDeliveries} livraison(s) importé(s).` });
       setDone(true);
       setRows([]);
-    } catch (err: any) {
+    } catch (err: unknown) {
+
       (console.error(err), toast({ title: "Erreur d'importation", description: "Une erreur est survenue.", variant: "destructive" }));
     } finally {
       setSaving(false);

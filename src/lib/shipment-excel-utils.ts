@@ -82,7 +82,7 @@ SHIPMENT_COLUMN_MAP["sacs"] = "nombre_sacs";
 SHIPMENT_COLUMN_MAP["n recu"] = "numero_recu";
 SHIPMENT_COLUMN_MAP["numero recu"] = "numero_recu";
 
-function parseExcelDate(value: any): string {
+function parseExcelDate(value: ExcelJS.CellValue): string {
   if (!value) return "";
   if (value instanceof Date) {
     const y = value.getFullYear();
@@ -97,8 +97,11 @@ function parseExcelDate(value: any): string {
   return str;
 }
 
-function sheetToJson(worksheet: ExcelJS.Worksheet): Record<string, any>[] {
-  const rows: Record<string, any>[] = [];
+/** Ligne brute lue depuis Excel : en-tête → valeur de cellule. */
+type RawExcelRow = Record<string, ExcelJS.CellValue>;
+
+function sheetToJson(worksheet: ExcelJS.Worksheet): RawExcelRow[] {
+  const rows: RawExcelRow[] = [];
   const headerRow = worksheet.getRow(1);
   const headers: string[] = [];
   headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
@@ -107,19 +110,18 @@ function sheetToJson(worksheet: ExcelJS.Worksheet): Record<string, any>[] {
 
   worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber === 1) return;
-    const obj: Record<string, any> = {};
+    const obj: RawExcelRow = {};
     row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       const key = headers[colNumber];
-      if (key) {
-        // ExcelJS returns Date objects for date cells
-        obj[key] = cell.value instanceof Date ? cell.value : cell.value;
-      }
+      // ExcelJS renvoie des objets Date pour les cellules de type date
+      if (key) obj[key] = cell.value;
     });
     if (Object.keys(obj).length > 0) rows.push(obj);
   });
 
   return rows;
 }
+
 
 export async function parseShipmentExcel(data: ArrayBuffer): Promise<{ rows: ShipmentImportRow[]; errors: ShipmentImportError[] }> {
   const workbook = new ExcelJS.Workbook();
@@ -171,10 +173,11 @@ export async function parseShipmentExcel(data: ArrayBuffer): Promise<{ rows: Shi
     const raw = rawRows[i];
     const rowNum = i + 2;
 
-    const row: Partial<ShipmentImportRow> = {};
+    const row: Partial<Record<keyof ShipmentImportRow, ExcelJS.CellValue>> = {};
     for (const [excelKey, fieldKey] of Object.entries(headerMap)) {
-      (row as any)[fieldKey] = raw[excelKey];
+      row[fieldKey] = raw[excelKey];
     }
+
 
     if (!row.nom_producteur) {
       errors.push({ row: rowNum, message: "Nom du producteur manquant" });

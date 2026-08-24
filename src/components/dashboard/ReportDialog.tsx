@@ -70,7 +70,7 @@ export default function ReportDialog({ open, onOpenChange, dashboardData }: Repo
     const slide3 = pptx.addSlide();
     slide3.addText("Répartition par Projet", { x: 0.5, y: 0.3, w: 12.3, h: 0.8, fontSize: 28, bold: true, color: COLORS.headerBg });
     if (dashboardData.byProject.length > 0) {
-      const rows: any[][] = [
+      const rows: PptxGenJS.TableRow[] = [
         [{ text: "Projet", options: { bold: true, fill: { color: COLORS.headerBg }, color: "FFFFFF", fontSize: 12 } },
          { text: "Poids (kg)", options: { bold: true, fill: { color: COLORS.headerBg }, color: "FFFFFF", fontSize: 12, align: "right" } },
          { text: "Part (%)", options: { bold: true, fill: { color: COLORS.headerBg }, color: "FFFFFF", fontSize: 12, align: "right" } }],
@@ -93,7 +93,7 @@ export default function ReportDialog({ open, onOpenChange, dashboardData }: Repo
     const slide4 = pptx.addSlide();
     slide4.addText("Répartition par Partenaire", { x: 0.5, y: 0.3, w: 12.3, h: 0.8, fontSize: 28, bold: true, color: COLORS.headerBg });
     if (dashboardData.byPartner.length > 0) {
-      const rows: any[][] = [
+      const rows: PptxGenJS.TableRow[] = [
         [{ text: "Partenaire", options: { bold: true, fill: { color: COLORS.headerBg }, color: "FFFFFF", fontSize: 12 } },
          { text: "Poids (kg)", options: { bold: true, fill: { color: COLORS.headerBg }, color: "FFFFFF", fontSize: 12, align: "right" } }],
       ];
@@ -111,7 +111,7 @@ export default function ReportDialog({ open, onOpenChange, dashboardData }: Repo
     const slide5 = pptx.addSlide();
     slide5.addText("Performance par Registre", { x: 0.5, y: 0.3, w: 12.3, h: 0.8, fontSize: 28, bold: true, color: COLORS.headerBg });
     if (dashboardData.coopStats.length > 0) {
-      const rows: any[][] = [
+      const rows: PptxGenJS.TableRow[] = [
         [
           { text: "Registre", options: { bold: true, fill: { color: COLORS.headerBg }, color: "FFFFFF", fontSize: 10 } },
           { text: "Potentiel", options: { bold: true, fill: { color: COLORS.headerBg }, color: "FFFFFF", fontSize: 10, align: "right" } },

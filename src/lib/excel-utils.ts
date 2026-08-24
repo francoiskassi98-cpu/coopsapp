@@ -103,8 +103,11 @@ for (const col of TEMPLATE_COLUMNS) {
   COLUMN_MAP[normalizeHeader(col.header)] = { field: col.field, header: col.header };
 }
 
-function sheetToJson(worksheet: ExcelJS.Worksheet): Record<string, any>[] {
-  const rows: Record<string, any>[] = [];
+/** Ligne brute lue depuis Excel : en-tête → valeur de cellule. */
+type RawExcelRow = Record<string, ExcelJS.CellValue>;
+
+function sheetToJson(worksheet: ExcelJS.Worksheet): RawExcelRow[] {
+  const rows: RawExcelRow[] = [];
   const headerRow = worksheet.getRow(1);
   const headers: string[] = [];
   headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
@@ -113,7 +116,7 @@ function sheetToJson(worksheet: ExcelJS.Worksheet): Record<string, any>[] {
 
   worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber === 1) return;
-    const obj: Record<string, any> = {};
+    const obj: RawExcelRow = {};
     row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       const key = headers[colNumber];
       if (key) obj[key] = cell.value;
@@ -123,6 +126,7 @@ function sheetToJson(worksheet: ExcelJS.Worksheet): Record<string, any>[] {
 
   return rows;
 }
+
 
 function makeError(
   row: number,
@@ -189,10 +193,11 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
     const raw = rawRows[i];
     const rowNum = i + 2; // Excel row (1-indexed + header)
 
-    const row: Partial<ProducerRow> = {};
+    const row: Partial<Record<keyof ProducerRow, ExcelJS.CellValue>> = {};
     for (const [excelKey, def] of Object.entries(headerMap)) {
-      (row as any)[def.field] = raw[excelKey];
+      row[def.field] = raw[excelKey];
     }
+
 
     const rowErrors: ImportError[] = [];
 
@@ -225,7 +230,7 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
       ["latitude", "Latitude polygone"],
       ["longitude", "Longitude polygone"],
     ] as const) {
-      const v = (row as any)[field];
+      const v = row[field];
       if (v !== null && v !== undefined && String(v).trim() !== "" && !isFiniteNumber(v)) {
         rowErrors.push(makeError(rowNum, header, v, "Valeur non numérique", "Nombre décimal", "Utilisez un nombre (ex : 12.5). Laissez vide si inconnu."));
       }
@@ -292,8 +297,9 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
   };
 }
 
-export async function exportToExcel(
-  data: Record<string, any>[],
+export async function exportToExcel<T extends object>(
+  data: T[],
+
   filename: string,
   sheetName = "Données"
 ) {
@@ -335,7 +341,7 @@ export async function downloadImportTemplate() {
   headerRow.height = 30;
 
   // Ligne exemple avec campagne courante préremplie
-  const example: Record<string, any> = {
+  const example: Record<string, string | number> = {
     cooperative: "COOP-EXEMPLE",
     campaign_label: currentCampaign(),
     full_name: "KOUAME KOFFI",

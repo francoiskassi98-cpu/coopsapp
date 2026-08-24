@@ -145,7 +145,7 @@ function distributionSlide(pptx: PptxGenJS, title: string, data: Array<{ name: s
     showPercent: true,
   });
   const sum = data.reduce((s, d) => s + d.value, 0);
-  const rows: any[][] = [[
+  const rows: PptxGenJS.TableRow[] = [[
     { text: "Catégorie", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 11 } },
     { text: "Poids (kg)", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 11, align: "right" } },
     { text: "Part", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 11, align: "right" } },
@@ -168,7 +168,7 @@ function coopSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total:
     s.addText("Aucun registre.", { x: 0.6, y: 3, w: 12, h: 0.6, fontSize: 14, color: TH.muted, align: "center" });
     return;
   }
-  const rows: any[][] = [[
+  const rows: PptxGenJS.TableRow[] = [[
     { text: "Registre", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10 } },
     { text: "Potentiel", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10, align: "right" } },
     { text: "Livré", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10, align: "right" } },
@@ -198,7 +198,7 @@ function shipmentsSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, t
     s.addText("Aucun chargement.", { x: 0.6, y: 3, w: 12, h: 0.6, fontSize: 14, color: TH.muted, align: "center" });
     return;
   }
-  const rows: any[][] = [[
+  const rows: PptxGenJS.TableRow[] = [[
     { text: "Connaiss.", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10 } },
     { text: "Projet", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10 } },
     { text: "Partenaire", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10 } },
@@ -262,7 +262,7 @@ function eudrSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total:
   s.addText(`Statut EUDR : ${status.txt}`, { x: 4.0, y: 1.3, w: 5.3, h: 0.6, fontSize: 22, bold: true, color: "FFFFFF", align: "center" });
   s.addText(`Score global : ${eudrScore.toFixed(1)} / 100`, { x: 4.0, y: 2.0, w: 5.3, h: 0.5, fontSize: 14, color: "FFFFFF", align: "center" });
 
-  const rows: any[][] = [
+  const rows: PptxGenJS.TableRow[] = [
     [{ text: "Indicateur", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF" } },
      { text: "Valeur", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", align: "right" } },
      { text: "Cible", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", align: "right" } }],
