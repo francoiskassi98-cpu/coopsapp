@@ -71,7 +71,10 @@ async function fetchAll<T>(table: string, select = "*"): Promise<T[]> {
   let from = 0;
   const PAGE = 1000;
   while (true) {
-    const { data, error } = await ((supabase as any).from(table)).select(select).range(from, from + PAGE - 1);
+    const { data, error } = await supabase
+      .from(table as never)
+      .select(select)
+      .range(from, from + PAGE - 1);
     if (error) { console.error(error); break; }
     if (!data || data.length === 0) break;
     all = all.concat(data as T[]);

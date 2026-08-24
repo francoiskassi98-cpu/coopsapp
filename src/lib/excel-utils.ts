@@ -44,7 +44,7 @@ export interface ImportReport {
 }
 
 function normalizeHeader(header: string): string {
-  return header.toLowerCase().trim().replace(/[_\-]/g, " ").replace(/\s+/g, " ");
+  return header.toLowerCase().trim().replace(/[_-]/g, " ").replace(/\s+/g, " ");
 }
 
 function stripAccents(s: string): string {

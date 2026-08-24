@@ -92,7 +92,7 @@ export function distributeShipment(
   entries = entries.filter((b) => b.bags > 0);
 
   // Adjust total bags to match declared total
-  let currentTotalBags = entries.reduce((sum, b) => sum + b.bags, 0);
+  const currentTotalBags = entries.reduce((sum, b) => sum + b.bags, 0);
 
   if (currentTotalBags < totalBags) {
     // Need to add bags — distribute to those with highest weight per bag
