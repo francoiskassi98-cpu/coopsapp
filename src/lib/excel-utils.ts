@@ -103,8 +103,11 @@ for (const col of TEMPLATE_COLUMNS) {
   COLUMN_MAP[normalizeHeader(col.header)] = { field: col.field, header: col.header };
 }
 
-function sheetToJson(worksheet: ExcelJS.Worksheet): Record<string, any>[] {
-  const rows: Record<string, any>[] = [];
+/** Ligne brute lue depuis Excel : en-tête → valeur de cellule. */
+type RawExcelRow = Record<string, ExcelJS.CellValue>;
+
+function sheetToJson(worksheet: ExcelJS.Worksheet): RawExcelRow[] {
+  const rows: RawExcelRow[] = [];
   const headerRow = worksheet.getRow(1);
   const headers: string[] = [];
   headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
@@ -113,7 +116,7 @@ function sheetToJson(worksheet: ExcelJS.Worksheet): Record<string, any>[] {
 
   worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber === 1) return;
-    const obj: Record<string, any> = {};
+    const obj: RawExcelRow = {};
     row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       const key = headers[colNumber];
       if (key) obj[key] = cell.value;
@@ -123,6 +126,7 @@ function sheetToJson(worksheet: ExcelJS.Worksheet): Record<string, any>[] {
 
   return rows;
 }
+
 
 function makeError(
   row: number,
