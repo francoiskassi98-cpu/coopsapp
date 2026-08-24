@@ -25,26 +25,26 @@ interface HistoryShipment {
   registres?: { name: string | null } | null;
 }
 
+async function fetchAllRows<T>(query: PaginatedQuery): Promise<T[]> {
+  const allData: T[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await query.range(from, from + pageSize - 1);
+    if (error || !data || data.length === 0) break;
+    allData.push(...(data as T[]));
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return allData;
+}
+
 export default function ShipmentHistory() {
   const [shipments, setShipments] = useState<HistoryShipment[]>([]);
   const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedCoop, setSelectedCoop] = useState("all");
-
-  async function fetchAllRows<T>(query: PaginatedQuery): Promise<T[]> {
-    const allData: T[] = [];
-    let from = 0;
-    const pageSize = 1000;
-    while (true) {
-      const { data, error } = await query.range(from, from + pageSize - 1);
-      if (error || !data || data.length === 0) break;
-      allData.push(...(data as T[]));
-      if (data.length < pageSize) break;
-      from += pageSize;
-    }
-    return allData;
-  }
 
   const loadData = useCallback(async () => {
     setLoading(true);
