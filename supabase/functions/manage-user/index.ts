@@ -61,9 +61,20 @@ Deno.serve(async (req) => {
       return (data?.role as string) ?? null;
     };
 
-    const body = await req.json();
-    const { action } = body;
-    console.log(`[manage-user][${reqId}] caller=${caller.id} action=${action} super=${isSuperAdmin}`);
+    // Coopératives où le caller est ADMINISTRATEUR PRINCIPAL (source de vérité serveur)
+    const primaryCoopIdsOf = async (userId: string): Promise<string[]> => {
+      const { data } = await adminClient
+        .from("user_cooperatives").select("cooperative_id")
+        .eq("user_id", userId).eq("is_primary_admin", true);
+      return (data || []).map((r: { cooperative_id: string }) => r.cooperative_id);
+    };
+
+    const coopIdsOf = async (userId: string): Promise<string[]> => {
+      const { data } = await adminClient
+        .from("user_cooperatives").select("cooperative_id").eq("user_id", userId);
+      return (data || []).map((r: { cooperative_id: string }) => r.cooperative_id);
+    };
+
 
     if (action === "list") {
       const [{ data: authUsers, error: listErr }, { data: urRows }, { data: ucRowsAll }] = await Promise.all([
