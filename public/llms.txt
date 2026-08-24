@@ -1,0 +1,13 @@
+# COOPS APP
+
+> Plateforme SaaS de gestion des livraisons, des producteurs et de la traçabilité des coopératives de cacao.
+
+COOPS APP permet aux coopératives agricoles de suivre les livraisons de leurs producteurs,
+de constituer et distribuer les chargements, de calculer les primes de campagne et
+d'exporter les données de traçabilité au format Excel. L'application est réservée aux
+utilisateurs authentifiés de chaque coopérative.
+
+## Pages
+
+- [Accueil](/): Présentation et accès à la plateforme de gestion des coopératives de cacao.
+- [Connexion](/auth): Accès sécurisé à l'espace coopérative.
