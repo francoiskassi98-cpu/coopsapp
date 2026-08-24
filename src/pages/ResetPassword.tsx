@@ -7,6 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff, AlertTriangle } from "lucide-react";
+import { PasswordRequirements, PasswordMatch } from "@/components/PasswordRequirements";
+import { isPasswordValid, PASSWORD_MIN_LENGTH, PASSWORD_REJECTED_MESSAGE } from "@/lib/password-policy";
+
 
 type Status = "checking" | "ready" | "invalid";
 
@@ -104,14 +107,15 @@ export default function ResetPassword() {
       setFormError("Veuillez saisir un nouveau mot de passe.");
       return;
     }
-    if (password.length < 6) {
-      setFormError("Le mot de passe doit contenir au moins 6 caractères.");
+    if (!isPasswordValid(password)) {
+      setFormError(PASSWORD_REJECTED_MESSAGE);
       return;
     }
     if (password !== confirm) {
       setFormError("Les mots de passe ne correspondent pas.");
       return;
     }
+
 
     setLoading(true);
     try {
@@ -139,10 +143,11 @@ export default function ResetPassword() {
           setFormError(
             /pwned|compromis|leak/.test(msg)
               ? "Ce mot de passe a été compromis dans une fuite de données. Choisissez-en un autre."
-              : "Le nouveau mot de passe ne respecte pas les règles de sécurité.",
+              : PASSWORD_REJECTED_MESSAGE,
           );
           return;
         }
+
         setFormError("Impossible de mettre à jour le mot de passe. Veuillez réessayer.");
         return;
       }
@@ -193,22 +198,25 @@ export default function ResetPassword() {
               <div className="space-y-2">
                 <Label htmlFor="password">Nouveau mot de passe</Label>
                 <div className="relative">
-                  <Input id="password" type={show ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="pr-10" autoComplete="new-password" />
+                  <Input id="password" type={show ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={PASSWORD_MIN_LENGTH} className="pr-10" autoComplete="new-password" />
                   <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1}>
                     {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                <PasswordRequirements value={password} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirm">Confirmer le mot de passe</Label>
-                <Input id="confirm" type={show ? "text" : "password"} value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={6} autoComplete="new-password" />
+                <Label htmlFor="confirm">Confirmer le nouveau mot de passe</Label>
+                <Input id="confirm" type={show ? "text" : "password"} value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={PASSWORD_MIN_LENGTH} autoComplete="new-password" />
+                <PasswordMatch password={password} confirm={confirm} />
               </div>
               {formError && <p className="text-sm text-destructive">{formError}</p>}
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full" disabled={loading || !isPasswordValid(password) || password !== confirm}>
                 {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 Mettre à jour le mot de passe
               </Button>
             </form>
+
           )}
         </CardContent>
       </Card>

@@ -20,6 +20,9 @@ import { Separator } from "@/components/ui/separator";
 import { Loader2, UserPlus, Eye, EyeOff, Users, Pencil, Ban, CheckCircle2, KeyRound, Mail, Calendar, Shield, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import PageHeader from "@/components/PageHeader";
+import { PasswordRequirements } from "@/components/PasswordRequirements";
+import { isPasswordValid, PASSWORD_MIN_LENGTH, PASSWORD_REJECTED_MESSAGE } from "@/lib/password-policy";
+
 
 interface UserProfile {
   user_id: string;
@@ -139,6 +142,11 @@ export default function UserManagement() {
       toast({ title: "Erreur", description: "Tous les champs sont requis.", variant: "destructive" });
       return;
     }
+    if (!isPasswordValid(password)) {
+      toast({ title: "Mot de passe non conforme", description: PASSWORD_REJECTED_MESSAGE, variant: "destructive" });
+      return;
+    }
+
     if (role === "super_admin" && !isSuperAdmin) {
       toast({ title: "Accès refusé", description: "Seul le Super Administrateur est autorisé à créer un compte Super Administrateur.", variant: "destructive" });
       return;
@@ -388,14 +396,16 @@ export default function UserManagement() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    required minLength={6} className="pr-10"
+                    required minLength={PASSWORD_MIN_LENGTH} className="pr-10"
                   />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1}>
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                <PasswordRequirements value={password} />
               </div>
+
               <div className="space-y-2">
                 <Label>Rôle</Label>
                 <Select value={role} onValueChange={setRole}>
