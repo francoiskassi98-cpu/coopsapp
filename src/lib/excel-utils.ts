@@ -297,8 +297,9 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
   };
 }
 
-export async function exportToExcel(
-  data: Record<string, any>[],
+export async function exportToExcel<T extends object>(
+  data: T[],
+
   filename: string,
   sheetName = "Données"
 ) {
