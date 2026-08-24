@@ -8,6 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Building2, UserCog, CheckCircle2, ArrowLeft, ArrowRight, Upload, Eye, EyeOff } from "lucide-react";
+import { PasswordRequirements, PasswordMatch } from "@/components/PasswordRequirements";
+import { isPasswordValid, PASSWORD_MIN_LENGTH, PASSWORD_REJECTED_MESSAGE } from "@/lib/password-policy";
+
 
 type CertType = "fairtrade" | "rainforest" | "eudr" | "ordinaire";
 
@@ -35,12 +38,9 @@ const PHONE_RE = /^[0-9+\s().-]{8,}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function validatePassword(pw: string): string | null {
-  if (pw.length < 8) return "Le mot de passe doit contenir au moins 8 caractères.";
-  if (!/[A-Z]/.test(pw)) return "Le mot de passe doit contenir une majuscule.";
-  if (!/[a-z]/.test(pw)) return "Le mot de passe doit contenir une minuscule.";
-  if (!/[0-9]/.test(pw)) return "Le mot de passe doit contenir un chiffre.";
-  return null;
+  return isPasswordValid(pw) ? null : PASSWORD_REJECTED_MESSAGE;
 }
+
 
 function defaultPilotDates() {
   const y = new Date().getFullYear();
