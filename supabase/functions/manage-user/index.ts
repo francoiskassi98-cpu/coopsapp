@@ -246,7 +246,8 @@ Deno.serve(async (req) => {
         }
 
         await adminClient.from("user_registres").delete().eq("user_id", user_id);
-        await adminClient.from("user_cooperatives").delete().eq("user_id", user_id);
+        // Ne pas supprimer le rattachement coopérative existant : il porte aussi
+        // le statut durable d'administrateur principal.
         if (registreIds.length > 0) {
           // Le rattachement coopérative est synchronisé automatiquement par trigger DB
           const { error: urErr } = await adminClient.from("user_registres").insert(
