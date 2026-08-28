@@ -79,6 +79,8 @@ export default function CreateShipment() {
   const savingRef = useRef(false);
   /** Clé d'idempotence envoyée à la base (index unique) pour garantir un seul enregistrement. */
   const requestIdRef = useRef<string | null>(null);
+  /** Potentiel restant par producteur au moment du calcul de la distribution (détection de changement avant enregistrement). */
+  const remainingSnapshotRef = useRef<Record<string, number>>({});
   const [saveDiagnostic, setSaveDiagnostic] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
