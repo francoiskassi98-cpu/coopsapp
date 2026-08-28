@@ -989,7 +989,7 @@ export default function CreateShipment() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Date début livraison *</Label>
-                    <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                    <Input type="date" max={new Date().toISOString().slice(0, 10)} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label>Date fin livraison *</Label>
