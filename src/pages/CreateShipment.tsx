@@ -664,6 +664,7 @@ export default function CreateShipment() {
       });
     } finally {
       resetForm();
+      savingRef.current = false;
       setSaving(false);
     }
   };
