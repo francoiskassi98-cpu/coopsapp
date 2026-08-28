@@ -92,16 +92,25 @@ export default function CreateShipment() {
   const canCreateProject = role === "super_admin" || role === "coop_admin" || role === "agent";
 
   const [cooperatives, setCooperatives] = useState<{ id: string; name: string; cooperative_id?: string }[]>([]);
-  const [coopDelivered, setCoopDelivered] = useState<Record<string, number>>({});
-  const [coopPotential, setCoopPotential] = useState<Record<string, { potentiel: number; remaining: number }>>({});
+  const [coopStats, setCoopStats] = useState<{ potentiel: number; delivered: number; remaining: number } | null>(null);
   const [suggestedReceipt, setSuggestedReceipt] = useState<string>("");
   const [receiptNumber, setReceiptNumber] = useState<string>("");
   const [selectedCoopId, setSelectedCoopId] = useState<string>("");
 
   useEffect(() => {
-    supabase.from("partners").select("id, name, cooperative_id, logo_path, status").order("name").then(({ data }) => setPartners(data || []));
-    loadCooperatives();
+    let cancelled = false;
+    (async () => {
+      const [partnersRes, registresRes] = await Promise.all([
+        supabase.from("partners").select("id, name, cooperative_id, logo_path, status").order("name"),
+        supabase.from("registres").select("id, name, cooperative_id").order("name"),
+      ]);
+      if (cancelled) return;
+      setPartners(partnersRes.data || []);
+      setCooperatives((registresRes.data || []) as { id: string; name: string; cooperative_id?: string }[]);
+    })();
+    return () => { cancelled = true; };
   }, []);
+
 
   const { templates, loading: templatesLoading } = useActiveShipmentTemplates(selectedCoopId || null);
 
@@ -131,93 +140,81 @@ export default function CreateShipment() {
 
   useEffect(() => { loadProjects(); }, [loadProjects]);
 
-
-
-
-  async function loadCooperatives() {
-    // Load registres (business entity) — id + name
-    const { data: coopData } = await supabase.from("registres").select("id, name, cooperative_id").order("name");
-    const coopList = (coopData || []) as { id: string; name: string; cooperative_id?: string }[];
-    setCooperatives(coopList);
-    const nameById: Record<string, string> = {};
-    coopList.forEach((c) => { nameById[c.id] = c.name; });
-
-    // Get producer stats by registre
-    let allProducers: { registre_id: string; delivery_potential: number; remaining_potential: number }[] = [];
-    let from = 0;
+  /** Statistiques du seul registre sélectionné (au lieu de charger toute la base). */
+  const loadCoopStats = useCallback(async (registreId: string, registreName: string) => {
+    if (!registreId) { setCoopStats(null); return; }
+    setCoopStats(null);
     const PAGE = 1000;
-    while (true) {
-      const { data } = await supabase.from("producers").select("registre_id, delivery_potential, remaining_potential").range(from, from + PAGE - 1);
-      if (!data || data.length === 0) break;
-      allProducers = allProducers.concat(data);
-      if (data.length < PAGE) break;
-      from += PAGE;
-    }
-    const potMap: Record<string, { potentiel: number; remaining: number }> = {};
-    allProducers.forEach((p) => {
-      const key = nameById[p.registre_id];
-      if (key) {
-        if (!potMap[key]) potMap[key] = { potentiel: 0, remaining: 0 };
-        potMap[key].potentiel += Number(p.delivery_potential);
-        potMap[key].remaining += Number(p.remaining_potential);
+    const loadProducers = async () => {
+      let potentiel = 0, remaining = 0, from = 0;
+      for (;;) {
+        const { data, error } = await supabase
+          .from("producers")
+          .select("delivery_potential, remaining_potential")
+          .eq("registre_id", registreId)
+          .range(from, from + PAGE - 1);
+        if (error) { console.error("[CreateShipment.stats.producers]", error); break; }
+        if (!data || data.length === 0) break;
+        data.forEach((p) => {
+          potentiel += Number(p.delivery_potential) || 0;
+          remaining += Number(p.remaining_potential) || 0;
+        });
+        if (data.length < PAGE) break;
+        from += PAGE;
       }
-    });
-    setCoopPotential(potMap);
+      return { potentiel, remaining };
+    };
+    const loadDelivered = async () => {
+      let delivered = 0, from = 0;
+      for (;;) {
+        const { data, error } = await supabase
+          .from("shipments")
+          .select("total_weight")
+          .eq("registre_id", registreId)
+          .eq("status", "active")
+          .range(from, from + PAGE - 1);
+        if (error) { console.error("[CreateShipment.stats.shipments]", error); break; }
+        if (!data || data.length === 0) break;
+        data.forEach((s) => { delivered += Number(s.total_weight) || 0; });
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+      return delivered;
+    };
+    const [pot, delivered] = await Promise.all([loadProducers(), loadDelivered()]);
+    setCoopStats({ potentiel: pot.potentiel, remaining: pot.remaining, delivered });
+  }, []);
 
-    // Get delivered by zone from active shipments
-    let allShipments: { zone: string | null; total_weight: number }[] = [];
-    from = 0;
-    while (true) {
-      const { data } = await supabase.from("shipments").select("zone, total_weight").eq("status", "active").range(from, from + PAGE - 1);
-      if (!data || data.length === 0) break;
-      allShipments = allShipments.concat(data);
-      if (data.length < PAGE) break;
-      from += PAGE;
-    }
-    const delMap: Record<string, number> = {};
-    allShipments.forEach((s) => {
-      if (s.zone) delMap[s.zone] = (delMap[s.zone] || 0) + Number(s.total_weight);
-    });
-    setCoopDelivered(delMap);
-  }
+  const loadNextReceiptForCooperative = useCallback(async (registreId: string) => {
+    if (!registreId) { setSuggestedReceipt(""); setReceiptNumber(""); return; }
 
-  async function loadNextReceiptForCooperative(cooperativeId: string) {
-    if (!cooperativeId) { setSuggestedReceipt(""); setReceiptNumber(""); return; }
-
-    // Appel RPC : MAX(receipt_number::bigint) filtré par cooperative_id
-    // La fonction SQL fait le JOIN shipments→deliveries côté serveur en une seule requête.
-    const { data, error } = await supabase.rpc("get_max_receipt_number", {
-      p_registre_id: cooperativeId,
-    });
+    // RPC : MAX(receipt_number::bigint) calculé côté serveur en une seule requête.
+    const { data, error } = await supabase.rpc("get_max_receipt_number", { p_registre_id: registreId });
 
     if (error) {
-      console.error("Erreur get_max_receipt_number:", error);
+      console.error("[CreateShipment] get_max_receipt_number", error);
       setSuggestedReceipt("000001");
       setReceiptNumber("");
       return;
     }
 
-    // data est la valeur texte du receipt_number max, ou null si aucune livraison
     const maxNum = data ? parseInt(String(data).replace(/\D/g, ""), 10) : 0;
-    const next = String((isNaN(maxNum) ? 0 : maxNum) + 1).padStart(6, "0");
-    setSuggestedReceipt(next);
+    setSuggestedReceipt(String((isNaN(maxNum) ? 0 : maxNum) + 1).padStart(6, "0"));
     setReceiptNumber("");
-  }
+  }, []);
 
   const handleZoneChange = (coopId: string) => {
     setSelectedCoopId(coopId);
     const coop = cooperatives.find(c => c.id === coopId);
-    setZone(coop?.name || "");
-    loadNextReceiptForCooperative(coopId);
+    const name = coop?.name || "";
+    setZone(name);
     setTemplateId("");
+    void loadNextReceiptForCooperative(coopId);
+    void loadCoopStats(coopId, name);
   };
 
-  const selectedCoopStats = useMemo(() => {
-    if (!zone) return null;
-    const pot = coopPotential[zone] || { potentiel: 0, remaining: 0 };
-    const del = coopDelivered[zone] || 0;
-    return { potentiel: pot.potentiel, delivered: del, remaining: pot.remaining };
-  }, [zone, coopPotential, coopDelivered]);
+  const selectedCoopStats = coopStats;
+
 
   const missingFields = useMemo(() => {
     const m: string[] = [];
@@ -238,6 +235,31 @@ export default function CreateShipment() {
     return m;
   }, [totalWeight, totalBags, connaissement, startDate, endDate, project, partnerId, selectedCoopId, destination, driverName, truckNumber, trailerNumber, departureDate, templateId]);
 
+  /** Contrôles de cohérence (au-delà des champs simplement requis). */
+  const validationErrors = useMemo(() => {
+    const errs: string[] = [];
+    const w = Number(totalWeight);
+    const b = Number(totalBags);
+    if (totalWeight && (!Number.isFinite(w) || w <= 0)) errs.push("Le poids total doit être un nombre supérieur à 0.");
+    if (totalBags && (!Number.isInteger(b) || b <= 0)) errs.push("Le nombre de sacs doit être un entier supérieur à 0.");
+    if (w > 0 && b > 0) {
+      const avg = w / b;
+      if (avg > 90) errs.push(`Poids moyen par sac trop élevé (${avg.toFixed(1)} kg) — maximum 90 kg.`);
+      if (avg < 10) errs.push(`Poids moyen par sac trop faible (${avg.toFixed(1)} kg) — minimum 10 kg.`);
+    }
+    if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+      errs.push("La date de fin doit être postérieure ou égale à la date de début.");
+    }
+    if (departureDate && endDate && new Date(departureDate) < new Date(endDate)) {
+      errs.push("La date de départ ne peut pas précéder la date de fin des livraisons.");
+    }
+    if (coopStats && w > 0 && coopStats.remaining > 0 && w > coopStats.remaining) {
+      errs.push(`Le poids total (${w.toLocaleString("fr-FR")} kg) dépasse le potentiel restant du registre (${coopStats.remaining.toLocaleString("fr-FR")} kg).`);
+    }
+    return errs;
+  }, [totalWeight, totalBags, startDate, endDate, departureDate, coopStats]);
+
+
   const formatTechnicalError = (error: unknown, context: string) => {
     const e = asError(error);
     const parts = [
@@ -256,6 +278,12 @@ export default function CreateShipment() {
       toast({ title: "Champs requis manquants", description: `Renseignez : ${missingFields.join(", ")}.`, variant: "destructive" });
       return;
     }
+    if (validationErrors.length > 0) {
+      setSaveDiagnostic(validationErrors.join("\n"));
+      toast({ title: "Données incohérentes", description: validationErrors[0], variant: "destructive" });
+      return;
+    }
+
 
     // Construction automatique de la liste des producteurs éligibles (règles métier)
     let eligibility;
@@ -318,6 +346,9 @@ export default function CreateShipment() {
     // Nouvelle distribution => nouvelle clé d'idempotence.
     requestIdRef.current = null;
     setPreview(capped);
+    // Préchargement du générateur Excel pendant que l'utilisateur relit l'aperçu → téléchargement instantané.
+    void import("@/services/excel/shipment-fiche-excel").catch(() => undefined);
+
   };
 
 
@@ -426,27 +457,45 @@ export default function CreateShipment() {
     }
 
 
-    for (const d of preview) {
-      const { data: producer, error: readErr } = await supabase.from("producers").select("remaining_potential").eq("id", d.producer_id).single();
-      if (readErr) {
-        const message = formatTechnicalError(readErr, `Échec lecture du potentiel producteur ${d.full_name}`);
-        console.error("[CreateShipment] producer read failed", { error: readErr, producerId: d.producer_id });
+    // Mise à jour du potentiel restant : 1 lecture groupée + écritures parallélisées (plus de N+1).
+    const producerIds = Array.from(new Set(preview.map((d) => d.producer_id)));
+    const { data: producerRows, error: readErr } = await supabase
+      .from("producers")
+      .select("id, remaining_potential")
+      .in("id", producerIds);
+    if (readErr) {
+      const message = formatTechnicalError(readErr, "Échec lecture du potentiel des producteurs");
+      console.error("[CreateShipment] producers read failed", { error: readErr, count: producerIds.length });
+      setSaveDiagnostic(message);
+      throw readErr;
+    }
+
+    const currentById = new Map<string, number>((producerRows || []).map((p) => [p.id, Number(p.remaining_potential) || 0]));
+    const allocatedById = new Map<string, number>();
+    preview.forEach((d) => {
+      allocatedById.set(d.producer_id, (allocatedById.get(d.producer_id) || 0) + Number(d.allocated_weight));
+    });
+
+    const updates = Array.from(allocatedById.entries())
+      .filter(([id]) => currentById.has(id))
+      .map(([id, allocated]) => ({ id, remaining: Math.max(0, (currentById.get(id) ?? 0) - allocated) }));
+
+    const CHUNK = 20;
+    for (let i = 0; i < updates.length; i += CHUNK) {
+      const results = await Promise.all(
+        updates.slice(i, i + CHUNK).map((u) =>
+          supabase.from("producers").update({ remaining_potential: u.remaining }).eq("id", u.id)
+        )
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) {
+        const message = formatTechnicalError(failed.error, "Échec mise à jour du potentiel des producteurs");
+        console.error("[CreateShipment] producers update failed", failed.error);
         setSaveDiagnostic(message);
-        throw readErr;
-      }
-      if (producer) {
-        const { error: updateErr } = await supabase
-          .from("producers")
-          .update({ remaining_potential: Number(producer.remaining_potential) - d.allocated_weight })
-          .eq("id", d.producer_id);
-        if (updateErr) {
-          const message = formatTechnicalError(updateErr, `Échec mise à jour du potentiel producteur ${d.full_name}`);
-          console.error("[CreateShipment] producer update failed", { error: updateErr, producerId: d.producer_id, allocatedWeight: d.allocated_weight });
-          setSaveDiagnostic(message);
-          throw updateErr;
-        }
+        throw failed.error;
       }
     }
+
 
     return shipment.id as string;
   };
