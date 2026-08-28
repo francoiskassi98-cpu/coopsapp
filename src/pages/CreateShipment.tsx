@@ -883,23 +883,37 @@ export default function CreateShipment() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-glass">
+            <Card className={`shadow-glass ${previewExpanded ? "xl:col-span-5" : "xl:col-span-3"}`}>
               <CardHeader>
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <CardTitle className="text-base flex items-center gap-2">
                     <span className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center"><Download className="h-4 w-4" /></span>
                     Aperçu du chargement
                   </CardTitle>
-                  {preview.length > 0 && (
-                    <div className="flex gap-2 flex-wrap">
-                      <Button variant="outline" onClick={handleSaveAndDownload} disabled={saving}>
-                        <Download className="h-4 w-4 mr-2" /> Enregistrer et télécharger
-                      </Button>
-                      <Button onClick={handleSave} disabled={saving}>
-                        {saving ? "Enregistrement..." : "Valider et enregistrer"}
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="hidden xl:inline-flex"
+                      onClick={() => setPreviewExpanded((v) => !v)}
+                    >
+                      {previewExpanded ? (
+                        <><Minimize2 className="h-4 w-4 mr-2" /> Réduire l'aperçu</>
+                      ) : (
+                        <><Maximize2 className="h-4 w-4 mr-2" /> Agrandir l'aperçu</>
+                      )}
+                    </Button>
+                    {preview.length > 0 && (
+                      <>
+                        <Button variant="outline" onClick={handleSaveAndDownload} disabled={saving}>
+                          <Download className="h-4 w-4 mr-2" /> {saving ? "Traitement..." : "Enregistrer et télécharger"}
+                        </Button>
+                        <Button onClick={handleSave} disabled={saving}>
+                          {saving ? "Enregistrement..." : "Valider et enregistrer"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
