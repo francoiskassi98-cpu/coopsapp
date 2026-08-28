@@ -574,27 +574,53 @@ export default function CreateShipment() {
     setEditingIndex(null);
   };
 
-  const handleSaveAndDownload = async () => {
-    if (preview.length === 0) return;
+  /** Unique action finale : validation → enregistrement (une seule fois) → génération → téléchargement. */
+  const saveAndDownloadShipment = async () => {
+    if (preview.length === 0 || saving) return;
     setSaving(true);
     setSaveDiagnostic(null);
+    const count = preview.length;
+    let shipmentId: string | null = null;
     try {
-      const count = preview.length;
-      const shipmentId = await persistShipment();
-      if (!shipmentId) return;
+      shipmentId = await persistShipment();
+    } catch (err) {
+      const message = formatTechnicalError(err, "Enregistrement impossible");
+      console.error("[CreateShipment] save failed", err);
+      setSaveDiagnostic((current) => current || message);
+      toast({
+        title: "Impossible d'enregistrer le chargement",
+        description: "Vérifiez les données et réessayez. Consultez le diagnostic affiché sous l’aperçu.",
+        variant: "destructive",
+      });
+      setSaving(false);
+      return;
+    }
+
+    if (!shipmentId) {
+      setSaving(false);
+      return;
+    }
+
+    try {
       const { generateShipmentFiche } = await import("@/services/excel/shipment-fiche-excel");
       await generateShipmentFiche(shipmentId);
-      toast({ title: "Chargement validé et enregistré avec succès.", description: `${count} fiches générées et fiche Excel téléchargée. N° chargement : ${shipmentId.slice(0, 8)}.` });
-      resetForm();
+      toast({
+        title: "Chargement validé et enregistré avec succès.",
+        description: `${count} fiches générées et fiche Excel téléchargée. N° chargement : ${shipmentId.slice(0, 8)}.`,
+      });
     } catch (err) {
-      const message = formatTechnicalError(err, "Enregistrement/téléchargement impossible");
-      console.error("[CreateShipment] save and download failed", err);
-      setSaveDiagnostic((current) => current || message);
-      toast({ title: "Enregistrement impossible", description: "Consultez le diagnostic affiché sous l’aperçu.", variant: "destructive" });
+      console.error("[CreateShipment] download failed", err);
+      toast({
+        title: "Téléchargement échoué",
+        description: "Chargement enregistré avec succès, mais le téléchargement du fichier a échoué. Vous pouvez réessayer le téléchargement depuis l’historique.",
+        variant: "destructive",
+      });
     } finally {
+      resetForm();
       setSaving(false);
     }
   };
+
 
   return (
     <div className="p-4 md:p-6 space-y-6">
