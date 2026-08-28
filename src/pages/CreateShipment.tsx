@@ -346,6 +346,9 @@ export default function CreateShipment() {
     // Nouvelle distribution => nouvelle clé d'idempotence.
     requestIdRef.current = null;
     setPreview(capped);
+    // Préchargement du générateur Excel pendant que l'utilisateur relit l'aperçu → téléchargement instantané.
+    void import("@/services/excel/shipment-fiche-excel").catch(() => undefined);
+
   };
 
 
