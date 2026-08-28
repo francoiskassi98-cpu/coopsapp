@@ -9,6 +9,9 @@ import { RefreshCw, History } from "lucide-react";
 import { toast } from "sonner";
 import { useSortableTable, SortableHeader, type SortValue } from "@/hooks/useSortableTable";
 import type { PaginatedQuery } from "@/lib/database-utils";
+import { useDebounce } from "@/hooks/useDebounce";
+
+const ROWS_STEP = 100;
 
 interface HistoryShipment {
   id: string;
@@ -53,7 +56,7 @@ export default function ShipmentHistory() {
         fetchAllRows<HistoryShipment>(
           supabase
             .from("shipments")
-            .select("*, partners(name), registres(name)")
+            .select("id, connaissement, lot_number, project, destination, total_weight, total_bags, created_at, zone, campaign_label, partners(name), registres(name)")
             .order("created_at", { ascending: false }) as unknown as PaginatedQuery
         ),
         supabase.from("registres").select("id, name").order("name"),
@@ -74,15 +77,19 @@ export default function ShipmentHistory() {
 
   const { sortConfig, toggleSort, sortData } = useSortableTable();
 
+  const debouncedSearch = useDebounce(search, 250);
+  const [visibleCount, setVisibleCount] = useState(ROWS_STEP);
+
   const filtered = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
     const base = shipments.filter((s) => {
       const coopName = s.registres?.name || s.zone || "";
       const matchesCoop = selectedCoop === "all" || coopName === selectedCoop;
       const matchesSearch =
-        !search ||
-        s.connaissement?.toLowerCase().includes(search.toLowerCase()) ||
-        s.partners?.name?.toLowerCase().includes(search.toLowerCase()) ||
-        coopName.toLowerCase().includes(search.toLowerCase());
+        !q ||
+        s.connaissement?.toLowerCase().includes(q) ||
+        s.partners?.name?.toLowerCase().includes(q) ||
+        coopName.toLowerCase().includes(q);
       return matchesCoop && matchesSearch;
     });
     return sortData(base, (item, col): SortValue => {
@@ -95,7 +102,13 @@ export default function ShipmentHistory() {
       if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
       return String(v);
     });
-  }, [shipments, selectedCoop, search, sortData]);
+  }, [shipments, selectedCoop, debouncedSearch, sortData]);
+
+  useEffect(() => {
+    setVisibleCount(ROWS_STEP);
+  }, [debouncedSearch, selectedCoop, sortConfig]);
+
+  const visibleRows = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
 
   return (
     <Card>
@@ -154,7 +167,7 @@ export default function ShipmentHistory() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((s) => (
+                  visibleRows.map((s) => (
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.connaissement || "—"}</TableCell>
                       <TableCell>{s.project}</TableCell>
@@ -169,6 +182,13 @@ export default function ShipmentHistory() {
                 )}
               </TableBody>
             </Table>
+            {visibleCount < filtered.length && (
+              <div className="flex justify-center py-4">
+                <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + ROWS_STEP)}>
+                  Afficher plus ({filtered.length - visibleCount} restants)
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
