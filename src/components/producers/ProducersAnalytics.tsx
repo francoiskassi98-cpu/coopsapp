@@ -4,7 +4,6 @@ import { useRegistres } from "@/hooks/useRegistres";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -121,8 +120,6 @@ export default function ProducersAnalytics() {
   const [registreFilter, setRegistreFilter] = useState("all");
   const [campaignFilter, setCampaignFilter] = useState("all");
   const [sectionFilter, setSectionFilter] = useState("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -163,7 +160,7 @@ export default function ProducersAnalytics() {
     return [...new Set(scoped.map(p => p.section).filter(Boolean))].sort();
   }, [producers, registreFilter]);
 
-  // Filtered deliveries (registre + campagne + période)
+  // Filtered deliveries (registre + campagne)
   const filteredDeliveries = useMemo(() => {
     const shipmentById = new Map(shipments.map(s => [s.id, s]));
     return deliveries.filter(d => {
@@ -171,11 +168,9 @@ export default function ProducersAnalytics() {
       if (!ship || ship.is_cancelled) return false;
       if (registreFilter !== "all" && ship.registre_id !== registreFilter) return false;
       if (campaignFilter !== "all" && ship.campaign_label !== campaignFilter) return false;
-      if (startDate && d.delivery_date < startDate) return false;
-      if (endDate && d.delivery_date > endDate) return false;
       return true;
     });
-  }, [deliveries, shipments, registreFilter, campaignFilter, startDate, endDate]);
+  }, [deliveries, shipments, registreFilter, campaignFilter]);
 
   // KPIs — normalisation (accepte Homme/Femme, H/F, M, Masculin/Feminin)
   const sexeKey = (v: string | null) => {
@@ -290,14 +285,6 @@ export default function ProducersAnalytics() {
                 {sectionList.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Du</Label>
-            <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-40" />
-          </div>
-          <div>
-            <Label className="text-xs">Au</Label>
-            <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-40" />
           </div>
         </CardContent>
       </Card>
