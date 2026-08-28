@@ -22,6 +22,9 @@ import type { Database } from "@/integrations/supabase/types";
 
 type ImportMode = "insert" | "update";
 
+const ROWS_STEP = 100;
+
+
 type ProducerDbRow = Database["public"]["Tables"]["producers"]["Row"];
 /** Producteur enrichi du nom de son registre (exposé sous `cooperative` pour le rendu). */
 type ProducerListRow = ProducerDbRow & {
