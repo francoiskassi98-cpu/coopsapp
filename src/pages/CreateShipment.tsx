@@ -431,6 +431,11 @@ export default function CreateShipment() {
   const resetForm = () => {
     setPreview([]);
     setExclusions([]);
+    setEditingIndex(null);
+    setEditWeight("");
+    setEditBags("");
+    setSaveDiagnostic(null);
+    setPreviewExpanded(false);
 
     setConnaissement("");
     setTotalWeight("");
@@ -439,6 +444,22 @@ export default function CreateShipment() {
     setTruckNumber("");
     setTrailerNumber("");
     setDepartureDate("");
+    setProject("");
+    setPartnerId("");
+    setDestination("");
+    setStartDate("");
+    setEndDate("");
+    // Le registre sélectionné est conservé pour faciliter la saisie de chargements successifs.
+
+    // Rafraîchit les listes (historique / détail) si elles sont montées.
+    window.dispatchEvent(new CustomEvent("shipment:saved"));
+
+    // Focus cohérent : retour sur le premier champ du formulaire.
+    requestAnimationFrame(() => {
+      const firstField = document.getElementById("shipment-connaissement");
+      firstField?.scrollIntoView({ behavior: "smooth", block: "center" });
+      (firstField as HTMLInputElement | null)?.focus({ preventScroll: true });
+    });
   };
 
 
