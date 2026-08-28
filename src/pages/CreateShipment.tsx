@@ -349,6 +349,10 @@ export default function CreateShipment() {
 
 
 
+    // Clé d'idempotence : identique pour toutes les tentatives d'un même chargement.
+    if (!requestIdRef.current) requestIdRef.current = crypto.randomUUID();
+    const clientRequestId = requestIdRef.current;
+
     const shipmentPayload = {
       connaissement: connaissement || null,
       total_weight: Number(totalWeight),
@@ -368,6 +372,7 @@ export default function CreateShipment() {
       truck_number: truckNumber.trim() || null,
       trailer_number: trailerNumber.trim() || null,
       departure_date: departureDate || null,
+      client_request_id: clientRequestId,
     };
 
     const { data: shipment, error: shipErr } = await supabase
@@ -377,6 +382,18 @@ export default function CreateShipment() {
       .single();
 
     if (shipErr) {
+      // Contrainte d'unicité côté base : le chargement a déjà été enregistré (double-clic / double envoi).
+      if ((shipErr as { code?: string }).code === "23505") {
+        const { data: existing } = await supabase
+          .from("shipments")
+          .select("id")
+          .eq("client_request_id", clientRequestId)
+          .maybeSingle();
+        if (existing?.id) {
+          console.warn("[CreateShipment] duplicate submission ignored", { clientRequestId });
+          return existing.id;
+        }
+      }
       const message = formatTechnicalError(shipErr, "Échec création du chargement");
       console.error("[CreateShipment] shipments insert failed", { error: shipErr, payload: shipmentPayload });
       setSaveDiagnostic(message);
