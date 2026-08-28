@@ -161,7 +161,7 @@ export default function ProducersAnalytics() {
     return [...new Set(scoped.map(p => p.section).filter(Boolean))].sort();
   }, [producers, registreFilter]);
 
-  // Filtered deliveries (registre + campagne + période)
+  // Filtered deliveries (registre + campagne)
   const filteredDeliveries = useMemo(() => {
     const shipmentById = new Map(shipments.map(s => [s.id, s]));
     return deliveries.filter(d => {
@@ -169,11 +169,9 @@ export default function ProducersAnalytics() {
       if (!ship || ship.is_cancelled) return false;
       if (registreFilter !== "all" && ship.registre_id !== registreFilter) return false;
       if (campaignFilter !== "all" && ship.campaign_label !== campaignFilter) return false;
-      if (startDate && d.delivery_date < startDate) return false;
-      if (endDate && d.delivery_date > endDate) return false;
       return true;
     });
-  }, [deliveries, shipments, registreFilter, campaignFilter, startDate, endDate]);
+  }, [deliveries, shipments, registreFilter, campaignFilter]);
 
   // KPIs — normalisation (accepte Homme/Femme, H/F, M, Masculin/Feminin)
   const sexeKey = (v: string | null) => {
