@@ -77,6 +77,7 @@ export default function CreateShipment() {
   const [saving, setSaving] = useState(false);
   const [saveDiagnostic, setSaveDiagnostic] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
   const [exclusions, setExclusions] = useState<string[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
@@ -963,7 +964,7 @@ export default function CreateShipment() {
                             Sélectionnez un modèle actif dans « Modèle de chargement » pour afficher l'aperçu.
                           </p>
                         ) : (
-                          <div className="max-h-[60vh] overflow-auto">
+                          <div className="max-h-[78vh] overflow-auto">
                             <TemplatePreview
                               title={selectedTemplate.title}
                               subtitle={selectedTemplate.subtitle}
@@ -1015,7 +1016,7 @@ export default function CreateShipment() {
                       </TabsContent>
 
                       <TabsContent value="edit">
-                        <div className="max-h-[60vh] overflow-auto">
+                        <div className="max-h-[78vh] overflow-auto">
                          <Table>
                              <TableHeader>
                               <TableRow>
