@@ -11,10 +11,9 @@ import type { Database } from "@/integrations/supabase/types";
 import { distributeShipment, getCurrentCampaign, normalizeCampaign, type DistributionResult } from "@/lib/shipment-utils";
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
-import { Truck, Plus, Download, Pencil, Check, X, FileSpreadsheet, FolderPlus } from "lucide-react";
+import { Truck, Plus, Download, Pencil, Check, X, FileSpreadsheet, FolderPlus, Maximize2, Minimize2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
-import { generateShipmentFiche } from "@/services/excel/shipment-fiche-excel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ImportShipments from "@/pages/ImportShipments";
 import ShipmentDetails from "@/components/ShipmentDetails";
@@ -78,6 +77,7 @@ export default function CreateShipment() {
   const [saving, setSaving] = useState(false);
   const [saveDiagnostic, setSaveDiagnostic] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
   const [exclusions, setExclusions] = useState<string[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
@@ -598,6 +598,7 @@ export default function CreateShipment() {
       const count = preview.length;
       const shipmentId = await persistShipment();
       if (!shipmentId) return;
+      const { generateShipmentFiche } = await import("@/services/excel/shipment-fiche-excel");
       await generateShipmentFiche(shipmentId);
       toast({ title: "Chargement validé et enregistré avec succès.", description: `${count} fiches générées et fiche Excel téléchargée. N° chargement : ${shipmentId.slice(0, 8)}.` });
       resetForm();
@@ -628,8 +629,8 @@ export default function CreateShipment() {
         </TabsList>
 
         <TabsContent value="create">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="shadow-glass">
+          <div className="grid gap-6 xl:grid-cols-5 items-start">
+            <Card className={`shadow-glass xl:col-span-2 ${previewExpanded ? "hidden" : ""}`}>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><Truck className="h-4 w-4" /></span>
@@ -883,23 +884,37 @@ export default function CreateShipment() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-glass">
+            <Card className={`shadow-glass ${previewExpanded ? "xl:col-span-5" : "xl:col-span-3"}`}>
               <CardHeader>
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <CardTitle className="text-base flex items-center gap-2">
                     <span className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center"><Download className="h-4 w-4" /></span>
                     Aperçu du chargement
                   </CardTitle>
-                  {preview.length > 0 && (
-                    <div className="flex gap-2 flex-wrap">
-                      <Button variant="outline" onClick={handleSaveAndDownload} disabled={saving}>
-                        <Download className="h-4 w-4 mr-2" /> Enregistrer et télécharger
-                      </Button>
-                      <Button onClick={handleSave} disabled={saving}>
-                        {saving ? "Enregistrement..." : "Valider et enregistrer"}
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="hidden xl:inline-flex"
+                      onClick={() => setPreviewExpanded((v) => !v)}
+                    >
+                      {previewExpanded ? (
+                        <><Minimize2 className="h-4 w-4 mr-2" /> Réduire l'aperçu</>
+                      ) : (
+                        <><Maximize2 className="h-4 w-4 mr-2" /> Agrandir l'aperçu</>
+                      )}
+                    </Button>
+                    {preview.length > 0 && (
+                      <>
+                        <Button variant="outline" onClick={handleSaveAndDownload} disabled={saving}>
+                          <Download className="h-4 w-4 mr-2" /> {saving ? "Traitement..." : "Enregistrer et télécharger"}
+                        </Button>
+                        <Button onClick={handleSave} disabled={saving}>
+                          {saving ? "Enregistrement..." : "Valider et enregistrer"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -949,7 +964,7 @@ export default function CreateShipment() {
                             Sélectionnez un modèle actif dans « Modèle de chargement » pour afficher l'aperçu.
                           </p>
                         ) : (
-                          <div className="max-h-[60vh] overflow-auto">
+                          <div className="max-h-[78vh] overflow-auto">
                             <TemplatePreview
                               title={selectedTemplate.title}
                               subtitle={selectedTemplate.subtitle}
@@ -1001,7 +1016,7 @@ export default function CreateShipment() {
                       </TabsContent>
 
                       <TabsContent value="edit">
-                        <div className="max-h-[60vh] overflow-auto">
+                        <div className="max-h-[78vh] overflow-auto">
                          <Table>
                              <TableHeader>
                               <TableRow>

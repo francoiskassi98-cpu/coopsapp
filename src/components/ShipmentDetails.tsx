@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Pencil, Package, Users, Weight, Truck, FileSpreadsheet, Loader2 } from "lucide-react";
-import { generateShipmentFiche } from "@/services/excel/shipment-fiche-excel";
 
 interface ShipmentRow {
   id: string;
@@ -72,13 +71,15 @@ export default function ShipmentDetails() {
   const handleGenerateFiche = async (id: string) => {
     setGeneratingId(id);
     try {
+      const { generateShipmentFiche } = await import("@/services/excel/shipment-fiche-excel");
       await generateShipmentFiche(id);
       toast({ title: "Fiche générée" });
     } catch (e) {
       console.error(e);
       toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+    } finally {
+      setGeneratingId(null);
     }
-    setGeneratingId(null);
   };
 
   // Edit form state
