@@ -35,14 +35,15 @@ export default function Producers() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="analytics" className="mt-0">
-          <ProducersAnalytics />
+          <Suspense fallback={<TabFallback />}><ProducersAnalytics /></Suspense>
         </TabsContent>
         <TabsContent value="list" className="mt-0 -mx-4 md:-mx-6 -mb-4 md:-mb-6">
-          <ProducersList />
+          <Suspense fallback={<TabFallback />}><ProducersList /></Suspense>
         </TabsContent>
         <TabsContent value="prime" className="mt-0">
-          <PrimeProducer />
+          <Suspense fallback={<TabFallback />}><PrimeProducer /></Suspense>
         </TabsContent>
+
       </Tabs>
     </div>
   );
