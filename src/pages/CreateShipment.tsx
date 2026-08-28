@@ -373,7 +373,7 @@ export default function CreateShipment() {
     const { data: shipment, error: shipErr } = await supabase
       .from("shipments")
       .insert(shipmentPayload)
-      .select()
+      .select("id")
       .single();
 
     if (shipErr) {
