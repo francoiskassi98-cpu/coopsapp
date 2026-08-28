@@ -24,7 +24,7 @@ const SuperAdminDashboard = lazy(() => import("@/pages/SuperAdminDashboard"));
 const CooperativesManagement = lazy(() => import("@/pages/CooperativesManagement"));
 const AuditLog = lazy(() => import("@/pages/AuditLog"));
 const CreateCooperative = lazy(() => import("@/pages/CreateCooperative"));
-const ProjectsManagement = lazy(() => import("@/pages/ProjectsManagement"));
+
 const Trash = lazy(() => import("@/pages/Trash"));
 const LoginEvents = lazy(() => import("@/pages/LoginEvents"));
 const Partners = lazy(() => import("@/pages/Partners"));
@@ -83,7 +83,7 @@ const App = () => (
                       <Route path="/gestion/dashboard" element={<SuperAdminDashboard />} />
                       <Route path="/gestion/cooperatives" element={<CooperativesManagement />} />
                       <Route path="/gestion/cooperatives/nouvelle" element={<CreateCooperative />} />
-                      <Route path="/gestion/projets" element={<ProjectsManagement />} />
+                      
                     </Route>
                   </Route>
                 </Route>
