@@ -993,7 +993,7 @@ export default function CreateShipment() {
                   </div>
                   <div className="space-y-2">
                     <Label>Date fin livraison *</Label>
-                    <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                    <Input type="date" max={new Date().toISOString().slice(0, 10)} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                   </div>
                 </div>
 
