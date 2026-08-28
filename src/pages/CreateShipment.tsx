@@ -457,6 +457,7 @@ export default function CreateShipment() {
     setEditBags("");
     setSaveDiagnostic(null);
     setPreviewExpanded(false);
+    requestIdRef.current = null;
 
     setConnaissement("");
     setTotalWeight("");
