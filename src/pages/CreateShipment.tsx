@@ -81,6 +81,7 @@ export default function CreateShipment() {
   const requestIdRef = useRef<string | null>(null);
   /** Potentiel restant par producteur au moment du calcul de la distribution (détection de changement avant enregistrement). */
   const remainingSnapshotRef = useRef<Record<string, number>>({});
+  const [lotNumber, setLotNumber] = useState<number | null>(null);
   const [saveDiagnostic, setSaveDiagnostic] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
