@@ -181,6 +181,14 @@ export default function ShipmentDetails() {
     fetchAll();
   }, []);
 
+  // Rafraîchit la liste après l'enregistrement d'un nouveau chargement.
+  useEffect(() => {
+    const handler = () => { void fetchAll(); };
+    window.addEventListener("shipment:saved", handler);
+    return () => window.removeEventListener("shipment:saved", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const openEdit = (s: ShipmentWithDetails) => {
     setEditingShipment(s);
     setEditCoopId(s.cooperative_id || "");

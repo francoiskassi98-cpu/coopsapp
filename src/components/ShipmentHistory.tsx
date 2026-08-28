@@ -75,6 +75,13 @@ export default function ShipmentHistory() {
     loadData();
   }, [loadData]);
 
+  // Rafraîchit la liste après l'enregistrement d'un nouveau chargement.
+  useEffect(() => {
+    const handler = () => { void loadData(); };
+    window.addEventListener("shipment:saved", handler);
+    return () => window.removeEventListener("shipment:saved", handler);
+  }, [loadData]);
+
   const { sortConfig, toggleSort, sortData } = useSortableTable();
 
   const debouncedSearch = useDebounce(search, 250);
