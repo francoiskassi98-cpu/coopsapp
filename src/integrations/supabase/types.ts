@@ -260,6 +260,41 @@ export type Database = {
         }
         Relationships: []
       }
+      lot_counters: {
+        Row: {
+          campaign_label: string
+          created_at: string
+          id: string
+          last_lot_number: number
+          registre_id: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_label: string
+          created_at?: string
+          id?: string
+          last_lot_number?: number
+          registre_id: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_label?: string
+          created_at?: string
+          id?: string
+          last_lot_number?: number
+          registre_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lot_counters_registre_id_fkey"
+            columns: ["registre_id"]
+            isOneToOne: false
+            referencedRelation: "registres"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
@@ -1165,6 +1200,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      allocate_lot_number: {
+        Args: { p_campaign_label: string; p_registre: string }
+        Returns: number
+      }
       can_access_registre: { Args: { _registre_id: string }; Returns: boolean }
       can_write_registre: { Args: { _registre_id: string }; Returns: boolean }
       compute_campaign_label: { Args: { d: string }; Returns: string }
@@ -1236,10 +1275,6 @@ export type Database = {
       log_login_event: { Args: { p_user_agent?: string }; Returns: undefined }
       my_cooperative_ids: { Args: never; Returns: string[] }
       my_registre_ids: { Args: never; Returns: string[] }
-      next_lot_number: {
-        Args: { p_campaign_label: string; p_registre: string }
-        Returns: string
-      }
       shares_my_cooperative: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {

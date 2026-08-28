@@ -81,6 +81,7 @@ export default function CreateShipment() {
   const requestIdRef = useRef<string | null>(null);
   /** Potentiel restant par producteur au moment du calcul de la distribution (détection de changement avant enregistrement). */
   const remainingSnapshotRef = useRef<Record<string, number>>({});
+  const [lotNumber, setLotNumber] = useState<number | null>(null);
   const [saveDiagnostic, setSaveDiagnostic] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
@@ -349,6 +350,18 @@ export default function CreateShipment() {
       return;
     }
 
+    // Réservation atomique du N° de lot (compteur persistant registre + campagne, côté base).
+    const { data: allocatedLot, error: lotErr } = await supabase.rpc("allocate_lot_number", {
+      p_registre: selectedCoopId,
+      p_campaign_label: normalizeCampaign(getCurrentCampaign()),
+    });
+    if (lotErr || allocatedLot == null) {
+      console.error("[CreateShipment] allocate_lot_number failed", lotErr);
+      toast({ title: "Numéro de lot indisponible", description: "Une erreur est survenue.", variant: "destructive" });
+      return;
+    }
+    setLotNumber(Number(allocatedLot));
+
     // Nouvelle distribution => nouvelle clé d'idempotence.
     requestIdRef.current = null;
     remainingSnapshotRef.current = Object.fromEntries(remainingById);
@@ -418,6 +431,7 @@ export default function CreateShipment() {
       registre_id: selectedCoopId || null,
       destination,
       campaign_label: campaignLabel,
+      lot_number: lotNumber != null ? String(lotNumber) : null,
       delivery_start: startDate,
       delivery_end: endDate,
       driver_name: driverName.trim() || null,
@@ -525,6 +539,7 @@ export default function CreateShipment() {
     setPreviewExpanded(false);
     requestIdRef.current = null;
     remainingSnapshotRef.current = {};
+    setLotNumber(null);
 
     setConnaissement("");
     setTotalWeight("");
@@ -1131,7 +1146,7 @@ export default function CreateShipment() {
                                 num_bags: preview.reduce((s, d) => s + d.num_bags, 0),
                                 total_weight: preview.reduce((s, d) => s + d.allocated_weight, 0).toLocaleString("fr-FR"),
                                 num_producers: preview.length,
-                                lot: "(auto)",
+                                lot: lotNumber != null ? String(lotNumber) : "—",
                                 producers: preview.map((d) => ({
                                   name: d.full_name,
                                   receipt: d.receipt_number,
