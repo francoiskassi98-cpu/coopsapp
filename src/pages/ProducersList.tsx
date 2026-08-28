@@ -18,9 +18,13 @@ import PageHeader from "@/components/PageHeader";
 import { Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { normalizeCampaign, getCurrentCampaign } from "@/lib/shipment-utils";
+import { useDebounce } from "@/hooks/useDebounce";
 import type { Database } from "@/integrations/supabase/types";
 
 type ImportMode = "insert" | "update";
+
+const ROWS_STEP = 100;
+
 
 type ProducerDbRow = Database["public"]["Tables"]["producers"]["Row"];
 /** Producteur enrichi du nom de son registre (exposé sous `cooperative` pour le rendu). */
@@ -94,12 +98,14 @@ export default function Producers() {
   }, [producers]);
 
   const { sortConfig, toggleSort, sortData } = useSortableTable();
+  const debouncedSearch = useDebounce(search, 250);
+  const [visibleCount, setVisibleCount] = useState(ROWS_STEP);
 
   const filtered = useMemo(() => {
+    const s = debouncedSearch.trim().toLowerCase();
     const base = producers.filter((p) => {
       if (coopFilter !== "all" && p.cooperative !== coopFilter) return false;
-      if (!search) return true;
-      const s = search.toLowerCase();
+      if (!s) return true;
       return (
         p.full_name.toLowerCase().includes(s) ||
         p.plantation_code.toLowerCase().includes(s) ||
@@ -112,10 +118,16 @@ export default function Producers() {
       if (v == null) return null;
       if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
       return String(v);
-
     });
+  }, [producers, coopFilter, debouncedSearch, sortData]);
 
-  }, [producers, coopFilter, search, sortData]);
+  // Rendu progressif : on n'affiche qu'un lot de lignes à la fois pour rester fluide
+  useEffect(() => {
+    setVisibleCount(ROWS_STEP);
+  }, [debouncedSearch, coopFilter, sortConfig]);
+
+  const visibleRows = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+
 
   // --- Edit / Delete (existing) ---
   // Sections désactivées (clé = registre_id||section, campagne active)
@@ -653,7 +665,7 @@ export default function Producers() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filtered.map((p) => (
+                    visibleRows.map((p) => (
                       <TableRow key={p.id} className={p.is_active === false || disabledSections.has(sectionKey(p.registre_id, p.section)) ? "opacity-50" : ""}>
                         <TableCell>
                           {p.is_active === false ? (
@@ -689,7 +701,16 @@ export default function Producers() {
                   )}
                 </TableBody>
               </Table>
+              {visibleCount < filtered.length && (
+                <div className="flex justify-center py-4">
+                  <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + ROWS_STEP)}>
+                    Afficher plus ({filtered.length - visibleCount} restants)
+                  </Button>
+                </div>
+              )}
             </div>
+
+
           )}
         </CardContent>
       </Card>

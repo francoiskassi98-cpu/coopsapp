@@ -1,9 +1,18 @@
+import { lazy, Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, List, Coins, Users } from "lucide-react";
-import ProducersAnalytics from "@/components/producers/ProducersAnalytics";
-import PrimeProducer from "@/components/producers/PrimeProducer";
-import ProducersList from "@/pages/ProducersList";
+import { BarChart3, List, Coins, Users, Loader2 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+
+const ProducersAnalytics = lazy(() => import("@/components/producers/ProducersAnalytics"));
+const PrimeProducer = lazy(() => import("@/components/producers/PrimeProducer"));
+const ProducersList = lazy(() => import("@/pages/ProducersList"));
+
+const TabFallback = () => (
+  <div className="flex items-center justify-center py-16 text-muted-foreground">
+    <Loader2 className="h-5 w-5 animate-spin" />
+  </div>
+);
+
 
 export default function Producers() {
   return (
@@ -26,14 +35,15 @@ export default function Producers() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="analytics" className="mt-0">
-          <ProducersAnalytics />
+          <Suspense fallback={<TabFallback />}><ProducersAnalytics /></Suspense>
         </TabsContent>
         <TabsContent value="list" className="mt-0 -mx-4 md:-mx-6 -mb-4 md:-mb-6">
-          <ProducersList />
+          <Suspense fallback={<TabFallback />}><ProducersList /></Suspense>
         </TabsContent>
         <TabsContent value="prime" className="mt-0">
-          <PrimeProducer />
+          <Suspense fallback={<TabFallback />}><PrimeProducer /></Suspense>
         </TabsContent>
+
       </Tabs>
     </div>
   );
