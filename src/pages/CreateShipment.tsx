@@ -374,7 +374,14 @@ export default function CreateShipment() {
       throw new Error(`Distribution invalide pour ${invalidDelivery.full_name || "un producteur"}. Vérifiez le poids, le nombre de sacs, la date et le numéro de reçu.`);
     }
 
-    // Validation finale des règles métier (potentiel, seuil 50 kg, délai 15 jours)
+
+    // Revalidation des dates juste avant enregistrement (aucune date future autorisée)
+    const todayIso = new Date().toISOString().slice(0, 10);
+    if (startDate > todayIso || endDate > todayIso) {
+      throw new Error("Pas possible d'effectuer un chargement avec cette date.");
+    }
+
+    // Validation finale des règles métier (potentiel, seuil 50 kg, délai 15 jours, potentiel modifié)
     const anomalies = await validateDistributionBeforeSave(
       selectedCoopId,
       preview.map((d) => ({
@@ -383,7 +390,8 @@ export default function CreateShipment() {
         allocated_weight: Number(d.allocated_weight),
         delivery_date: d.delivery_date,
       })),
-      campaignLabel
+      campaignLabel,
+      remainingSnapshotRef.current
     );
     if (anomalies.length > 0) {
       console.error("[CreateShipment] business rules violated", anomalies);
