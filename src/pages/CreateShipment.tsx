@@ -441,24 +441,8 @@ export default function CreateShipment() {
     setDepartureDate("");
   };
 
-  const handleSave = async () => {
-    if (preview.length === 0) return;
-    setSaving(true);
-    setSaveDiagnostic(null);
-    try {
-      const count = preview.length;
-      const shipmentId = await persistShipment();
-      toast({ title: "Chargement validé et enregistré avec succès.", description: `${count} fiches de livraison générées. N° chargement : ${shipmentId?.slice(0, 8) || "créé"}.` });
-      resetForm();
-    } catch (err) {
-      const message = formatTechnicalError(err, "Validation impossible");
-      console.error("[CreateShipment] save failed", err);
-      setSaveDiagnostic((current) => current || message);
-      toast({ title: "Validation impossible", description: "Consultez le diagnostic affiché sous l’aperçu.", variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
+
+
 
   const addPartner = async () => {
     const name = newPartnerName.trim();
