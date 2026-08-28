@@ -201,12 +201,15 @@ export interface DistributionLine {
 /**
  * Validation finale avant enregistrement : aucun dépassement de potentiel,
  * aucun poids restant < 50 kg, aucun délai de 15 jours non respecté.
+ * `remainingSnapshot` (optionnel) : potentiel restant connu au moment du calcul de la
+ * distribution — s'il a diminué depuis, l'enregistrement est refusé.
  * Retourne la liste des anomalies (vide si tout est conforme).
  */
 export async function validateDistributionBeforeSave(
   registreId: string,
   lines: DistributionLine[],
-  campaignLabelInput?: string
+  campaignLabelInput?: string,
+  remainingSnapshot?: Record<string, number>
 ): Promise<string[]> {
   const { deliveredByProducer, lastDeliveryByProducer } = await buildEligibleProducers(
     registreId,
@@ -235,6 +238,12 @@ export async function validateDistributionBeforeSave(
     const potential = info?.potential ?? 0;
     const delivered = deliveredByProducer[line.producer_id] || 0;
     const remaining = potential - delivered;
+
+    const snapshot = remainingSnapshot?.[line.producer_id];
+    if (snapshot !== undefined && remaining < snapshot) {
+      anomalies.push("Le potentiel disponible du producteur a changé. Veuillez recalculer la distribution.");
+      continue;
+    }
 
     if (remaining < MIN_REMAINING_WEIGHT_KG) {
       anomalies.push(`Le producteur ${name} est exclu car son poids restant est inférieur à ${MIN_REMAINING_WEIGHT_KG} kg.`);

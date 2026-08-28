@@ -79,6 +79,8 @@ export default function CreateShipment() {
   const savingRef = useRef(false);
   /** Clé d'idempotence envoyée à la base (index unique) pour garantir un seul enregistrement. */
   const requestIdRef = useRef<string | null>(null);
+  /** Potentiel restant par producteur au moment du calcul de la distribution (détection de changement avant enregistrement). */
+  const remainingSnapshotRef = useRef<Record<string, number>>({});
   const [saveDiagnostic, setSaveDiagnostic] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
@@ -247,6 +249,10 @@ export default function CreateShipment() {
       if (avg > 90) errs.push(`Poids moyen par sac trop élevé (${avg.toFixed(1)} kg) — maximum 90 kg.`);
       if (avg < 10) errs.push(`Poids moyen par sac trop faible (${avg.toFixed(1)} kg) — minimum 10 kg.`);
     }
+    const todayIso = new Date().toISOString().slice(0, 10);
+    if ((startDate && startDate > todayIso) || (endDate && endDate > todayIso)) {
+      errs.push("Pas possible d'effectuer un chargement avec cette date.");
+    }
     if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
       errs.push("La date de fin doit être postérieure ou égale à la date de début.");
     }
@@ -345,6 +351,7 @@ export default function CreateShipment() {
 
     // Nouvelle distribution => nouvelle clé d'idempotence.
     requestIdRef.current = null;
+    remainingSnapshotRef.current = Object.fromEntries(remainingById);
     setPreview(capped);
     // Préchargement du générateur Excel pendant que l'utilisateur relit l'aperçu → téléchargement instantané.
     void import("@/services/excel/shipment-fiche-excel").catch(() => undefined);
@@ -367,7 +374,14 @@ export default function CreateShipment() {
       throw new Error(`Distribution invalide pour ${invalidDelivery.full_name || "un producteur"}. Vérifiez le poids, le nombre de sacs, la date et le numéro de reçu.`);
     }
 
-    // Validation finale des règles métier (potentiel, seuil 50 kg, délai 15 jours)
+
+    // Revalidation des dates juste avant enregistrement (aucune date future autorisée)
+    const todayIso = new Date().toISOString().slice(0, 10);
+    if (startDate > todayIso || endDate > todayIso) {
+      throw new Error("Pas possible d'effectuer un chargement avec cette date.");
+    }
+
+    // Validation finale des règles métier (potentiel, seuil 50 kg, délai 15 jours, potentiel modifié)
     const anomalies = await validateDistributionBeforeSave(
       selectedCoopId,
       preview.map((d) => ({
@@ -376,7 +390,8 @@ export default function CreateShipment() {
         allocated_weight: Number(d.allocated_weight),
         delivery_date: d.delivery_date,
       })),
-      campaignLabel
+      campaignLabel,
+      remainingSnapshotRef.current
     );
     if (anomalies.length > 0) {
       console.error("[CreateShipment] business rules violated", anomalies);
@@ -974,11 +989,11 @@ export default function CreateShipment() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Date début livraison *</Label>
-                    <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                    <Input type="date" max={new Date().toISOString().slice(0, 10)} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label>Date fin livraison *</Label>
-                    <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                    <Input type="date" max={new Date().toISOString().slice(0, 10)} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                   </div>
                 </div>
 
