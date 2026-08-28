@@ -618,7 +618,10 @@ export default function CreateShipment() {
 
   /** Unique action finale : validation → enregistrement (une seule fois) → génération → téléchargement. */
   const saveAndDownloadShipment = async () => {
-    if (preview.length === 0 || saving) return;
+    if (preview.length === 0) return;
+    // Verrou synchrone (double-clic rapide) + verrou d'état (rendu UI).
+    if (savingRef.current || saving) return;
+    savingRef.current = true;
     setSaving(true);
     setSaveDiagnostic(null);
     const count = preview.length;
@@ -634,11 +637,13 @@ export default function CreateShipment() {
         description: "Vérifiez les données et réessayez. Consultez le diagnostic affiché sous l’aperçu.",
         variant: "destructive",
       });
+      savingRef.current = false;
       setSaving(false);
       return;
     }
 
     if (!shipmentId) {
+      savingRef.current = false;
       setSaving(false);
       return;
     }
