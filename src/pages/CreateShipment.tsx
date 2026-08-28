@@ -235,6 +235,31 @@ export default function CreateShipment() {
     return m;
   }, [totalWeight, totalBags, connaissement, startDate, endDate, project, partnerId, selectedCoopId, destination, driverName, truckNumber, trailerNumber, departureDate, templateId]);
 
+  /** Contrôles de cohérence (au-delà des champs simplement requis). */
+  const validationErrors = useMemo(() => {
+    const errs: string[] = [];
+    const w = Number(totalWeight);
+    const b = Number(totalBags);
+    if (totalWeight && (!Number.isFinite(w) || w <= 0)) errs.push("Le poids total doit être un nombre supérieur à 0.");
+    if (totalBags && (!Number.isInteger(b) || b <= 0)) errs.push("Le nombre de sacs doit être un entier supérieur à 0.");
+    if (w > 0 && b > 0) {
+      const avg = w / b;
+      if (avg > 90) errs.push(`Poids moyen par sac trop élevé (${avg.toFixed(1)} kg) — maximum 90 kg.`);
+      if (avg < 10) errs.push(`Poids moyen par sac trop faible (${avg.toFixed(1)} kg) — minimum 10 kg.`);
+    }
+    if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+      errs.push("La date de fin doit être postérieure ou égale à la date de début.");
+    }
+    if (departureDate && endDate && new Date(departureDate) < new Date(endDate)) {
+      errs.push("La date de départ ne peut pas précéder la date de fin des livraisons.");
+    }
+    if (coopStats && w > 0 && coopStats.remaining > 0 && w > coopStats.remaining) {
+      errs.push(`Le poids total (${w.toLocaleString("fr-FR")} kg) dépasse le potentiel restant du registre (${coopStats.remaining.toLocaleString("fr-FR")} kg).`);
+    }
+    return errs;
+  }, [totalWeight, totalBags, startDate, endDate, departureDate, coopStats]);
+
+
   const formatTechnicalError = (error: unknown, context: string) => {
     const e = asError(error);
     const parts = [
