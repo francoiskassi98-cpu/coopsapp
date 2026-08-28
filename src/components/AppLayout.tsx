@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { BarChart3, Truck, FileSpreadsheet, Users, Settings, LogOut, ShieldCheck, Building2, Sprout, Handshake, Trash2, KeyRound, FileCog, LayoutDashboard, Menu } from "lucide-react";
+import { BarChart3, Truck, FileSpreadsheet, Users, Settings, LogOut, ShieldCheck, Building2, Sprout, Handshake, Trash2, KeyRound, FileCog, LayoutDashboard, Menu, FolderKanban } from "lucide-react";
 import { useEffect, useState } from "react";
 import AppHeader from "@/components/AppHeader";
 import { cn } from "@/lib/utils";
