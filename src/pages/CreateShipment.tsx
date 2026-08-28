@@ -866,7 +866,7 @@ export default function CreateShipment() {
 
                 <div className="space-y-2">
                   <Label>N° Connaissement *</Label>
-                  <Input value={connaissement} onChange={(e) => setConnaissement(e.target.value)} placeholder="SC101410-..." />
+                  <Input id="shipment-connaissement" value={connaissement} onChange={(e) => setConnaissement(e.target.value)} placeholder="SC101410-..." />
                 </div>
 
                 {/* 7. Distribution (transport + dates) */}
