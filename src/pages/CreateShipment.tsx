@@ -92,16 +92,25 @@ export default function CreateShipment() {
   const canCreateProject = role === "super_admin" || role === "coop_admin" || role === "agent";
 
   const [cooperatives, setCooperatives] = useState<{ id: string; name: string; cooperative_id?: string }[]>([]);
-  const [coopDelivered, setCoopDelivered] = useState<Record<string, number>>({});
-  const [coopPotential, setCoopPotential] = useState<Record<string, { potentiel: number; remaining: number }>>({});
+  const [coopStats, setCoopStats] = useState<{ potentiel: number; delivered: number; remaining: number } | null>(null);
   const [suggestedReceipt, setSuggestedReceipt] = useState<string>("");
   const [receiptNumber, setReceiptNumber] = useState<string>("");
   const [selectedCoopId, setSelectedCoopId] = useState<string>("");
 
   useEffect(() => {
-    supabase.from("partners").select("id, name, cooperative_id, logo_path, status").order("name").then(({ data }) => setPartners(data || []));
-    loadCooperatives();
+    let cancelled = false;
+    (async () => {
+      const [partnersRes, registresRes] = await Promise.all([
+        supabase.from("partners").select("id, name, cooperative_id, logo_path, status").order("name"),
+        supabase.from("registres").select("id, name, cooperative_id").order("name"),
+      ]);
+      if (cancelled) return;
+      setPartners(partnersRes.data || []);
+      setCooperatives((registresRes.data || []) as { id: string; name: string; cooperative_id?: string }[]);
+    })();
+    return () => { cancelled = true; };
   }, []);
+
 
   const { templates, loading: templatesLoading } = useActiveShipmentTemplates(selectedCoopId || null);
 
