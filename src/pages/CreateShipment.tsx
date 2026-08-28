@@ -75,6 +75,10 @@ export default function CreateShipment() {
   const [templateId, setTemplateId] = useState<string>("");
   const [preview, setPreview] = useState<DistributionResult[]>([]);
   const [saving, setSaving] = useState(false);
+  /** Verrou synchrone : bloque le 2e clic avant même le re-render React. */
+  const savingRef = useRef(false);
+  /** Clé d'idempotence envoyée à la base (index unique) pour garantir un seul enregistrement. */
+  const requestIdRef = useRef<string | null>(null);
   const [saveDiagnostic, setSaveDiagnostic] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
