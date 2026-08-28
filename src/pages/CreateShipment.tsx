@@ -278,6 +278,12 @@ export default function CreateShipment() {
       toast({ title: "Champs requis manquants", description: `Renseignez : ${missingFields.join(", ")}.`, variant: "destructive" });
       return;
     }
+    if (validationErrors.length > 0) {
+      setSaveDiagnostic(validationErrors.join("\n"));
+      toast({ title: "Données incohérentes", description: validationErrors[0], variant: "destructive" });
+      return;
+    }
+
 
     // Construction automatique de la liste des producteurs éligibles (règles métier)
     let eligibility;
