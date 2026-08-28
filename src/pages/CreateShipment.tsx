@@ -539,6 +539,7 @@ export default function CreateShipment() {
     setPreviewExpanded(false);
     requestIdRef.current = null;
     remainingSnapshotRef.current = {};
+    setLotNumber(null);
 
     setConnaissement("");
     setTotalWeight("");
