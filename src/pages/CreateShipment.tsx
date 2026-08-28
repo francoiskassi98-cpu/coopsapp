@@ -915,15 +915,12 @@ export default function CreateShipment() {
                       )}
                     </Button>
                     {preview.length > 0 && (
-                      <>
-                        <Button variant="outline" onClick={handleSaveAndDownload} disabled={saving}>
-                          <Download className="h-4 w-4 mr-2" /> {saving ? "Traitement..." : "Enregistrer et télécharger"}
-                        </Button>
-                        <Button onClick={handleSave} disabled={saving}>
-                          {saving ? "Enregistrement..." : "Valider et enregistrer"}
-                        </Button>
-                      </>
+                      <Button onClick={saveAndDownloadShipment} disabled={saving}>
+                        <Download className="h-4 w-4 mr-2" />
+                        {saving ? "Enregistrement et téléchargement..." : "Enregistrer et télécharger"}
+                      </Button>
                     )}
+
                   </div>
                 </div>
               </CardHeader>
