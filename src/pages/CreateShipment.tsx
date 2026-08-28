@@ -315,6 +315,8 @@ export default function CreateShipment() {
       return;
     }
 
+    // Nouvelle distribution => nouvelle clé d'idempotence.
+    requestIdRef.current = null;
     setPreview(capped);
   };
 
