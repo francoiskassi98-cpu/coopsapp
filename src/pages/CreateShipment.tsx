@@ -14,7 +14,6 @@ import { toast } from "@/hooks/use-toast";
 import { Truck, Plus, Download, Pencil, Check, X, FileSpreadsheet, FolderPlus } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
-import { generateShipmentFiche } from "@/services/excel/shipment-fiche-excel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ImportShipments from "@/pages/ImportShipments";
 import ShipmentDetails from "@/components/ShipmentDetails";
@@ -598,6 +597,7 @@ export default function CreateShipment() {
       const count = preview.length;
       const shipmentId = await persistShipment();
       if (!shipmentId) return;
+      const { generateShipmentFiche } = await import("@/services/excel/shipment-fiche-excel");
       await generateShipmentFiche(shipmentId);
       toast({ title: "Chargement validé et enregistré avec succès.", description: `${count} fiches générées et fiche Excel téléchargée. N° chargement : ${shipmentId.slice(0, 8)}.` });
       resetForm();
