@@ -289,14 +289,6 @@ export default function ProducersAnalytics() {
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label className="text-xs">Du</Label>
-            <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-40" />
-          </div>
-          <div>
-            <Label className="text-xs">Au</Label>
-            <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-40" />
-          </div>
         </CardContent>
       </Card>
 
