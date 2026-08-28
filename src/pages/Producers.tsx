@@ -1,9 +1,18 @@
+import { lazy, Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, List, Coins, Users } from "lucide-react";
-import ProducersAnalytics from "@/components/producers/ProducersAnalytics";
-import PrimeProducer from "@/components/producers/PrimeProducer";
-import ProducersList from "@/pages/ProducersList";
+import { BarChart3, List, Coins, Users, Loader2 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+
+const ProducersAnalytics = lazy(() => import("@/components/producers/ProducersAnalytics"));
+const PrimeProducer = lazy(() => import("@/components/producers/PrimeProducer"));
+const ProducersList = lazy(() => import("@/pages/ProducersList"));
+
+const TabFallback = () => (
+  <div className="flex items-center justify-center py-16 text-muted-foreground">
+    <Loader2 className="h-5 w-5 animate-spin" />
+  </div>
+);
+
 
 export default function Producers() {
   return (
