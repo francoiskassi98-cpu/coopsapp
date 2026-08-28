@@ -666,6 +666,50 @@ export default function Producers() {
                     </TableRow>
                   ) : (
                     visibleRows.map((p) => (
+                      <TableRow key={p.id} className={p.is_active === false || disabledSections.has(sectionKey(p.registre_id, p.section)) ? "opacity-50" : ""}>
+                        <TableCell>
+                          {p.is_active === false ? (
+                            <Badge variant="destructive" className="text-xs">Inactif</Badge>
+                          ) : disabledSections.has(sectionKey(p.registre_id, p.section)) ? (
+                            <Badge variant="secondary" className="text-xs">Section off</Badge>
+                          ) : (
+                            <Badge variant="default" className="text-xs bg-green-600">Actif</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">{p.full_name}</TableCell>
+                        <TableCell>{p.sexe || "—"}</TableCell>
+                        <TableCell>{p.section}</TableCell>
+                        <TableCell className="font-mono text-xs">{p.plantation_code}</TableCell>
+                        <TableCell>{Number(p.delivery_potential).toLocaleString("fr-FR")}</TableCell>
+                        <TableCell>{Number(p.remaining_potential).toLocaleString("fr-FR")}</TableCell>
+                        <TableCell>{p.cooperative}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => navigate(`/producteurs/${p.id}`)} title="Fiche complète">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title="Modifier">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => setDeleteProducer(p)} title="Supprimer" className="text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              {visibleCount < filtered.length && (
+                <div className="flex justify-center py-4">
+                  <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + ROWS_STEP)}>
+                    Afficher plus ({filtered.length - visibleCount} restants)
+                  </Button>
+                </div>
+              )}
+            </div>
+
 
           )}
         </CardContent>
