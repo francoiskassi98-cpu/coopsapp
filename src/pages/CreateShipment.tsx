@@ -431,6 +431,7 @@ export default function CreateShipment() {
       registre_id: selectedCoopId || null,
       destination,
       campaign_label: campaignLabel,
+      lot_number: lotNumber != null ? String(lotNumber) : null,
       delivery_start: startDate,
       delivery_end: endDate,
       driver_name: driverName.trim() || null,
