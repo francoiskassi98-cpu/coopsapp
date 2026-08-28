@@ -628,8 +628,8 @@ export default function CreateShipment() {
         </TabsList>
 
         <TabsContent value="create">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="shadow-glass">
+          <div className="grid gap-6 xl:grid-cols-5 items-start">
+            <Card className={`shadow-glass xl:col-span-2 ${previewExpanded ? "hidden" : ""}`}>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><Truck className="h-4 w-4" /></span>
