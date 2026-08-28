@@ -459,8 +459,8 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   }
 
   const safeCoop = (coopName || "Coop").replace(/[^a-z0-9-]+/gi, "_");
-  const safeLot = (sh.lot_number || sh.connaissement || sh.id.slice(0, 6)).replace(/[^a-z0-9-]+/gi, "_");
-  const fileName = `Fiche-Accompagnement-${safeCoop}-${safeLot}.xlsx`;
+  const safeConnaissement = (sh.connaissement || sh.lot_number || sh.id.slice(0, 6)).replace(/[^a-z0-9-]+/gi, "_");
+  const fileName = `Fiche-Accompagnement-${safeCoop}-${safeConnaissement}.xlsx`;
   return { wb, ws, fileName, tpl };
 }
 
