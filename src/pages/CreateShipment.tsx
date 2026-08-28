@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,6 +75,10 @@ export default function CreateShipment() {
   const [templateId, setTemplateId] = useState<string>("");
   const [preview, setPreview] = useState<DistributionResult[]>([]);
   const [saving, setSaving] = useState(false);
+  /** Verrou synchrone : bloque le 2e clic avant même le re-render React. */
+  const savingRef = useRef(false);
+  /** Clé d'idempotence envoyée à la base (index unique) pour garantir un seul enregistrement. */
+  const requestIdRef = useRef<string | null>(null);
   const [saveDiagnostic, setSaveDiagnostic] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
@@ -311,6 +315,8 @@ export default function CreateShipment() {
       return;
     }
 
+    // Nouvelle distribution => nouvelle clé d'idempotence.
+    requestIdRef.current = null;
     setPreview(capped);
   };
 
@@ -349,6 +355,10 @@ export default function CreateShipment() {
 
 
 
+    // Clé d'idempotence : identique pour toutes les tentatives d'un même chargement.
+    if (!requestIdRef.current) requestIdRef.current = crypto.randomUUID();
+    const clientRequestId = requestIdRef.current;
+
     const shipmentPayload = {
       connaissement: connaissement || null,
       total_weight: Number(totalWeight),
@@ -368,6 +378,7 @@ export default function CreateShipment() {
       truck_number: truckNumber.trim() || null,
       trailer_number: trailerNumber.trim() || null,
       departure_date: departureDate || null,
+      client_request_id: clientRequestId,
     };
 
     const { data: shipment, error: shipErr } = await supabase
@@ -377,6 +388,18 @@ export default function CreateShipment() {
       .single();
 
     if (shipErr) {
+      // Contrainte d'unicité côté base : le chargement a déjà été enregistré (double-clic / double envoi).
+      if ((shipErr as { code?: string }).code === "23505") {
+        const { data: existing } = await supabase
+          .from("shipments")
+          .select("id")
+          .eq("client_request_id", clientRequestId)
+          .maybeSingle();
+        if (existing?.id) {
+          console.warn("[CreateShipment] duplicate submission ignored", { clientRequestId });
+          return existing.id;
+        }
+      }
       const message = formatTechnicalError(shipErr, "Échec création du chargement");
       console.error("[CreateShipment] shipments insert failed", { error: shipErr, payload: shipmentPayload });
       setSaveDiagnostic(message);
@@ -436,6 +459,7 @@ export default function CreateShipment() {
     setEditBags("");
     setSaveDiagnostic(null);
     setPreviewExpanded(false);
+    requestIdRef.current = null;
 
     setConnaissement("");
     setTotalWeight("");
@@ -597,7 +621,10 @@ export default function CreateShipment() {
 
   /** Unique action finale : validation → enregistrement (une seule fois) → génération → téléchargement. */
   const saveAndDownloadShipment = async () => {
-    if (preview.length === 0 || saving) return;
+    if (preview.length === 0) return;
+    // Verrou synchrone (double-clic rapide) + verrou d'état (rendu UI).
+    if (savingRef.current || saving) return;
+    savingRef.current = true;
     setSaving(true);
     setSaveDiagnostic(null);
     const count = preview.length;
@@ -613,11 +640,13 @@ export default function CreateShipment() {
         description: "Vérifiez les données et réessayez. Consultez le diagnostic affiché sous l’aperçu.",
         variant: "destructive",
       });
+      savingRef.current = false;
       setSaving(false);
       return;
     }
 
     if (!shipmentId) {
+      savingRef.current = false;
       setSaving(false);
       return;
     }
@@ -638,6 +667,7 @@ export default function CreateShipment() {
       });
     } finally {
       resetForm();
+      savingRef.current = false;
       setSaving(false);
     }
   };
