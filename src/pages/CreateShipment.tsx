@@ -247,6 +247,10 @@ export default function CreateShipment() {
       if (avg > 90) errs.push(`Poids moyen par sac trop élevé (${avg.toFixed(1)} kg) — maximum 90 kg.`);
       if (avg < 10) errs.push(`Poids moyen par sac trop faible (${avg.toFixed(1)} kg) — minimum 10 kg.`);
     }
+    const todayIso = new Date().toISOString().slice(0, 10);
+    if ((startDate && startDate > todayIso) || (endDate && endDate > todayIso)) {
+      errs.push("Pas possible d'effectuer un chargement avec cette date.");
+    }
     if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
       errs.push("La date de fin doit être postérieure ou égale à la date de début.");
     }
