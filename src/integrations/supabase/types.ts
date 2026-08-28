@@ -922,6 +922,7 @@ export type Database = {
         Row: {
           avg_bag_weight: number
           campaign_label: string | null
+          client_request_id: string | null
           connaissement: string | null
           created_at: string
           deleted_at: string | null
@@ -948,6 +949,7 @@ export type Database = {
         Insert: {
           avg_bag_weight: number
           campaign_label?: string | null
+          client_request_id?: string | null
           connaissement?: string | null
           created_at?: string
           deleted_at?: string | null
@@ -974,6 +976,7 @@ export type Database = {
         Update: {
           avg_bag_weight?: number
           campaign_label?: string | null
+          client_request_id?: string | null
           connaissement?: string | null
           created_at?: string
           deleted_at?: string | null
