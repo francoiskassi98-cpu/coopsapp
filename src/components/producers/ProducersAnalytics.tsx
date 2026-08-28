@@ -121,8 +121,6 @@ export default function ProducersAnalytics() {
   const [registreFilter, setRegistreFilter] = useState("all");
   const [campaignFilter, setCampaignFilter] = useState("all");
   const [sectionFilter, setSectionFilter] = useState("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
     (async () => {
