@@ -83,6 +83,7 @@ const App = () => (
                       <Route path="/gestion/dashboard" element={<SuperAdminDashboard />} />
                       <Route path="/gestion/cooperatives" element={<CooperativesManagement />} />
                       <Route path="/gestion/cooperatives/nouvelle" element={<CreateCooperative />} />
+                      <Route path="/gestion/projets" element={<ProjectsManagement />} />
                     </Route>
                   </Route>
                 </Route>
