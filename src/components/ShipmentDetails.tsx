@@ -77,7 +77,6 @@ export default function ShipmentDetails() {
     } catch (e) {
       console.error(e);
       toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
-    }
     } finally {
       setGeneratingId(null);
     }
