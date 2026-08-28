@@ -524,6 +524,7 @@ export default function CreateShipment() {
     setSaveDiagnostic(null);
     setPreviewExpanded(false);
     requestIdRef.current = null;
+    remainingSnapshotRef.current = {};
 
     setConnaissement("");
     setTotalWeight("");
@@ -537,10 +538,19 @@ export default function CreateShipment() {
     setDestination("");
     setStartDate("");
     setEndDate("");
+    setReceiptNumber("");
     // Le registre sélectionné est conservé pour faciliter la saisie de chargements successifs.
+    // Ses paramètres (potentiel restant, prochain n° de reçu) doivent être rechargés
+    // car l'enregistrement vient de les modifier.
+    if (selectedCoopId) {
+      const name = cooperatives.find((c) => c.id === selectedCoopId)?.name || zone;
+      void loadCoopStats(selectedCoopId, name);
+      void loadNextReceiptForCooperative(selectedCoopId);
+    }
 
     // Rafraîchit les listes (historique / détail) si elles sont montées.
     window.dispatchEvent(new CustomEvent("shipment:saved"));
+
 
     // Focus cohérent : retour sur le premier champ du formulaire.
     requestAnimationFrame(() => {
