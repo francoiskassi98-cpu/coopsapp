@@ -141,16 +141,19 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   if (sErr || !shipment) throw new Error("Chargement introuvable");
 
   const sh: ShipmentFicheRow = shipment;
-  const tpl = await loadTemplate(sh.registre_id);
 
-  const { data: deliveries, error: dErr } = await supabase
-    .from("deliveries")
-    .select(
-      "receipt_number, delivery_date, net_weight, num_bags, producers(full_name, section, plantation_code)"
-    )
-    .eq("shipment_id", shipmentId)
-    .order("receipt_number", { ascending: true })
-    .returns<DeliveryFicheRow[]>();
+  const [tpl, deliveriesRes] = await Promise.all([
+    loadTemplate(sh.registre_id),
+    supabase
+      .from("deliveries")
+      .select(
+        "receipt_number, delivery_date, net_weight, num_bags, producers(full_name, section, plantation_code)"
+      )
+      .eq("shipment_id", shipmentId)
+      .order("receipt_number", { ascending: true })
+      .returns<DeliveryFicheRow[]>(),
+  ]);
+  const { data: deliveries, error: dErr } = deliveriesRes;
   if (dErr) throw dErr;
 
   const rows: DeliveryFicheRow[] = deliveries || [];
@@ -227,14 +230,11 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
       editAs: "oneCell",
     });
   };
-  if (tpl.coop_logo_path) {
-    // En haut à gauche (colonne A)
-    await addLogo(tpl.coop_logo_path, 0.1);
-  }
-  if (tpl.show_partner_logo && tpl.partner_logo_path) {
-    // En haut à droite (colonne H, à droite de l'image)
-    await addLogo(tpl.partner_logo_path, 7.05);
-  }
+  // Les deux logos sont chargés en parallèle pour accélérer la génération
+  await Promise.all([
+    tpl.coop_logo_path ? addLogo(tpl.coop_logo_path, 0.1) : null,
+    tpl.show_partner_logo && tpl.partner_logo_path ? addLogo(tpl.partner_logo_path, 7.05) : null,
+  ]);
 
   // ============================================================
   // BLOC INFOS HORIZONTAL — Lignes 2 à 11
@@ -478,6 +478,13 @@ export async function downloadWorkbook(wb: ExcelJS.Workbook, fileName: string): 
   const a = document.createElement("a");
   a.href = url;
   a.download = fileName;
+  a.rel = "noopener";
+  a.style.display = "none";
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  // Le lien et l'URL ne sont libérés qu'après le déclenchement réel du téléchargement
+  setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 1500);
 }
