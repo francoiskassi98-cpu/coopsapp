@@ -81,6 +81,8 @@ export default function CreateShipment() {
   const requestIdRef = useRef<string | null>(null);
   /** Potentiel restant par producteur au moment du calcul de la distribution (détection de changement avant enregistrement). */
   const remainingSnapshotRef = useRef<Record<string, number>>({});
+  /** N° de lot réservé à l'enregistrement (réutilisé si une tentative échoue puis est relancée). */
+  const lotNumberRef = useRef<number | null>(null);
   const [lotNumber, setLotNumber] = useState<number | null>(null);
   const [saveDiagnostic, setSaveDiagnostic] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -350,17 +352,10 @@ export default function CreateShipment() {
       return;
     }
 
-    // Réservation atomique du N° de lot (compteur persistant registre + campagne, côté base).
-    const { data: allocatedLot, error: lotErr } = await supabase.rpc("allocate_lot_number", {
-      p_registre: selectedCoopId,
-      p_campaign_label: normalizeCampaign(getCurrentCampaign()),
-    });
-    if (lotErr || allocatedLot == null) {
-      console.error("[CreateShipment] allocate_lot_number failed", lotErr);
-      toast({ title: "Numéro de lot indisponible", description: "Une erreur est survenue.", variant: "destructive" });
-      return;
-    }
-    setLotNumber(Number(allocatedLot));
+    // Le N° de lot n'est attribué qu'à l'enregistrement (aucun numéro consommé par un simple recalcul).
+    setLotNumber(null);
+    lotNumberRef.current = null;
+
 
     // Nouvelle distribution => nouvelle clé d'idempotence.
     requestIdRef.current = null;
@@ -418,6 +413,20 @@ export default function CreateShipment() {
     if (!requestIdRef.current) requestIdRef.current = crypto.randomUUID();
     const clientRequestId = requestIdRef.current;
 
+    // Réservation atomique du N° de lot au moment de l'enregistrement uniquement (une seule fois par chargement).
+    if (lotNumberRef.current == null) {
+      const { data: allocatedLot, error: lotErr } = await supabase.rpc("allocate_lot_number", {
+        p_registre: selectedCoopId,
+        p_campaign_label: campaignLabel,
+      });
+      if (lotErr || allocatedLot == null) {
+        console.error("[CreateShipment] allocate_lot_number failed", lotErr);
+        throw new Error("Numéro de lot indisponible. Une erreur est survenue.");
+      }
+      lotNumberRef.current = Number(allocatedLot);
+      setLotNumber(Number(allocatedLot));
+    }
+
     const shipmentPayload = {
       connaissement: connaissement || null,
       total_weight: Number(totalWeight),
@@ -431,7 +440,7 @@ export default function CreateShipment() {
       registre_id: selectedCoopId || null,
       destination,
       campaign_label: campaignLabel,
-      lot_number: lotNumber != null ? String(lotNumber) : null,
+      lot_number: lotNumberRef.current != null ? String(lotNumberRef.current) : null,
       delivery_start: startDate,
       delivery_end: endDate,
       driver_name: driverName.trim() || null,
@@ -540,6 +549,7 @@ export default function CreateShipment() {
     requestIdRef.current = null;
     remainingSnapshotRef.current = {};
     setLotNumber(null);
+    lotNumberRef.current = null;
 
     setConnaissement("");
     setTotalWeight("");
@@ -1146,7 +1156,7 @@ export default function CreateShipment() {
                                 num_bags: preview.reduce((s, d) => s + d.num_bags, 0),
                                 total_weight: preview.reduce((s, d) => s + d.allocated_weight, 0).toLocaleString("fr-FR"),
                                 num_producers: preview.length,
-                                lot: lotNumber != null ? String(lotNumber) : "—",
+                                lot: lotNumber != null ? String(lotNumber) : "Attribué à l'enregistrement",
                                 producers: preview.map((d) => ({
                                   name: d.full_name,
                                   receipt: d.receipt_number,
