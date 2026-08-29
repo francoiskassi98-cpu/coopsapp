@@ -1156,7 +1156,7 @@ export default function CreateShipment() {
                                 num_bags: preview.reduce((s, d) => s + d.num_bags, 0),
                                 total_weight: preview.reduce((s, d) => s + d.allocated_weight, 0).toLocaleString("fr-FR"),
                                 num_producers: preview.length,
-                                lot: lotNumber != null ? String(lotNumber) : "—",
+                                lot: lotNumber != null ? String(lotNumber) : "Attribué à l'enregistrement",
                                 producers: preview.map((d) => ({
                                   name: d.full_name,
                                   receipt: d.receipt_number,
