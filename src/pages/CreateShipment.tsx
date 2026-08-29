@@ -350,17 +350,10 @@ export default function CreateShipment() {
       return;
     }
 
-    // Réservation atomique du N° de lot (compteur persistant registre + campagne, côté base).
-    const { data: allocatedLot, error: lotErr } = await supabase.rpc("allocate_lot_number", {
-      p_registre: selectedCoopId,
-      p_campaign_label: normalizeCampaign(getCurrentCampaign()),
-    });
-    if (lotErr || allocatedLot == null) {
-      console.error("[CreateShipment] allocate_lot_number failed", lotErr);
-      toast({ title: "Numéro de lot indisponible", description: "Une erreur est survenue.", variant: "destructive" });
-      return;
-    }
-    setLotNumber(Number(allocatedLot));
+    // Le N° de lot n'est attribué qu'à l'enregistrement (aucun numéro consommé par un simple recalcul).
+    setLotNumber(null);
+    lotNumberRef.current = null;
+
 
     // Nouvelle distribution => nouvelle clé d'idempotence.
     requestIdRef.current = null;
