@@ -413,6 +413,20 @@ export default function CreateShipment() {
     if (!requestIdRef.current) requestIdRef.current = crypto.randomUUID();
     const clientRequestId = requestIdRef.current;
 
+    // Réservation atomique du N° de lot au moment de l'enregistrement uniquement (une seule fois par chargement).
+    if (lotNumberRef.current == null) {
+      const { data: allocatedLot, error: lotErr } = await supabase.rpc("allocate_lot_number", {
+        p_registre: selectedCoopId,
+        p_campaign_label: campaignLabel,
+      });
+      if (lotErr || allocatedLot == null) {
+        console.error("[CreateShipment] allocate_lot_number failed", lotErr);
+        throw new Error("Numéro de lot indisponible. Une erreur est survenue.");
+      }
+      lotNumberRef.current = Number(allocatedLot);
+      setLotNumber(Number(allocatedLot));
+    }
+
     const shipmentPayload = {
       connaissement: connaissement || null,
       total_weight: Number(totalWeight),
@@ -426,7 +440,7 @@ export default function CreateShipment() {
       registre_id: selectedCoopId || null,
       destination,
       campaign_label: campaignLabel,
-      lot_number: lotNumber != null ? String(lotNumber) : null,
+      lot_number: lotNumberRef.current != null ? String(lotNumberRef.current) : null,
       delivery_start: startDate,
       delivery_end: endDate,
       driver_name: driverName.trim() || null,
