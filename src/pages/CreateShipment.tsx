@@ -246,6 +246,7 @@ export default function CreateShipment() {
     const w = Number(totalWeight);
     const b = Number(totalBags);
     if (totalWeight && (!Number.isFinite(w) || w <= 0)) errs.push("Le poids total doit être un nombre supérieur à 0.");
+    if (totalWeight && Number.isFinite(w) && !Number.isInteger(w)) errs.push("Le poids total doit être un nombre entier (aucune décimale autorisée).");
     if (totalBags && (!Number.isInteger(b) || b <= 0)) errs.push("Le nombre de sacs doit être un entier supérieur à 0.");
     if (w > 0 && b > 0) {
       const avg = w / b;
