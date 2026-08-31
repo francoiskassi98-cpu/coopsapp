@@ -28,6 +28,7 @@ interface ShipmentFicheRow {
   id: string;
   connaissement: string | null;
   lot_number: string | null;
+  campaign_label: string | null;
   project: string | null;
   destination: string | null;
   total_weight: number | null;
@@ -133,7 +134,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   const { data: shipment, error: sErr } = await supabase
     .from("shipments")
     .select(
-      "id, connaissement, lot_number, project, destination, total_weight, total_bags, delivery_start, departure_date, driver_name, truck_number, trailer_number, registre_id, partner_id, registres(name, cooperatives(name)), partners(name)"
+      "id, connaissement, lot_number, campaign_label, project, destination, total_weight, total_bags, delivery_start, departure_date, driver_name, truck_number, trailer_number, registre_id, partner_id, registres(name, cooperatives(name)), partners(name)"
     )
     .eq("id", shipmentId)
     .returns<ShipmentFicheRow[]>()
@@ -212,7 +213,10 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   // ===== LIGNE 1 — TITRE PRINCIPAL =====
   ws.mergeCells("A1:H1");
   const title = ws.getCell("A1");
-  title.value = tpl.title || FALLBACK_TEMPLATE.title;
+  // Titre enrichi avec la campagne active du chargement (ex : "... CAMPAGNE 2025-2026")
+  const baseTitle = tpl.title || FALLBACK_TEMPLATE.title;
+  const campaign = sh.campaign_label?.trim();
+  title.value = campaign && !baseTitle.includes(campaign) ? `${baseTitle} ${campaign}` : baseTitle;
   title.font = { ...font, bold: true, size: 16 };
   title.alignment = center;
   title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
