@@ -28,6 +28,7 @@ interface ShipmentFicheRow {
   id: string;
   connaissement: string | null;
   lot_number: string | null;
+  campaign_label: string | null;
   project: string | null;
   destination: string | null;
   total_weight: number | null;
@@ -133,7 +134,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   const { data: shipment, error: sErr } = await supabase
     .from("shipments")
     .select(
-      "id, connaissement, lot_number, project, destination, total_weight, total_bags, delivery_start, departure_date, driver_name, truck_number, trailer_number, registre_id, partner_id, registres(name, cooperatives(name)), partners(name)"
+      "id, connaissement, lot_number, campaign_label, project, destination, total_weight, total_bags, delivery_start, departure_date, driver_name, truck_number, trailer_number, registre_id, partner_id, registres(name, cooperatives(name)), partners(name)"
     )
     .eq("id", shipmentId)
     .returns<ShipmentFicheRow[]>()
