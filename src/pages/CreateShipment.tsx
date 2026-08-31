@@ -518,6 +518,30 @@ export default function CreateShipment() {
       throw delErr;
     }
 
+    // Confirmation côté serveur : les livraisons enregistrées doivent totaliser exactement les quantités déclarées.
+    const { data: savedRows, error: verifyErr } = await supabase
+      .from("deliveries")
+      .select("net_weight, num_bags")
+      .eq("shipment_id", shipment.id);
+    if (verifyErr) {
+      console.error("[CreateShipment] totals verification read failed", verifyErr);
+      throw verifyErr;
+    }
+    const serverCheck = verifyDistributionTotals(
+      (savedRows || []).map((r) => ({ allocated_weight: Number(r.net_weight), num_bags: Number(r.num_bags) })),
+      Number(totalWeight),
+      Number(totalBags)
+    );
+    if (!serverCheck.ok) {
+      console.error("[CreateShipment] server totals mismatch, rolling back", serverCheck);
+      await supabase.from("deliveries").delete().eq("shipment_id", shipment.id);
+      await supabase.from("shipments").delete().eq("id", shipment.id);
+      requestIdRef.current = null;
+      throw new Error("La distribution ne correspond pas exactement aux quantités déclarées. Aucun enregistrement n'a été effectué.");
+    }
+
+
+
 
     // Mise à jour du potentiel restant : 1 lecture groupée + écritures parallélisées (plus de N+1).
     const producerIds = Array.from(new Set(preview.map((d) => d.producer_id)));
