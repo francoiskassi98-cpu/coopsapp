@@ -394,6 +394,18 @@ export default function CreateShipment() {
       throw new Error(`Distribution invalide pour ${invalidDelivery.full_name || "un producteur"}. Vérifiez le poids, le nombre de sacs, la date et le numéro de reçu.`);
     }
 
+    // Contrôle strict avant enregistrement : écart poids = 0, écart sacs = 0, valeurs entières.
+    const totals = verifyDistributionTotals(preview, Number(totalWeight), Number(totalBags));
+    if (!totals.ok) {
+      console.error("[CreateShipment] totals mismatch before save", { ...totals, totalWeight, totalBags });
+      setSaveDiagnostic(
+        `Poids distribué : ${totals.weightSum} kg / déclaré : ${totalWeight} kg — Sacs distribués : ${totals.bagSum} / déclarés : ${totalBags}.`
+      );
+      throw new Error("La distribution ne correspond pas exactement aux quantités déclarées. Aucun enregistrement n'a été effectué.");
+    }
+
+
+
 
     // Revalidation des dates juste avant enregistrement (aucune date future autorisée)
     const todayIso = new Date().toISOString().slice(0, 10);
