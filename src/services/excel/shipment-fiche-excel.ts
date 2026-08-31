@@ -213,7 +213,10 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   // ===== LIGNE 1 — TITRE PRINCIPAL =====
   ws.mergeCells("A1:H1");
   const title = ws.getCell("A1");
-  title.value = tpl.title || FALLBACK_TEMPLATE.title;
+  // Titre enrichi avec la campagne active du chargement (ex : "... CAMPAGNE 2025-2026")
+  const baseTitle = tpl.title || FALLBACK_TEMPLATE.title;
+  const campaign = sh.campaign_label?.trim();
+  title.value = campaign && !baseTitle.includes(campaign) ? `${baseTitle} ${campaign}` : baseTitle;
   title.font = { ...font, bold: true, size: 16 };
   title.alignment = center;
   title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
