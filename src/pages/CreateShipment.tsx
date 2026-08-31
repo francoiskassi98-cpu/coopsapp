@@ -703,10 +703,10 @@ export default function CreateShipment() {
   };
 
   const handleSaveEdit = (index: number) => {
-    const newWeight = parseInt(editWeight, 10);
-    const newBags = parseInt(editBags, 10);
-    if (isNaN(newWeight) || newWeight <= 0 || isNaN(newBags) || newBags <= 0) {
-      toast({ title: "Valeurs invalides", variant: "destructive" });
+    const newWeight = Number(editWeight);
+    const newBags = Number(editBags);
+    if (!Number.isInteger(newWeight) || newWeight <= 0 || !Number.isInteger(newBags) || newBags <= 0) {
+      toast({ title: "Valeurs invalides", description: "Le poids et le nombre de sacs doivent être des nombres entiers positifs.", variant: "destructive" });
       return;
     }
     if (newWeight / newBags > 90) {
@@ -714,28 +714,86 @@ export default function CreateShipment() {
       return;
     }
 
-    const updated = [...preview];
-    const oldWeight = updated[index].allocated_weight;
-    const weightDiff = newWeight - oldWeight;
+    const declaredWeight = Number(totalWeight);
+    const declaredBags = Number(totalBags);
+    const others = preview.map((d, i) => ({ d, i })).filter((e) => e.i !== index);
 
-    updated[index] = { ...updated[index], allocated_weight: newWeight, num_bags: newBags };
-
-    // Redistribute the weight difference across other producers proportionally
-    if (weightDiff !== 0 && updated.length > 1) {
-      const othersTotal = updated.reduce((s, d, i) => i !== index ? s + d.allocated_weight : s, 0);
-      let remaining = -weightDiff;
-      for (let i = 0; i < updated.length; i++) {
-        if (i === index) continue;
-        if (i === updated.length - 1 || (i === updated.length - 2 && index === updated.length - 1)) {
-          // Last other producer gets the remainder
-          updated[i] = { ...updated[i], allocated_weight: updated[i].allocated_weight + remaining };
-          remaining = 0;
-        } else {
-          const share = Math.round((updated[i].allocated_weight / othersTotal) * (-weightDiff));
-          updated[i] = { ...updated[i], allocated_weight: updated[i].allocated_weight + share };
-          remaining -= share;
-        }
+    if (others.length === 0) {
+      if (newWeight !== declaredWeight || newBags !== declaredBags) {
+        toast({
+          title: "Distribution invalide",
+          description: "La distribution ne correspond pas exactement aux quantités déclarées. Veuillez recalculer la distribution.",
+          variant: "destructive",
+        });
+        return;
       }
+      setPreview([{ ...preview[index], allocated_weight: newWeight, num_bags: newBags }]);
+      setEditingIndex(null);
+      return;
+    }
+
+    // Répartition entière exacte du reliquat de poids sur les autres producteurs (plafonné au potentiel).
+    const restWeight = declaredWeight - newWeight;
+    const restBags = declaredBags - newBags;
+    const othersTotal = others.reduce((s, e) => s + e.d.allocated_weight, 0);
+    if (restWeight < others.length * MIN_REMAINING_WEIGHT_KG || restBags < others.length || othersTotal <= 0) {
+      toast({
+        title: "Modification impossible",
+        description: "Le reliquat ne peut pas être réparti exactement entre les autres producteurs.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const shares = others.map((e) => (e.d.allocated_weight / othersTotal) * restWeight);
+    const weights = shares.map((s) => Math.max(MIN_REMAINING_WEIGHT_KG, Math.floor(s)));
+    let delta = restWeight - weights.reduce((s, w) => s + w, 0);
+    const order = shares.map((s, i) => ({ i, frac: s - Math.floor(s) })).sort((a, b) => b.frac - a.frac);
+    let k = 0;
+    while (delta > 0) {
+      const i = order[k % order.length].i;
+      const cap = Math.floor(remainingSnapshotRef.current[others[i].d.producer_id] ?? Infinity);
+      if (weights[i] + 1 <= cap) {
+        weights[i] += 1;
+        delta--;
+      }
+      k++;
+      if (k > order.length * 8) break;
+    }
+    while (delta < 0) {
+      const i = order[order.length - 1 - (k % order.length)].i;
+      if (weights[i] - 1 >= MIN_REMAINING_WEIGHT_KG) {
+        weights[i] -= 1;
+        delta++;
+      }
+      k++;
+      if (k > order.length * 16) break;
+    }
+
+    const bags = delta === 0 ? splitBagsExactly(weights, restBags, (declaredWeight / declaredBags) * 1.1) : null;
+    if (delta !== 0 || !bags) {
+      toast({
+        title: "Modification impossible",
+        description: "La distribution ne correspond pas exactement aux quantités déclarées. Veuillez recalculer la distribution.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updated = [...preview];
+    updated[index] = { ...updated[index], allocated_weight: newWeight, num_bags: newBags };
+    others.forEach((e, j) => {
+      updated[e.i] = { ...e.d, allocated_weight: weights[j], num_bags: bags[j] };
+    });
+
+    const check = verifyDistributionTotals(updated, declaredWeight, declaredBags);
+    if (!check.ok) {
+      toast({
+        title: "Distribution invalide",
+        description: "La distribution ne correspond pas exactement aux quantités déclarées. Veuillez recalculer la distribution.",
+        variant: "destructive",
+      });
+      return;
     }
 
     setPreview(updated);
