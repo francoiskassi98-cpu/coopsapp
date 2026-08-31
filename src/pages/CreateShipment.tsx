@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { distributeShipment, getCurrentCampaign, normalizeCampaign, type DistributionResult } from "@/lib/shipment-utils";
+import { distributeShipment, getCurrentCampaign, normalizeCampaign, verifyDistributionTotals, splitBagsExactly, type DistributionResult } from "@/lib/shipment-utils";
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { Truck, Plus, Download, Pencil, Check, X, FileSpreadsheet, FolderPlus, Maximize2, Minimize2 } from "lucide-react";
@@ -246,6 +246,7 @@ export default function CreateShipment() {
     const w = Number(totalWeight);
     const b = Number(totalBags);
     if (totalWeight && (!Number.isFinite(w) || w <= 0)) errs.push("Le poids total doit être un nombre supérieur à 0.");
+    if (totalWeight && Number.isFinite(w) && !Number.isInteger(w)) errs.push("Le poids total doit être un nombre entier (aucune décimale autorisée).");
     if (totalBags && (!Number.isInteger(b) || b <= 0)) errs.push("Le nombre de sacs doit être un entier supérieur à 0.");
     if (w > 0 && b > 0) {
       const avg = w / b;
@@ -337,18 +338,29 @@ export default function CreateShipment() {
       lastNum
     );
 
-    // Sécurité : ne jamais dépasser le potentiel restant, exclure les volumes < 50 kg
+    // La distribution est déjà bornée au potentiel restant et strictement entière (voir shipment-utils).
     const remainingById = new Map<string, number>(producers.map((p) => [p.id, p.remaining_potential] as [string, number]));
-    const capped = results
-      .map((r) => {
-        const max = remainingById.get(r.producer_id) ?? 0;
-        const weight = Math.min(r.allocated_weight, max);
-        return { ...r, allocated_weight: weight };
-      })
-      .filter((r) => r.allocated_weight >= MIN_REMAINING_WEIGHT_KG);
 
-    if (capped.length === 0) {
-      toast({ title: "Distribution impossible", description: "Le potentiel restant des producteurs éligibles est insuffisant.", variant: "destructive" });
+    if (results.length === 0) {
+      setPreview([]);
+      toast({
+        title: "Distribution impossible",
+        description: "Aucune distribution exacte n'est possible avec le poids, le nombre de sacs et le potentiel restant des producteurs éligibles.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Contrôle strict avant affichage de l'aperçu : écart poids = 0, écart sacs = 0, valeurs entières.
+    const check = verifyDistributionTotals(results, Number(totalWeight), Number(totalBags));
+    if (!check.ok) {
+      setPreview([]);
+      console.error("[CreateShipment] distribution mismatch", { ...check, totalWeight, totalBags });
+      toast({
+        title: "Distribution invalide",
+        description: "La distribution calculée ne correspond pas exactement au poids et au nombre de sacs déclarés. Veuillez recalculer la distribution.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -360,7 +372,7 @@ export default function CreateShipment() {
     // Nouvelle distribution => nouvelle clé d'idempotence.
     requestIdRef.current = null;
     remainingSnapshotRef.current = Object.fromEntries(remainingById);
-    setPreview(capped);
+    setPreview(results);
     // Préchargement du générateur Excel pendant que l'utilisateur relit l'aperçu → téléchargement instantané.
     void import("@/services/excel/shipment-fiche-excel").catch(() => undefined);
 
@@ -381,6 +393,18 @@ export default function CreateShipment() {
     if (invalidDelivery) {
       throw new Error(`Distribution invalide pour ${invalidDelivery.full_name || "un producteur"}. Vérifiez le poids, le nombre de sacs, la date et le numéro de reçu.`);
     }
+
+    // Contrôle strict avant enregistrement : écart poids = 0, écart sacs = 0, valeurs entières.
+    const totals = verifyDistributionTotals(preview, Number(totalWeight), Number(totalBags));
+    if (!totals.ok) {
+      console.error("[CreateShipment] totals mismatch before save", { ...totals, totalWeight, totalBags });
+      setSaveDiagnostic(
+        `Poids distribué : ${totals.weightSum} kg / déclaré : ${totalWeight} kg — Sacs distribués : ${totals.bagSum} / déclarés : ${totalBags}.`
+      );
+      throw new Error("La distribution ne correspond pas exactement aux quantités déclarées. Aucun enregistrement n'a été effectué.");
+    }
+
+
 
 
     // Revalidation des dates juste avant enregistrement (aucune date future autorisée)
@@ -493,6 +517,30 @@ export default function CreateShipment() {
       setSaveDiagnostic(message);
       throw delErr;
     }
+
+    // Confirmation côté serveur : les livraisons enregistrées doivent totaliser exactement les quantités déclarées.
+    const { data: savedRows, error: verifyErr } = await supabase
+      .from("deliveries")
+      .select("net_weight, num_bags")
+      .eq("shipment_id", shipment.id);
+    if (verifyErr) {
+      console.error("[CreateShipment] totals verification read failed", verifyErr);
+      throw verifyErr;
+    }
+    const serverCheck = verifyDistributionTotals(
+      (savedRows || []).map((r) => ({ allocated_weight: Number(r.net_weight), num_bags: Number(r.num_bags) })),
+      Number(totalWeight),
+      Number(totalBags)
+    );
+    if (!serverCheck.ok) {
+      console.error("[CreateShipment] server totals mismatch, rolling back", serverCheck);
+      await supabase.from("deliveries").delete().eq("shipment_id", shipment.id);
+      await supabase.from("shipments").delete().eq("id", shipment.id);
+      requestIdRef.current = null;
+      throw new Error("La distribution ne correspond pas exactement aux quantités déclarées. Aucun enregistrement n'a été effectué.");
+    }
+
+
 
 
     // Mise à jour du potentiel restant : 1 lecture groupée + écritures parallélisées (plus de N+1).
@@ -679,10 +727,10 @@ export default function CreateShipment() {
   };
 
   const handleSaveEdit = (index: number) => {
-    const newWeight = parseInt(editWeight, 10);
-    const newBags = parseInt(editBags, 10);
-    if (isNaN(newWeight) || newWeight <= 0 || isNaN(newBags) || newBags <= 0) {
-      toast({ title: "Valeurs invalides", variant: "destructive" });
+    const newWeight = Number(editWeight);
+    const newBags = Number(editBags);
+    if (!Number.isInteger(newWeight) || newWeight <= 0 || !Number.isInteger(newBags) || newBags <= 0) {
+      toast({ title: "Valeurs invalides", description: "Le poids et le nombre de sacs doivent être des nombres entiers positifs.", variant: "destructive" });
       return;
     }
     if (newWeight / newBags > 90) {
@@ -690,28 +738,86 @@ export default function CreateShipment() {
       return;
     }
 
-    const updated = [...preview];
-    const oldWeight = updated[index].allocated_weight;
-    const weightDiff = newWeight - oldWeight;
+    const declaredWeight = Number(totalWeight);
+    const declaredBags = Number(totalBags);
+    const others = preview.map((d, i) => ({ d, i })).filter((e) => e.i !== index);
 
-    updated[index] = { ...updated[index], allocated_weight: newWeight, num_bags: newBags };
-
-    // Redistribute the weight difference across other producers proportionally
-    if (weightDiff !== 0 && updated.length > 1) {
-      const othersTotal = updated.reduce((s, d, i) => i !== index ? s + d.allocated_weight : s, 0);
-      let remaining = -weightDiff;
-      for (let i = 0; i < updated.length; i++) {
-        if (i === index) continue;
-        if (i === updated.length - 1 || (i === updated.length - 2 && index === updated.length - 1)) {
-          // Last other producer gets the remainder
-          updated[i] = { ...updated[i], allocated_weight: updated[i].allocated_weight + remaining };
-          remaining = 0;
-        } else {
-          const share = Math.round((updated[i].allocated_weight / othersTotal) * (-weightDiff));
-          updated[i] = { ...updated[i], allocated_weight: updated[i].allocated_weight + share };
-          remaining -= share;
-        }
+    if (others.length === 0) {
+      if (newWeight !== declaredWeight || newBags !== declaredBags) {
+        toast({
+          title: "Distribution invalide",
+          description: "La distribution ne correspond pas exactement aux quantités déclarées. Veuillez recalculer la distribution.",
+          variant: "destructive",
+        });
+        return;
       }
+      setPreview([{ ...preview[index], allocated_weight: newWeight, num_bags: newBags }]);
+      setEditingIndex(null);
+      return;
+    }
+
+    // Répartition entière exacte du reliquat de poids sur les autres producteurs (plafonné au potentiel).
+    const restWeight = declaredWeight - newWeight;
+    const restBags = declaredBags - newBags;
+    const othersTotal = others.reduce((s, e) => s + e.d.allocated_weight, 0);
+    if (restWeight < others.length * MIN_REMAINING_WEIGHT_KG || restBags < others.length || othersTotal <= 0) {
+      toast({
+        title: "Modification impossible",
+        description: "Le reliquat ne peut pas être réparti exactement entre les autres producteurs.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const shares = others.map((e) => (e.d.allocated_weight / othersTotal) * restWeight);
+    const weights = shares.map((s) => Math.max(MIN_REMAINING_WEIGHT_KG, Math.floor(s)));
+    let delta = restWeight - weights.reduce((s, w) => s + w, 0);
+    const order = shares.map((s, i) => ({ i, frac: s - Math.floor(s) })).sort((a, b) => b.frac - a.frac);
+    let k = 0;
+    while (delta > 0) {
+      const i = order[k % order.length].i;
+      const cap = Math.floor(remainingSnapshotRef.current[others[i].d.producer_id] ?? Infinity);
+      if (weights[i] + 1 <= cap) {
+        weights[i] += 1;
+        delta--;
+      }
+      k++;
+      if (k > order.length * 8) break;
+    }
+    while (delta < 0) {
+      const i = order[order.length - 1 - (k % order.length)].i;
+      if (weights[i] - 1 >= MIN_REMAINING_WEIGHT_KG) {
+        weights[i] -= 1;
+        delta++;
+      }
+      k++;
+      if (k > order.length * 16) break;
+    }
+
+    const bags = delta === 0 ? splitBagsExactly(weights, restBags, (declaredWeight / declaredBags) * 1.1) : null;
+    if (delta !== 0 || !bags) {
+      toast({
+        title: "Modification impossible",
+        description: "La distribution ne correspond pas exactement aux quantités déclarées. Veuillez recalculer la distribution.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updated = [...preview];
+    updated[index] = { ...updated[index], allocated_weight: newWeight, num_bags: newBags };
+    others.forEach((e, j) => {
+      updated[e.i] = { ...e.d, allocated_weight: weights[j], num_bags: bags[j] };
+    });
+
+    const check = verifyDistributionTotals(updated, declaredWeight, declaredBags);
+    if (!check.ok) {
+      toast({
+        title: "Distribution invalide",
+        description: "La distribution ne correspond pas exactement aux quantités déclarées. Veuillez recalculer la distribution.",
+        variant: "destructive",
+      });
+      return;
     }
 
     setPreview(updated);
