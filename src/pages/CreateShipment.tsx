@@ -338,18 +338,29 @@ export default function CreateShipment() {
       lastNum
     );
 
-    // Sécurité : ne jamais dépasser le potentiel restant, exclure les volumes < 50 kg
+    // La distribution est déjà bornée au potentiel restant et strictement entière (voir shipment-utils).
     const remainingById = new Map<string, number>(producers.map((p) => [p.id, p.remaining_potential] as [string, number]));
-    const capped = results
-      .map((r) => {
-        const max = remainingById.get(r.producer_id) ?? 0;
-        const weight = Math.min(r.allocated_weight, max);
-        return { ...r, allocated_weight: weight };
-      })
-      .filter((r) => r.allocated_weight >= MIN_REMAINING_WEIGHT_KG);
 
-    if (capped.length === 0) {
-      toast({ title: "Distribution impossible", description: "Le potentiel restant des producteurs éligibles est insuffisant.", variant: "destructive" });
+    if (results.length === 0) {
+      setPreview([]);
+      toast({
+        title: "Distribution impossible",
+        description: "Aucune distribution exacte n'est possible avec le poids, le nombre de sacs et le potentiel restant des producteurs éligibles.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Contrôle strict avant affichage de l'aperçu : écart poids = 0, écart sacs = 0, valeurs entières.
+    const check = verifyDistributionTotals(results, Number(totalWeight), Number(totalBags));
+    if (!check.ok) {
+      setPreview([]);
+      console.error("[CreateShipment] distribution mismatch", { ...check, totalWeight, totalBags });
+      toast({
+        title: "Distribution invalide",
+        description: "La distribution calculée ne correspond pas exactement au poids et au nombre de sacs déclarés. Veuillez recalculer la distribution.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -361,7 +372,7 @@ export default function CreateShipment() {
     // Nouvelle distribution => nouvelle clé d'idempotence.
     requestIdRef.current = null;
     remainingSnapshotRef.current = Object.fromEntries(remainingById);
-    setPreview(capped);
+    setPreview(results);
     // Préchargement du générateur Excel pendant que l'utilisateur relit l'aperçu → téléchargement instantané.
     void import("@/services/excel/shipment-fiche-excel").catch(() => undefined);
 
