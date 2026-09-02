@@ -248,11 +248,8 @@ export default function CreateShipment() {
     if (totalWeight && (!Number.isFinite(w) || w <= 0)) errs.push("Le poids total doit être un nombre supérieur à 0.");
     if (totalWeight && Number.isFinite(w) && !Number.isInteger(w)) errs.push("Le poids total doit être un nombre entier (aucune décimale autorisée).");
     if (totalBags && (!Number.isInteger(b) || b <= 0)) errs.push("Le nombre de sacs doit être un entier supérieur à 0.");
-    if (w > 0 && b > 0) {
-      const avg = w / b;
-      if (avg > 90) errs.push(`Poids moyen par sac trop élevé (${avg.toFixed(1)} kg) — maximum 90 kg.`);
-      if (avg < 10) errs.push(`Poids moyen par sac trop faible (${avg.toFixed(1)} kg) — minimum 10 kg.`);
-    }
+    // Le sac moyen est dynamique : aucune limite fixe (ni minimum, ni maximum).
+
     const todayIso = new Date().toISOString().slice(0, 10);
     if ((startDate && startDate > todayIso) || (endDate && endDate > todayIso)) {
       errs.push("Pas possible d'effectuer un chargement avec cette date.");
