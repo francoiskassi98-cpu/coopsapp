@@ -133,8 +133,9 @@ export function distributeShipment(
 ): DistributionResult[] {
   if (!Number.isInteger(totalWeight) || !Number.isInteger(totalBags) || totalWeight <= 0 || totalBags <= 0) return [];
 
-  const avgBagWeight = totalWeight / totalBags;
-  const maxBagWeight = avgBagWeight * 1.1;
+  // Sac moyen dynamique (arrondi supérieur) et plage autorisée ±5 kg.
+  const averageBagWeight = computeAverageBagWeight(totalWeight, totalBags);
+  const { min: minBagWeight } = bagWeightRange(averageBagWeight);
 
   const sorted = [...producers]
     .filter((p) => Math.floor(p.remaining_potential) >= MIN_ALLOCATION_KG)
@@ -176,9 +177,81 @@ export function distributeShipment(
   if (left !== 0 || entries.length === 0) return [];
   if (entries.length > totalBags) return [];
 
+  const used = new Set(entries.map((e) => e.producer.id));
+  const pool = sorted.filter((p) => !used.has(p.id));
+
+  /** Ajoute `amount` kg sur les entrées disposant encore de marge (potentiel restant). Retourne le reliquat. */
+  const spread = (amount: number, skip?: number): number => {
+    for (let i = 0; i < entries.length && amount > 0; i++) {
+      if (i === skip) continue;
+      const room = entries[i].cap - entries[i].weight;
+      if (room <= 0) continue;
+      const add = Math.min(room, amount);
+      entries[i].weight += add;
+      amount -= add;
+    }
+    return amount;
+  };
+
+  // Phase 2 bis : ajustement du nombre de participants pour que la plage ±5 kg soit réalisable.
+  for (let guard = 0; guard < sorted.length * 4 + 16; guard++) {
+    if (entries.length === 0) return [];
+    const bagsRange = entries.map((e) => {
+      const { min, max } = bagWeightRange(averageBagWeight);
+      return { lo: Math.max(1, Math.ceil(e.weight / max)), hi: Math.floor(e.weight / min) };
+    });
+    const badIndex = bagsRange.findIndex((r, i) => r.hi < r.lo || entries[i].weight < minBagWeight);
+    const sumLo = bagsRange.reduce((s, r) => s + r.lo, 0);
+    const sumHi = bagsRange.reduce((s, r) => s + r.hi, 0);
+
+    if (badIndex !== -1 || sumLo > totalBags) {
+      // Trop de participants (ou poids trop faible) : retirer le plus petit et redistribuer son poids.
+      const removeIdx =
+        badIndex !== -1
+          ? badIndex
+          : entries.reduce((best, e, i) => (e.weight < entries[best].weight ? i : best), 0);
+      const freed = entries[removeIdx].weight;
+      if (entries.length === 1) return [];
+      const leftover = spread(freed, removeIdx);
+      if (leftover !== 0) return [];
+      entries.splice(removeIdx, 1);
+      continue;
+    }
+
+    if (sumHi < totalBags) {
+      // Pas assez de sacs possibles : ajouter un producteur en prélevant du poids sur les plus gros.
+      const next = pool.shift();
+      if (!next) return [];
+      const cap = Math.floor(next.remaining_potential);
+      const need = Math.min(cap, Math.max(minBagWeight, MIN_ALLOCATION_KG));
+      let collected = 0;
+      const donors = [...entries].sort((a, b) => b.weight - a.weight);
+      for (const d of donors) {
+        if (collected >= need) break;
+        const spare = d.weight - Math.max(minBagWeight, MIN_ALLOCATION_KG);
+        if (spare <= 0) continue;
+        const take = Math.min(spare, need - collected);
+        d.weight -= take;
+        collected += take;
+      }
+      if (collected < need) {
+        // Impossible de financer un participant supplémentaire : remettre le poids prélevé.
+        if (collected > 0 && spread(collected) !== 0) return [];
+        return [];
+      }
+      entries.push({ producer: next, cap, weight: collected });
+      continue;
+    }
+
+    break;
+  }
+
+  if (entries.reduce((s, e) => s + e.weight, 0) !== totalWeight) return [];
+
   const weights = entries.map((e) => e.weight);
-  const bags = splitBagsExactly(weights, totalBags, maxBagWeight);
+  const bags = splitBagsExactly(weights, totalBags, averageBagWeight);
   if (!bags) return [];
+
 
   // Phase 3 : dates chronologiques (règle existante).
   const totalDays = Math.max(differenceInDays(endDate, startDate), 1);
