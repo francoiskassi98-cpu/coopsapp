@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { distributeShipment, getCurrentCampaign, normalizeCampaign, verifyDistributionTotals, splitBagsExactly, type DistributionResult } from "@/lib/shipment-utils";
+import { distributeShipment, getCurrentCampaign, normalizeCampaign, verifyDistributionTotals, splitBagsExactly, computeAverageBagWeight, bagWeightRange, isBagWeightInRange, type DistributionResult } from "@/lib/shipment-utils";
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { Truck, Plus, Download, Pencil, Check, X, FileSpreadsheet, FolderPlus, Maximize2, Minimize2 } from "lucide-react";
@@ -248,11 +248,8 @@ export default function CreateShipment() {
     if (totalWeight && (!Number.isFinite(w) || w <= 0)) errs.push("Le poids total doit être un nombre supérieur à 0.");
     if (totalWeight && Number.isFinite(w) && !Number.isInteger(w)) errs.push("Le poids total doit être un nombre entier (aucune décimale autorisée).");
     if (totalBags && (!Number.isInteger(b) || b <= 0)) errs.push("Le nombre de sacs doit être un entier supérieur à 0.");
-    if (w > 0 && b > 0) {
-      const avg = w / b;
-      if (avg > 90) errs.push(`Poids moyen par sac trop élevé (${avg.toFixed(1)} kg) — maximum 90 kg.`);
-      if (avg < 10) errs.push(`Poids moyen par sac trop faible (${avg.toFixed(1)} kg) — minimum 10 kg.`);
-    }
+    // Le sac moyen est dynamique : aucune limite fixe (ni minimum, ni maximum).
+
     const todayIso = new Date().toISOString().slice(0, 10);
     if ((startDate && startDate > todayIso) || (endDate && endDate > todayIso)) {
       errs.push("Pas possible d'effectuer un chargement avec cette date.");
@@ -733,13 +730,19 @@ export default function CreateShipment() {
       toast({ title: "Valeurs invalides", description: "Le poids et le nombre de sacs doivent être des nombres entiers positifs.", variant: "destructive" });
       return;
     }
-    if (newWeight / newBags > 90) {
-      toast({ title: "Poids par sac trop élevé", description: "Maximum 90 kg par sac.", variant: "destructive" });
+    const declaredWeight = Number(totalWeight);
+    const declaredBags = Number(totalBags);
+    const avgBag = computeAverageBagWeight(declaredWeight, declaredBags);
+    const range = bagWeightRange(avgBag);
+    if (!isBagWeightInRange(newWeight, newBags, avgBag)) {
+      toast({
+        title: "Poids par sac hors plage",
+        description: `Le poids par sac doit être compris entre ${range.min} et ${range.max} kg (sac moyen ${avgBag} kg).`,
+        variant: "destructive",
+      });
       return;
     }
 
-    const declaredWeight = Number(totalWeight);
-    const declaredBags = Number(totalBags);
     const others = preview.map((d, i) => ({ d, i })).filter((e) => e.i !== index);
 
     if (others.length === 0) {
@@ -794,7 +797,7 @@ export default function CreateShipment() {
       if (k > order.length * 16) break;
     }
 
-    const bags = delta === 0 ? splitBagsExactly(weights, restBags, (declaredWeight / declaredBags) * 1.1) : null;
+    const bags = delta === 0 ? splitBagsExactly(weights, restBags, avgBag) : null;
     if (delta !== 0 || !bags) {
       toast({
         title: "Modification impossible",
@@ -1207,6 +1210,25 @@ export default function CreateShipment() {
                       {preview.length} producteurs • {preview.reduce((s, d) => s + d.num_bags, 0)} sacs •{" "}
                       {preview.reduce((s, d) => s + d.allocated_weight, 0).toLocaleString("fr-FR")} kg
                     </p>
+
+                    {(() => {
+                      const declaredW = Number(totalWeight);
+                      const declaredB = Number(totalBags);
+                      const distW = preview.reduce((s, d) => s + d.allocated_weight, 0);
+                      const distB = preview.reduce((s, d) => s + d.num_bags, 0);
+                      const avgBag = computeAverageBagWeight(declaredW, declaredB);
+                      const range = bagWeightRange(avgBag);
+                      const gapW = distW - declaredW;
+                      const gapB = distB - declaredB;
+                      return (
+                        <div className="mb-4 grid gap-1 rounded-lg border bg-muted/40 p-3 text-xs sm:text-sm">
+                          <p>Poids total déclaré : <strong>{declaredW.toLocaleString("fr-FR")} kg</strong> • Poids total distribué : <strong>{distW.toLocaleString("fr-FR")} kg</strong> • Écart : <strong className={gapW === 0 ? "text-emerald-600" : "text-destructive"}>{gapW} kg</strong></p>
+                          <p>Sacs déclarés : <strong>{declaredB}</strong> • Sacs distribués : <strong>{distB}</strong> • Écart : <strong className={gapB === 0 ? "text-emerald-600" : "text-destructive"}>{gapB}</strong></p>
+                          <p>Sac moyen calculé : <strong>{avgBag} kg</strong> • Plage autorisée : <strong>{range.min} à {range.max} kg/sac</strong></p>
+                        </div>
+                      );
+                    })()}
+
 
                     {saveDiagnostic && (
                       <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
