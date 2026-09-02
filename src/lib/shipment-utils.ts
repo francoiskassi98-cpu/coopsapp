@@ -22,81 +22,79 @@ export interface DistributionResult {
 
 /** Poids minimal attribuable à un producteur (règle métier existante). */
 const MIN_ALLOCATION_KG = 50;
-/** Poids minimal d'un sac (règle métier existante). */
-const MIN_BAG_WEIGHT_KG = 10;
+
+/** Tolérance autorisée autour du sac moyen, en kg (plage ±5 kg). */
+export const BAG_WEIGHT_TOLERANCE_KG = 5;
+
+/**
+ * Sac moyen = POIDS TOTAL DÉCLARÉ / NOMBRE DE SACS DÉCLARÉ, arrondi à l'entier supérieur.
+ * Aucune limite fixe (ni 10 kg, ni 35 kg, ni 90 kg) : la valeur est purement dynamique.
+ */
+export function computeAverageBagWeight(totalWeight: number, totalBags: number): number {
+  if (!(totalWeight > 0) || !(totalBags > 0)) return 0;
+  return Math.ceil(totalWeight / totalBags);
+}
+
+/** Plage autorisée du poids par sac d'un producteur : sac moyen ±5 kg. */
+export function bagWeightRange(averageBagWeight: number): { min: number; max: number } {
+  return {
+    min: Math.max(1, averageBagWeight - BAG_WEIGHT_TOLERANCE_KG),
+    max: averageBagWeight + BAG_WEIGHT_TOLERANCE_KG,
+  };
+}
+
+/** Vrai si le poids par sac du producteur respecte la plage sac moyen ±5 kg. */
+export function isBagWeightInRange(weight: number, bags: number, averageBagWeight: number): boolean {
+  if (!(bags > 0)) return false;
+  const { min, max } = bagWeightRange(averageBagWeight);
+  const perBag = weight / bags;
+  return perBag >= min && perBag <= max;
+}
 
 /**
  * Répartit `totalBags` (entier) sur des poids entiers, de façon EXACTE :
- * la somme des sacs retournés est toujours égale à `totalBags`.
- * Méthode du plus fort reste, puis rééquilibrage pour respecter le poids max par sac.
+ * la somme des sacs retournés est toujours égale à `totalBags`, et le poids par sac
+ * de chaque producteur reste dans la plage sac moyen ±5 kg.
  * Retourne `null` si une répartition entière valide est impossible.
  */
-export function splitBagsExactly(weights: number[], totalBags: number, maxBagWeight: number): number[] | null {
+export function splitBagsExactly(weights: number[], totalBags: number, averageBagWeight: number): number[] | null {
   const n = weights.length;
   if (n === 0 || !Number.isInteger(totalBags) || totalBags < n) return null;
+  const { min, max } = bagWeightRange(averageBagWeight);
 
-  const totalWeight = weights.reduce((s, w) => s + w, 0);
-  if (totalWeight <= 0) return null;
-
-  const quotas = weights.map((w) => (w / totalWeight) * totalBags);
-  const bags = quotas.map((q) => Math.max(1, Math.floor(q)));
-  let diff = totalBags - bags.reduce((s, b) => s + b, 0);
-
-  if (diff > 0) {
-    const order = quotas
-      .map((q, i) => ({ i, frac: q - Math.floor(q) }))
-      .sort((a, b) => b.frac - a.frac);
-    let k = 0;
-    while (diff > 0) {
-      const idx = order[k % n].i;
-      // Ne jamais descendre sous le poids minimal par sac.
-      if (bags[idx] + 1 <= Math.floor(weights[idx] / MIN_BAG_WEIGHT_KG) || k >= n * 4) {
-        bags[idx] += 1;
-        diff--;
-      }
-      k++;
-      if (k > n * 8) break;
-    }
-    if (diff > 0) return null;
-  } else if (diff < 0) {
-    while (diff < 0) {
-      let idx = -1;
-      let best = Infinity;
-      for (let i = 0; i < n; i++) {
-        if (bags[i] <= 1) continue;
-        const ratio = weights[i] / (bags[i] - 1);
-        if (ratio < best) {
-          best = ratio;
-          idx = i;
-        }
-      }
-      if (idx === -1) return null;
-      bags[idx] -= 1;
-      diff++;
-    }
+  const lo: number[] = [];
+  const hi: number[] = [];
+  for (const w of weights) {
+    if (!Number.isInteger(w) || w <= 0) return null;
+    const l = Math.max(1, Math.ceil(w / max));
+    const h = Math.floor(w / min);
+    if (h < l) return null; // poids incompatible avec la plage ±5 kg
+    lo.push(l);
+    hi.push(h);
   }
 
-  // Rééquilibrage : réduire les sacs trop lourds sans changer le total.
-  for (let pass = 0; pass < n * 4; pass++) {
-    const heavy = bags.findIndex((b, i) => weights[i] / b > maxBagWeight);
-    if (heavy === -1) break;
-    let donor = -1;
-    let bestRatio = Infinity;
-    for (let i = 0; i < n; i++) {
-      if (i === heavy || bags[i] <= 1) continue;
-      const ratio = weights[i] / (bags[i] - 1);
-      if (ratio <= maxBagWeight && ratio < bestRatio) {
-        bestRatio = ratio;
-        donor = i;
+  const sumLo = lo.reduce((s, v) => s + v, 0);
+  const sumHi = hi.reduce((s, v) => s + v, 0);
+  if (totalBags < sumLo || totalBags > sumHi) return null;
+
+  const bags = [...lo];
+  let rest = totalBags - sumLo;
+  // Répartir les sacs restants sur les producteurs qui disposent encore de marge.
+  while (rest > 0) {
+    let moved = false;
+    for (let i = 0; i < n && rest > 0; i++) {
+      if (bags[i] < hi[i]) {
+        bags[i] += 1;
+        rest--;
+        moved = true;
       }
     }
-    if (donor === -1) break; // meilleur effort : le total reste exact
-    bags[donor] -= 1;
-    bags[heavy] += 1;
+    if (!moved) return null;
   }
 
   return bags.reduce((s, b) => s + b, 0) === totalBags ? bags : null;
 }
+
 
 /** Vérifie qu'une distribution est strictement entière et exactement égale aux totaux déclarés. */
 export function verifyDistributionTotals(
