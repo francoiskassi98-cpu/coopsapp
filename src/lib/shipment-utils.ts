@@ -273,7 +273,10 @@ export function distributeShipment(
   });
 
   const check = verifyDistributionTotals(results, totalWeight, totalBags);
-  return check.ok ? results : [];
+  if (!check.ok) return [];
+  // Contrôle final de la plage ±5 kg autour du sac moyen.
+  const inRange = results.every((r) => isBagWeightInRange(r.allocated_weight, r.num_bags, averageBagWeight));
+  return inRange ? results : [];
 }
 
 // Campagne : source unique de vérité dans `@/lib/campaign`.
