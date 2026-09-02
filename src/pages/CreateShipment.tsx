@@ -797,7 +797,7 @@ export default function CreateShipment() {
       if (k > order.length * 16) break;
     }
 
-    const bags = delta === 0 ? splitBagsExactly(weights, restBags, (declaredWeight / declaredBags) * 1.1) : null;
+    const bags = delta === 0 ? splitBagsExactly(weights, restBags, avgBag) : null;
     if (delta !== 0 || !bags) {
       toast({
         title: "Modification impossible",
