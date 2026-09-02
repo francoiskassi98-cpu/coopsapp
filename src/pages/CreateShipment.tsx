@@ -1211,6 +1211,25 @@ export default function CreateShipment() {
                       {preview.reduce((s, d) => s + d.allocated_weight, 0).toLocaleString("fr-FR")} kg
                     </p>
 
+                    {(() => {
+                      const declaredW = Number(totalWeight);
+                      const declaredB = Number(totalBags);
+                      const distW = preview.reduce((s, d) => s + d.allocated_weight, 0);
+                      const distB = preview.reduce((s, d) => s + d.num_bags, 0);
+                      const avgBag = computeAverageBagWeight(declaredW, declaredB);
+                      const range = bagWeightRange(avgBag);
+                      const gapW = distW - declaredW;
+                      const gapB = distB - declaredB;
+                      return (
+                        <div className="mb-4 grid gap-1 rounded-lg border bg-muted/40 p-3 text-xs sm:text-sm">
+                          <p>Poids total déclaré : <strong>{declaredW.toLocaleString("fr-FR")} kg</strong> • Poids total distribué : <strong>{distW.toLocaleString("fr-FR")} kg</strong> • Écart : <strong className={gapW === 0 ? "text-emerald-600" : "text-destructive"}>{gapW} kg</strong></p>
+                          <p>Sacs déclarés : <strong>{declaredB}</strong> • Sacs distribués : <strong>{distB}</strong> • Écart : <strong className={gapB === 0 ? "text-emerald-600" : "text-destructive"}>{gapB}</strong></p>
+                          <p>Sac moyen calculé : <strong>{avgBag} kg</strong> • Plage autorisée : <strong>{range.min} à {range.max} kg/sac</strong></p>
+                        </div>
+                      );
+                    })()}
+
+
                     {saveDiagnostic && (
                       <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                         <p className="font-semibold mb-1">Diagnostic technique</p>
