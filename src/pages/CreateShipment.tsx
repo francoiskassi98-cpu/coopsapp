@@ -730,13 +730,19 @@ export default function CreateShipment() {
       toast({ title: "Valeurs invalides", description: "Le poids et le nombre de sacs doivent être des nombres entiers positifs.", variant: "destructive" });
       return;
     }
-    if (newWeight / newBags > 90) {
-      toast({ title: "Poids par sac trop élevé", description: "Maximum 90 kg par sac.", variant: "destructive" });
+    const declaredWeight = Number(totalWeight);
+    const declaredBags = Number(totalBags);
+    const avgBag = computeAverageBagWeight(declaredWeight, declaredBags);
+    const range = bagWeightRange(avgBag);
+    if (!isBagWeightInRange(newWeight, newBags, avgBag)) {
+      toast({
+        title: "Poids par sac hors plage",
+        description: `Le poids par sac doit être compris entre ${range.min} et ${range.max} kg (sac moyen ${avgBag} kg).`,
+        variant: "destructive",
+      });
       return;
     }
 
-    const declaredWeight = Number(totalWeight);
-    const declaredBags = Number(totalBags);
     const others = preview.map((d, i) => ({ d, i })).filter((e) => e.i !== index);
 
     if (others.length === 0) {
