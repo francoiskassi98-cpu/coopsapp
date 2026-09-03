@@ -452,7 +452,7 @@ export default function CreateShipment() {
       connaissement: connaissement || null,
       total_weight: Number(totalWeight),
       total_bags: Number(totalBags),
-      avg_bag_weight: Number(totalWeight) / Number(totalBags),
+      avg_bag_weight: computeAverageBagWeight(Number(totalWeight), Number(totalBags)),
       project: selectedProject.name,
       project_id: project || null,
       template_id: templateId || null,
