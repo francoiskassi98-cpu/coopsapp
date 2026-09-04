@@ -273,6 +273,25 @@ export async function downloadShipmentTemplate() {
   const ws = workbook.addWorksheet("Chargements");
 
   ws.columns = headers.map((h) => ({ header: h, width: Math.max(h.length + 2, 18) }));
+  ws.getRow(1).font = { bold: true };
+
+  // Feuille de règles : identiques aux validations du système et de la base de données
+  const rules = workbook.addWorksheet("Règles");
+  rules.columns = [{ header: "Règles d'importation", width: 110 }];
+  rules.getRow(1).font = { bold: true };
+  [
+    "Toutes les colonnes obligatoires doivent être renseignées : Projet, Zone, Destination, Nom du producteur, Code plantation, Poids net, Nombre de sacs, Date de livraison, N° Reçu.",
+    "Poids net (kg) : nombre ENTIER strictement supérieur à 0 (aucune décimale).",
+    "Nombre de sacs : nombre ENTIER supérieur ou égal à 1.",
+    `Poids par sac (poids net / nombre de sacs) : maximum ${MAX_BAG_WEIGHT_KG} kg.`,
+    "Date de livraison : format JJ/MM/AAAA, jamais dans le futur.",
+    `Destination : exactement « ${VALID_DESTINATIONS.join(" » ou « ")} ».`,
+    "Zone : doit correspondre exactement au nom d'un registre existant dans le système.",
+    "Code plantation : doit exister dans le registre des producteurs.",
+    "La campagne est déduite automatiquement de la date de livraison (1er septembre → 31 août).",
+  ].forEach((r) => rules.addRow([r]));
+
+
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
