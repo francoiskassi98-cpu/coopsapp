@@ -26,6 +26,7 @@ export default function ImportShipments() {
   const [matchedProducers, setMatchedProducers] = useState<MatchedProducer[]>([]);
   const [potentialWarnings, setPotentialWarnings] = useState<string[]>([]);
   const [delayWarnings, setDelayWarnings] = useState<string[]>([]);
+  const [zoneErrors, setZoneErrors] = useState<string[]>([]);
 
   /** Ligne minimale insérée dans `deliveries` lors d'un import historique. */
   type DeliveryInsert = {
@@ -35,6 +36,8 @@ export default function ImportShipments() {
     delivery_date: string;
     net_weight: number;
     num_bags: number;
+    registre_id: string;
+    campaign_label: string;
   };
 
   /** Producteur tel que retourné par les recherches par code plantation. */
@@ -84,7 +87,8 @@ export default function ImportShipments() {
     setMatchedProducers([]);
     setPotentialWarnings([]);
     setDelayWarnings([]);
-    
+    setZoneErrors([]);
+
 
     const buffer = await file.arrayBuffer();
     const result = await parseShipmentExcel(buffer);
@@ -136,8 +140,17 @@ export default function ImportShipments() {
 
       // No duplicate check for historical imports
 
+      // Vérifie que chaque zone du fichier correspond à un registre existant
+      const { data: regs } = await supabase.from("registres").select("name");
+      const regNames = new Set((regs ?? []).map((r) => r.name.toLowerCase()));
+      const missingZones = [...new Set(result.rows.map((r) => r.zone))].filter((z) => !regNames.has(z.toLowerCase()));
+      setZoneErrors(missingZones.map((z) => `Zone « ${z} » : aucun registre correspondant. Créez ce registre avant l'import.`));
+      if (missingZones.length > 0) {
+        toast({ title: "Registre introuvable", description: `${missingZones.length} zone(s) sans registre correspondant.`, variant: "destructive" });
+      }
+
       const unmatchedCount = matched.filter((m) => !m.matched).length;
-      if (result.errors.length === 0 && unmatchedCount === 0 && potWarn.length === 0) {
+      if (result.errors.length === 0 && unmatchedCount === 0 && potWarn.length === 0 && missingZones.length === 0) {
         toast({ title: "Fichier valide", description: `${result.rows.length} lignes prêtes à importer.` });
       }
       if (unmatchedCount > 0) {
@@ -154,7 +167,7 @@ export default function ImportShipments() {
   };
 
   const unmatchedCount = matchedProducers.filter((m) => !m.matched).length;
-  const canImport = rows.length > 0 && unmatchedCount === 0;
+  const canImport = rows.length > 0 && unmatchedCount === 0 && errors.length === 0 && zoneErrors.length === 0;
 
   const handleImportClick = () => {
     if (!canImport) return;
@@ -228,7 +241,7 @@ export default function ImportShipments() {
             connaissement: first.connaissement || null,
             total_weight: totalWeight,
             total_bags: totalBags,
-            avg_bag_weight: totalBags > 0 ? totalWeight / totalBags : 0,
+            avg_bag_weight: totalBags > 0 ? Math.round((totalWeight / totalBags) * 100) / 100 : 0,
             project: first.projet || "Ordinaire",
             partner_id: partnerId,
             zone: first.zone || null,
@@ -253,6 +266,8 @@ export default function ImportShipments() {
             delivery_date: r.date_livraison || deliveryStart,
             net_weight: r.poids_net,
             num_bags: r.nombre_sacs,
+            registre_id: registreId as string,
+            campaign_label: campaignLabel || detectCampaignFromDate(deliveryStart),
           }));
 
 
@@ -426,6 +441,21 @@ export default function ImportShipments() {
           <CardContent>
             <ul className="text-sm space-y-1">
               {delayWarnings.map((w, i) => <li key={i}>{w}</li>)}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {zoneErrors.length > 0 && (
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-base text-destructive flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" /> Registres manquants ({zoneErrors.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="text-sm space-y-1">
+              {zoneErrors.map((z, i) => <li key={i}>{z}</li>)}
             </ul>
           </CardContent>
         </Card>

@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { computeCampaign } from "@/lib/campaign";
 
 export interface ShipmentImportRow {
   connaissement: string;
@@ -30,6 +31,11 @@ export interface MatchedProducer {
   matched: boolean;
 }
 
+/** Destinations autorisées (identiques à la contrainte SQL shipments_destination_check). */
+export const VALID_DESTINATIONS = ["Abidjan", "San-Pedro"] as const;
+/** Poids maximum par sac accepté par la base (deliveries_bag_weight_check). */
+export const MAX_BAG_WEIGHT_KG = 110;
+
 export const SHIPMENT_TEMPLATE_COLUMNS: { header: string; field: keyof ShipmentImportRow }[] = [
   { header: "Connaissement", field: "connaissement" },
   { header: "Projet", field: "projet" },
@@ -45,18 +51,17 @@ export const SHIPMENT_TEMPLATE_COLUMNS: { header: string; field: keyof ShipmentI
   { header: "N° Reçu", field: "numero_recu" },
 ];
 
-/** Detect campaign from a delivery date (Oct 1 - Sep 30 cycle) */
+/**
+ * Campagne d'une date de livraison — règle unique du système
+ * (1er septembre → 31 août, format "YYYY-YYYY").
+ */
 export function detectCampaignFromDate(dateStr: string): string {
   if (!dateStr) return "";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "";
-  const year = d.getFullYear();
-  const month = d.getMonth() + 1;
-  if (month >= 10) {
-    return `${year}-${year + 1}`;
-  }
-  return `${year - 1}-${year}`;
+  return computeCampaign(d);
 }
+
 
 function normalizeHeader(header: string): string {
   return header
@@ -156,18 +161,22 @@ export async function parseShipmentExcel(data: ArrayBuffer): Promise<{ rows: Shi
     }
   }
 
-  const VALID_DESTINATIONS = ["Abidjan", "San-Pedro"];
-  const VALID_PROJECTS = ["Fairtrade", "Rainforest Alliance", "Ordinaire"];
-
-  function matchOrDefault<T extends string>(value: string, validList: T[], defaultVal: T): T {
-    if (!value) return defaultVal;
-    const lower = value.toLowerCase().trim();
-    const found = validList.find((v) => v.toLowerCase() === lower);
-    return found || defaultVal;
-  }
-
   const errors: ShipmentImportError[] = [];
   const rows: ShipmentImportRow[] = [];
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  /** Retourne la valeur entière stricte d'une cellule, ou null si non entière. */
+  function strictInteger(v: ExcelJS.CellValue): number | null {
+    if (v === null || v === undefined) return null;
+    const s = String(typeof v === "object" && v !== null && "result" in v ? (v as { result: unknown }).result : v)
+      .trim()
+      .replace(/\s/g, "");
+    if (s === "" || !/^-?\d+$/.test(s)) return null;
+    const n = Number(s);
+    return Number.isSafeInteger(n) ? n : null;
+  }
 
   for (let i = 0; i < rawRows.length; i++) {
     const raw = rawRows[i];
@@ -178,42 +187,82 @@ export async function parseShipmentExcel(data: ArrayBuffer): Promise<{ rows: Shi
       row[fieldKey] = raw[excelKey];
     }
 
+    const rowErrors: string[] = [];
 
-    if (!row.nom_producteur) {
-      errors.push({ row: rowNum, message: "Nom du producteur manquant" });
-      continue;
-    }
-    if (!row.code_plantation) {
-      errors.push({ row: rowNum, message: "Code plantation manquant" });
-      continue;
-    }
-    if (!row.poids_net && row.poids_net !== 0) {
-      errors.push({ row: rowNum, message: "Poids net manquant" });
-      continue;
-    }
-    if (!row.numero_recu) {
-      errors.push({ row: rowNum, message: "N° Reçu manquant" });
-      continue;
+    const nomProducteur = String(row.nom_producteur ?? "").trim();
+    const codePlantation = String(row.code_plantation ?? "").trim();
+    const numeroRecu = String(row.numero_recu ?? "").trim();
+    const zone = String(row.zone ?? "").trim();
+    const destinationRaw = String(row.destination ?? "").trim();
+    const projet = String(row.projet ?? "").trim();
+    const dateLivraison = parseExcelDate(row.date_livraison);
+
+    if (!nomProducteur) rowErrors.push("Nom du producteur manquant");
+    if (!codePlantation) rowErrors.push("Code plantation manquant");
+    if (!numeroRecu) rowErrors.push("N° Reçu manquant");
+    if (!zone) rowErrors.push("Zone (registre) manquante");
+    if (!projet) rowErrors.push("Projet manquant");
+
+    // Destination : doit correspondre exactement aux valeurs acceptées par la base
+    const destination = VALID_DESTINATIONS.find((d) => d.toLowerCase() === destinationRaw.toLowerCase());
+    if (!destinationRaw) rowErrors.push("Destination manquante");
+    else if (!destination) rowErrors.push(`Destination « ${destinationRaw} » invalide (attendu : ${VALID_DESTINATIONS.join(" ou ")})`);
+
+    // Poids net : entier strictement positif (contrainte deliveries_integer_amounts_chk)
+    const poids = strictInteger(row.poids_net);
+    if (row.poids_net === null || row.poids_net === undefined || String(row.poids_net).trim() === "") {
+      rowErrors.push("Poids net manquant");
+    } else if (poids === null) {
+      rowErrors.push(`Poids net « ${String(row.poids_net)} » invalide (nombre entier de kg attendu, sans décimale)`);
+    } else if (poids <= 0) {
+      rowErrors.push("Poids net doit être supérieur à 0");
     }
 
-    const rawDestination = String(row.destination || "").trim();
-    const rawProjet = String(row.projet || "").trim();
+    // Nombre de sacs : entier >= 1
+    const sacs = strictInteger(row.nombre_sacs);
+    if (row.nombre_sacs === null || row.nombre_sacs === undefined || String(row.nombre_sacs).trim() === "") {
+      rowErrors.push("Nombre de sacs manquant");
+    } else if (sacs === null) {
+      rowErrors.push(`Nombre de sacs « ${String(row.nombre_sacs)} » invalide (nombre entier attendu)`);
+    } else if (sacs < 1) {
+      rowErrors.push("Nombre de sacs doit être supérieur ou égal à 1");
+    }
+
+    // Poids par sac : contrainte deliveries_bag_weight_check (<= 110 kg)
+    if (poids !== null && poids > 0 && sacs !== null && sacs >= 1 && poids / sacs > MAX_BAG_WEIGHT_KG) {
+      rowErrors.push(`Poids par sac de ${(poids / sacs).toFixed(1)} kg supérieur au maximum autorisé (${MAX_BAG_WEIGHT_KG} kg)`);
+    }
+
+    // Date de livraison : obligatoire, valide, jamais dans le futur (trigger validate_shipment_rules)
+    if (!dateLivraison) {
+      rowErrors.push("Date de livraison manquante");
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(dateLivraison) || isNaN(new Date(dateLivraison).getTime())) {
+      rowErrors.push(`Date de livraison « ${dateLivraison} » invalide (format attendu : JJ/MM/AAAA)`);
+    } else if (new Date(`${dateLivraison}T00:00:00`) > today) {
+      rowErrors.push("Pas possible d'effectuer un chargement avec cette date.");
+    }
+
+    if (rowErrors.length > 0) {
+      for (const message of rowErrors) errors.push({ row: rowNum, message });
+      continue;
+    }
 
     rows.push({
       connaissement: String(row.connaissement || "").trim(),
-      projet: matchOrDefault(rawProjet, VALID_PROJECTS, "Ordinaire"),
+      projet,
       partenaire: String(row.partenaire || "").trim(),
-      zone: String(row.zone || "").trim(),
-      destination: matchOrDefault(rawDestination, VALID_DESTINATIONS, "Abidjan"),
-      nom_producteur: String(row.nom_producteur).trim(),
-      code_plantation: String(row.code_plantation).trim(),
+      zone,
+      destination: destination as string,
+      nom_producteur: nomProducteur,
+      code_plantation: codePlantation,
       section: String(row.section || "").trim(),
-      poids_net: Number(row.poids_net) || 0,
-      nombre_sacs: Number(row.nombre_sacs) || 0,
-      date_livraison: parseExcelDate(row.date_livraison),
-      numero_recu: String(row.numero_recu).trim(),
+      poids_net: poids as number,
+      nombre_sacs: sacs as number,
+      date_livraison: dateLivraison,
+      numero_recu: numeroRecu,
     });
   }
+
 
   return { rows, errors };
 }
@@ -224,6 +273,25 @@ export async function downloadShipmentTemplate() {
   const ws = workbook.addWorksheet("Chargements");
 
   ws.columns = headers.map((h) => ({ header: h, width: Math.max(h.length + 2, 18) }));
+  ws.getRow(1).font = { bold: true };
+
+  // Feuille de règles : identiques aux validations du système et de la base de données
+  const rules = workbook.addWorksheet("Règles");
+  rules.columns = [{ header: "Règles d'importation", width: 110 }];
+  rules.getRow(1).font = { bold: true };
+  [
+    "Toutes les colonnes obligatoires doivent être renseignées : Projet, Zone, Destination, Nom du producteur, Code plantation, Poids net, Nombre de sacs, Date de livraison, N° Reçu.",
+    "Poids net (kg) : nombre ENTIER strictement supérieur à 0 (aucune décimale).",
+    "Nombre de sacs : nombre ENTIER supérieur ou égal à 1.",
+    `Poids par sac (poids net / nombre de sacs) : maximum ${MAX_BAG_WEIGHT_KG} kg.`,
+    "Date de livraison : format JJ/MM/AAAA, jamais dans le futur.",
+    `Destination : exactement « ${VALID_DESTINATIONS.join(" » ou « ")} ».`,
+    "Zone : doit correspondre exactement au nom d'un registre existant dans le système.",
+    "Code plantation : doit exister dans le registre des producteurs.",
+    "La campagne est déduite automatiquement de la date de livraison (1er septembre → 31 août).",
+  ].forEach((r) => rules.addRow([r]));
+
+
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
