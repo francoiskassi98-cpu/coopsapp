@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { computeCampaign } from "@/lib/campaign";
 
 export interface ShipmentImportRow {
   connaissement: string;
@@ -30,6 +31,11 @@ export interface MatchedProducer {
   matched: boolean;
 }
 
+/** Destinations autorisées (identiques à la contrainte SQL shipments_destination_check). */
+export const VALID_DESTINATIONS = ["Abidjan", "San-Pedro"] as const;
+/** Poids maximum par sac accepté par la base (deliveries_bag_weight_check). */
+export const MAX_BAG_WEIGHT_KG = 110;
+
 export const SHIPMENT_TEMPLATE_COLUMNS: { header: string; field: keyof ShipmentImportRow }[] = [
   { header: "Connaissement", field: "connaissement" },
   { header: "Projet", field: "projet" },
@@ -45,18 +51,17 @@ export const SHIPMENT_TEMPLATE_COLUMNS: { header: string; field: keyof ShipmentI
   { header: "N° Reçu", field: "numero_recu" },
 ];
 
-/** Detect campaign from a delivery date (Oct 1 - Sep 30 cycle) */
+/**
+ * Campagne d'une date de livraison — règle unique du système
+ * (1er septembre → 31 août, format "YYYY-YYYY").
+ */
 export function detectCampaignFromDate(dateStr: string): string {
   if (!dateStr) return "";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "";
-  const year = d.getFullYear();
-  const month = d.getMonth() + 1;
-  if (month >= 10) {
-    return `${year}-${year + 1}`;
-  }
-  return `${year - 1}-${year}`;
+  return computeCampaign(d);
 }
+
 
 function normalizeHeader(header: string): string {
   return header
