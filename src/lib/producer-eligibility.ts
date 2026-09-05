@@ -95,6 +95,7 @@ export async function buildEligibleProducers(
       .select("id, full_name, section, plantation_code, delivery_potential, remaining_potential")
       .eq("is_active", true)
       .eq("registre_id", registreId)
+      .eq("campaign_label", campaignLabel)
       .order("section")
       .range(from, from + PAGE - 1);
     if (error) throw error;
