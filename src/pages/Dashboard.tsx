@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { AlertTriangle, RefreshCw, Mail, LayoutDashboard } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
-import { isCampaignStart, getCurrentCampaign, normalizeCampaign } from "@/lib/shipment-utils";
+import { isCampaignStart, getCurrentCampaign } from "@/lib/shipment-utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,6 +15,7 @@ import CoopPerformance from "@/components/dashboard/CoopPerformance";
 import CoopTable from "@/components/dashboard/CoopTable";
 import DashboardFilters from "@/components/dashboard/DashboardFilters";
 import { useRegistres } from "@/hooks/useRegistres";
+import { useCampaignLabels } from "@/hooks/useCampaign";
 import type { PaginatedQuery } from "@/lib/database-utils";
 import ReportDialog from "@/components/dashboard/ReportDialog";
 import ReportGenerator from "@/components/dashboard/ReportGenerator";
@@ -26,6 +27,7 @@ interface DashboardProducer {
   delivery_potential: number | null;
   remaining_potential: number | null;
   registre_id: string | null;
+  campaign_label: string | null;
 }
 
 interface DashboardShipment {
@@ -71,21 +73,25 @@ export default function Dashboard() {
     setShowCampaignAlert(isCampaignStart());
   }, []);
 
+  // Le filtre campagne est appliqué à la source (Supabase), jamais après calcul.
   const { data: allProducers = [], isLoading: loadingProducers } = useQuery({
-    queryKey: ["dashboard", "producers"],
-    queryFn: () => fetchAllRows<DashboardProducer>(
-      supabase.from("producers").select("delivery_potential, remaining_potential, registre_id") as unknown as PaginatedQuery
-    ),
+    queryKey: ["dashboard", "producers", selectedCampaign],
+    queryFn: () => {
+      let q = supabase.from("producers").select("delivery_potential, remaining_potential, registre_id, campaign_label");
+      if (selectedCampaign !== "all") q = q.eq("campaign_label", selectedCampaign);
+      return fetchAllRows<DashboardProducer>(q as unknown as PaginatedQuery);
+    },
   });
 
   const { data: allShipments = [], isLoading: loadingShipments } = useQuery({
-    queryKey: ["dashboard", "shipments"],
-    queryFn: () => fetchAllRows<DashboardShipment>(
-      supabase
+    queryKey: ["dashboard", "shipments", selectedCampaign],
+    queryFn: () => {
+      let q = supabase
         .from("shipments")
-        .select("id, project, destination, total_weight, total_bags, created_at, campaign_label, zone, connaissement, registre_id, partners(name)")
-        .order("created_at", { ascending: false }) as unknown as PaginatedQuery
-    ),
+        .select("id, project, destination, total_weight, total_bags, created_at, campaign_label, zone, connaissement, registre_id, partners(name)");
+      if (selectedCampaign !== "all") q = q.eq("campaign_label", selectedCampaign);
+      return fetchAllRows<DashboardShipment>(q.order("created_at", { ascending: false }) as unknown as PaginatedQuery);
+    },
   });
 
   const { registres } = useRegistres();
@@ -102,19 +108,13 @@ export default function Dashboard() {
     toast.success("Données actualisées");
   };
 
-  // Available campaigns
-  const campaigns = useMemo(() => {
-    const set = new Set<string>();
-    set.add(getCurrentCampaign());
-    allShipments.forEach((s) => { if (s.campaign_label) set.add(normalizeCampaign(s.campaign_label)); });
-    return Array.from(set).sort().reverse();
-  }, [allShipments]);
+  // Campagnes disponibles : issues des données réelles (producteurs, chargements, livraisons).
+  const { labels: campaigns } = useCampaignLabels();
 
   // Filtered shipments based on chronology + registre
   const shipments = useMemo(() => {
     return allShipments.filter((s) => {
       if (selectedRegistre !== "all" && s.registre_id !== selectedRegistre) return false;
-      if (selectedCampaign !== "all" && normalizeCampaign(s.campaign_label) !== selectedCampaign) return false;
       if (selectedMonths.length > 0) {
         const date = new Date(s.created_at);
         const month = date.getMonth() + 1;
@@ -122,7 +122,7 @@ export default function Dashboard() {
       }
       return true;
     });
-  }, [allShipments, selectedCampaign, selectedMonths, selectedRegistre]);
+  }, [allShipments, selectedMonths, selectedRegistre]);
 
   // Producteurs filtrés par registre
   const producers = useMemo(

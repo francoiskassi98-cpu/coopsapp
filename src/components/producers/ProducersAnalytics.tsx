@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRegistres } from "@/hooks/useRegistres";
+import { useCampaignLabels } from "@/hooks/useCampaign";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -65,15 +66,15 @@ const TONE: Record<Tone, { bg: string; ring: string; icon: string; chip: string 
   teal:   { bg: "bg-teal-50/70",    ring: "ring-teal-100",    icon: "bg-teal-500 text-white",    chip: "text-teal-600" },
 };
 
-async function fetchAll<T>(table: string, select = "*"): Promise<T[]> {
+/** Récupère toutes les lignes d'une table, strictement limitées à la campagne demandée. */
+async function fetchAll<T>(table: string, select = "*", campaign?: string): Promise<T[]> {
   let all: T[] = [];
   let from = 0;
   const PAGE = 1000;
   while (true) {
-    const { data, error } = await supabase
-      .from(table as never)
-      .select(select)
-      .range(from, from + PAGE - 1);
+    let query = supabase.from(table as never).select(select);
+    if (campaign && campaign !== "all") query = query.eq("campaign_label", campaign);
+    const { data, error } = await query.range(from, from + PAGE - 1);
     if (error) { console.error(error); break; }
     if (!data || data.length === 0) break;
     all = all.concat(data as T[]);
@@ -117,8 +118,9 @@ export default function ProducersAnalytics() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
 
   // Filters
+  const { labels: campaignsList, activeCampaign } = useCampaignLabels();
   const [registreFilter, setRegistreFilter] = useState("all");
-  const [campaignFilter, setCampaignFilter] = useState("all");
+  const [campaignFilter, setCampaignFilter] = useState(activeCampaign);
   const [sectionFilter, setSectionFilter] = useState("all");
 
   useEffect(() => {
@@ -126,9 +128,9 @@ export default function ProducersAnalytics() {
       setLoading(true);
       try {
         const [p, s, d] = await Promise.all([
-          fetchAll<Producer>("producers", "id,full_name,registre_id,section,sexe,delivery_potential,remaining_potential,is_active"),
-          fetchAll<Shipment>("shipments", "id,registre_id,campaign_label,total_weight,departure_date,is_cancelled"),
-          fetchAll<Delivery>("deliveries", "id,shipment_id,net_weight,delivery_date"),
+          fetchAll<Producer>("producers", "id,full_name,registre_id,section,sexe,delivery_potential,remaining_potential,is_active", campaignFilter),
+          fetchAll<Shipment>("shipments", "id,registre_id,campaign_label,total_weight,departure_date,is_cancelled", campaignFilter),
+          fetchAll<Delivery>("deliveries", "id,shipment_id,net_weight,delivery_date", campaignFilter),
         ]);
         setProducers(p);
         setShipments(s);
@@ -139,14 +141,13 @@ export default function ProducersAnalytics() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [campaignFilter]);
 
   const registreName = useMemo(() => {
     const m: Record<string, string> = {};
     registres.forEach(r => { m[r.id] = r.name; });
     return m;
   }, [registres]);
-  const campaignsList = useMemo(() => Array.from(new Set(shipments.map(s => s.campaign_label).filter(Boolean))).sort() as string[], [shipments]);
 
   // Filtered producers (registre + section)
   const filtered = useMemo(() => producers.filter(p => {

@@ -1272,6 +1272,12 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: never; Returns: boolean }
+      list_campaign_labels: {
+        Args: never
+        Returns: {
+          campaign_label: string
+        }[]
+      }
       log_login_event: { Args: { p_user_agent?: string }; Returns: undefined }
       my_cooperative_ids: { Args: never; Returns: string[] }
       my_registre_ids: { Args: never; Returns: string[] }
