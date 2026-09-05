@@ -145,8 +145,9 @@ export default function CreateShipment() {
 
   useEffect(() => { loadProjects(); }, [loadProjects]);
 
-  /** Statistiques du seul registre sélectionné (au lieu de charger toute la base). */
+  /** Statistiques du seul registre sélectionné, strictement limitées à la campagne active. */
   const loadCoopStats = useCallback(async (registreId: string, registreName: string) => {
+    const campaign = normalizeCampaign(getCurrentCampaign());
     if (!registreId) { setCoopStats(null); return; }
     setCoopStats(null);
     const PAGE = 1000;
@@ -157,6 +158,7 @@ export default function CreateShipment() {
           .from("producers")
           .select("delivery_potential, remaining_potential")
           .eq("registre_id", registreId)
+          .eq("campaign_label", campaign)
           .range(from, from + PAGE - 1);
         if (error) { console.error("[CreateShipment.stats.producers]", error); break; }
         if (!data || data.length === 0) break;
@@ -177,6 +179,7 @@ export default function CreateShipment() {
           .select("total_weight")
           .eq("registre_id", registreId)
           .eq("status", "active")
+          .eq("campaign_label", campaign)
           .range(from, from + PAGE - 1);
         if (error) { console.error("[CreateShipment.stats.shipments]", error); break; }
         if (!data || data.length === 0) break;
