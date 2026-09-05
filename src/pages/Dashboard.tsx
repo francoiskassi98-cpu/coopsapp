@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { AlertTriangle, RefreshCw, Mail, LayoutDashboard } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
-import { isCampaignStart, getCurrentCampaign, normalizeCampaign } from "@/lib/shipment-utils";
+import { isCampaignStart, getCurrentCampaign } from "@/lib/shipment-utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
