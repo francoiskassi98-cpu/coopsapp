@@ -17,8 +17,8 @@ import { parseExcelFile, downloadImportTemplate, exportToExcel, downloadErrorRep
 import PageHeader from "@/components/PageHeader";
 import { Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { normalizeCampaign, getCurrentCampaign } from "@/lib/shipment-utils";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useCampaignLabels } from "@/hooks/useCampaign";
 import type { Database } from "@/integrations/supabase/types";
 
 type ImportMode = "insert" | "update";
@@ -40,6 +40,8 @@ export default function Producers() {
   const [producers, setProducers] = useState<ProducerListRow[]>([]);
   const [search, setSearch] = useState("");
   const [coopFilter, setCoopFilter] = useState("all");
+  const { labels: campaignLabels, activeCampaign } = useCampaignLabels();
+  const [campaignFilter, setCampaignFilter] = useState(activeCampaign);
   const [loading, setLoading] = useState(true);
   const [detailProducer, setDetailProducer] = useState<ProducerListRow | null>(null);
   const [editProducer, setEditProducer] = useState<ProducerListRow | null>(null);
@@ -69,6 +71,7 @@ export default function Producers() {
       const { data } = await supabase
         .from("producers")
         .select("*, registres(id, name)")
+        .eq("campaign_label", campaignFilter)
         .order("section", { ascending: true })
         .order("full_name", { ascending: true })
         .range(from, from + PAGE - 1)
@@ -81,7 +84,7 @@ export default function Producers() {
     // Compat : expose le nom du registre sous `cooperative` pour tout le rendu existant
     setProducers(allData.map((p) => ({ ...p, cooperative: p.registres?.name || "" })));
     setLoading(false);
-  }, []);
+  }, [campaignFilter]);
 
   useEffect(() => {
     loadProducers();
@@ -131,7 +134,6 @@ export default function Producers() {
 
   // --- Edit / Delete (existing) ---
   // Sections désactivées (clé = registre_id||section, campagne active)
-  const activeCampaign = normalizeCampaign(getCurrentCampaign());
   const [disabledSections, setDisabledSections] = useState<Set<string>>(new Set());
   const [togglingSections, setTogglingSections] = useState<Set<string>>(new Set());
   const sectionKey = (registreId: string, name: string) => `${registreId}||${name}`;
@@ -378,6 +380,7 @@ export default function Producers() {
   function toDbRow(r: ProducerRow, registreId: string) {
     return {
       registre_id: registreId,
+      campaign_label: activeCampaign,
       full_name: r.full_name,
       producer_number: r.producer_number || null,
       national_id: r.national_id || null,
@@ -438,6 +441,7 @@ export default function Producers() {
           const { data, error } = await supabase
             .from("producers")
             .select("plantation_code")
+            .eq("campaign_label", activeCampaign)
             .in("plantation_code", chunk);
           if (error) throw error;
           (data ?? []).forEach((p) => existingCodes.add(p.plantation_code));
@@ -479,6 +483,7 @@ export default function Producers() {
           const { data, error } = await supabase
             .from("producers")
             .select("id, plantation_code")
+            .eq("campaign_label", activeCampaign)
             .in("plantation_code", chunk);
           if (error) throw error;
           (data ?? []).forEach((p) => existingMap.set(p.plantation_code, p.id));
@@ -610,6 +615,18 @@ export default function Producers() {
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
+        <div className="w-52">
+          <Select value={campaignFilter} onValueChange={setCampaignFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Campagne" />
+            </SelectTrigger>
+            <SelectContent>
+              {campaignLabels.map((c) => (
+                <SelectItem key={c} value={c}>{c}{c === activeCampaign ? " (active)" : ""}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="w-60">
           <Select value={coopFilter} onValueChange={setCoopFilter}>
             <SelectTrigger>

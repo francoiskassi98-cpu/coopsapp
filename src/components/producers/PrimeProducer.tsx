@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { Calculator, Download, Save, Coins } from "lucide-react";
 import { generatePrimeExcel } from "@/lib/prime-excel";
 import { currentCampaign } from "@/lib/campaign";
+import { useCampaignLabels } from "@/hooks/useCampaign";
 
 interface Coop { id: string; name: string; logo_path?: string | null }
 interface Campaign { id: string; nom: string }
@@ -35,13 +36,14 @@ interface PrimeRow {
 export default function PrimeProducer() {
   
   const [coops, setCoops] = useState<Coop[]>([]);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [sections, setSections] = useState<string[]>([]);
   const [producersList, setProducersList] = useState<ProducerOpt[]>([]);
   const [projects, setProjects] = useState<ProjectOpt[]>([]);
 
   const [coopId, setCoopId] = useState<string>("");
-  const [campaignId, setCampaignId] = useState<string>("all");
+  const { labels: campaignLabels, activeCampaign } = useCampaignLabels();
+  const campaigns: Campaign[] = useMemo(() => campaignLabels.map((l) => ({ id: l, nom: l })), [campaignLabels]);
+  const [campaignId, setCampaignId] = useState<string>(activeCampaign);
   const [projectId, setProjectId] = useState<string>("all");
   const [section, setSection] = useState<string>("all");
   const [producerId, setProducerId] = useState<string>("all");
@@ -56,16 +58,9 @@ export default function PrimeProducer() {
 
   useEffect(() => {
     (async () => {
-      const [{ data: c }, { data: cp }] = await Promise.all([
-        supabase.from("registres").select("id,name").order("name"),
-        supabase.from("shipments").select("campaign_label").not("campaign_label", "is", null).limit(2000),
-      ]);
+      const { data: c } = await supabase.from("registres").select("id,name").order("name");
       const list: Coop[] = (c ?? []).map((r) => ({ id: r.id, name: r.name }));
       setCoops(list);
-      const labels = Array.from(
-        new Set((cp ?? []).map((r) => r.campaign_label).filter((l): l is string => !!l)),
-      ).sort().reverse();
-      setCampaigns(labels.map((l) => ({ id: l, nom: l })));
       // Sélection auto : un seul registre accessible → on le sélectionne, sinon « Tous »
       setCoopId((prev) => prev || (list.length === 1 ? list[0].id : "all"));
     })();
@@ -83,6 +78,7 @@ export default function PrimeProducer() {
           .order("full_name")
           .range(from, from + 999);
         if (coopId && coopId !== "all") q = q.eq("registre_id", coopId);
+        if (campaignId !== "all") q = q.eq("campaign_label", campaignId);
         const { data } = await q;
         if (!data || data.length === 0) break;
         all = all.concat(data);
@@ -101,7 +97,7 @@ export default function PrimeProducer() {
     setSection("all");
     setProducerId("all");
     setProjectId("all");
-  }, [coopId, coops]);
+  }, [coopId, coops, campaignId]);
 
   const coopSelected = useMemo(() => coops.find(c => c.id === coopId), [coops, coopId]);
   const projectSelected = useMemo(() => projects.find(p => p.id === projectId), [projects, projectId]);
@@ -163,6 +159,7 @@ export default function PrimeProducer() {
         let pq = supabase.from("producers")
           .select("id,producer_code,full_name,section,registre_id")
           .in("id", chunk);
+        if (campaignId !== "all") pq = pq.eq("campaign_label", campaignId);
         if (section !== "all") pq = pq.eq("section", section);
         const { data, error } = await pq;
         if (error) throw error;
