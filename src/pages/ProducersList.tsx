@@ -439,6 +439,10 @@ export default function Producers() {
         throw new Error("Aucune ligne ne correspond à un registre accessible.");
       }
 
+      // Campagnes présentes dans le fichier (colonne « Campagne », sinon campagne active)
+      const fileCampaigns = Array.from(new Set(rowsWithRegistre.map(({ row }) => rowCampaign(row))));
+      const dupKey = (campaign: string, code: string) => `${campaign}|${code}`;
+
       if (importMode === "insert") {
         step = "vérification des codes plantation existants";
         const allCodes = rowsWithRegistre.map(({ row }) => row.plantation_code);
@@ -447,20 +451,20 @@ export default function Producers() {
           const chunk = allCodes.slice(i, i + 500);
           const { data, error } = await supabase
             .from("producers")
-            .select("plantation_code")
-            .eq("campaign_label", activeCampaign)
+            .select("plantation_code, campaign_label")
+            .in("campaign_label", fileCampaigns)
             .in("plantation_code", chunk);
           if (error) throw error;
-          (data ?? []).forEach((p) => existingCodes.add(p.plantation_code));
+          (data ?? []).forEach((p) => existingCodes.add(dupKey(p.campaign_label, p.plantation_code)));
         }
 
-        const newRows = rowsWithRegistre.filter(({ row }) => !existingCodes.has(row.plantation_code));
+        const newRows = rowsWithRegistre.filter(({ row }) => !existingCodes.has(dupKey(rowCampaign(row), row.plantation_code)));
         const skipped = rowsWithRegistre.length - newRows.length;
 
         if (skipped > 0) {
           toast({
             title: `${skipped} producteur(s) ignoré(s)`,
-            description: "Code plantation déjà existant.",
+            description: "Code plantation déjà existant pour cette campagne.",
           });
         }
 
@@ -477,11 +481,11 @@ export default function Producers() {
           }
           toast({
             title: "Importation réussie",
-            description: `${newRows.length} producteur(s) ajouté(s).`,
+            description: `${newRows.length} producteur(s) ajouté(s) — campagne ${fileCampaigns.join(", ")}.`,
           });
         }
       } else {
-        // Update mode: upsert by plantation_code
+        // Update mode: upsert by plantation_code (par campagne)
         step = "récupération des producteurs existants";
         const allCodes = rowsWithRegistre.map(({ row }) => row.plantation_code);
         const existingMap = new Map<string, string>();
@@ -489,11 +493,11 @@ export default function Producers() {
           const chunk = allCodes.slice(i, i + 500);
           const { data, error } = await supabase
             .from("producers")
-            .select("id, plantation_code")
-            .eq("campaign_label", activeCampaign)
+            .select("id, plantation_code, campaign_label")
+            .in("campaign_label", fileCampaigns)
             .in("plantation_code", chunk);
           if (error) throw error;
-          (data ?? []).forEach((p) => existingMap.set(p.plantation_code, p.id));
+          (data ?? []).forEach((p) => existingMap.set(dupKey(p.campaign_label, p.plantation_code), p.id));
         }
 
         let updatedCount = 0;
