@@ -386,6 +386,71 @@ export default function Producers() {
     return normalizeCampaign(r.campaign_label) || activeCampaign;
   }
 
+  /**
+   * Reporte les producteurs de la campagne affichée vers la campagne active :
+   * les producteurs sont recopiés avec un potentiel restant remis à son niveau initial.
+   * Les producteurs déjà présents dans la campagne active sont ignorés.
+   */
+  async function reportToActiveCampaign() {
+    if (campaignFilter === activeCampaign || producers.length === 0) return;
+    setReporting(true);
+    try {
+      const source = producers.filter((p) => coopFilter === "all" || p.cooperative === coopFilter);
+      const codes = source.map((p) => p.plantation_code);
+      const existing = new Set<string>();
+      for (let i = 0; i < codes.length; i += 500) {
+        const { data, error } = await supabase
+          .from("producers")
+          .select("plantation_code")
+          .eq("campaign_label", activeCampaign)
+          .in("plantation_code", codes.slice(i, i + 500));
+        if (error) throw error;
+        (data ?? []).forEach((p) => existing.add(p.plantation_code));
+      }
+      const toInsert = source
+        .filter((p) => !existing.has(p.plantation_code))
+        .map((p) => ({
+          registre_id: p.registre_id,
+          campaign_label: activeCampaign,
+          full_name: p.full_name,
+          producer_number: p.producer_number,
+          national_id: p.national_id,
+          producer_code: p.producer_code,
+          sexe: p.sexe,
+          section: p.section,
+          total_cocoa_area: p.total_cocoa_area,
+          num_plots: p.num_plots,
+          plantation_code: p.plantation_code,
+          delivery_potential: p.delivery_potential,
+          remaining_potential: p.delivery_potential,
+          plantation_area: p.plantation_area,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          num_men: p.num_men,
+          num_women: p.num_women,
+          is_active: true,
+        }));
+      if (toInsert.length === 0) {
+        toast({ title: "Rien à reporter", description: `Ces producteurs existent déjà en ${activeCampaign}.` });
+        return;
+      }
+      for (let i = 0; i < toInsert.length; i += 200) {
+        const { error } = await supabase.from("producers").insert(toInsert.slice(i, i + 200) as never);
+        if (error) throw error;
+      }
+      toast({ title: "Report effectué", description: `${toInsert.length} producteur(s) disponibles en ${activeCampaign}.` });
+      await queryClient.invalidateQueries({ queryKey: ["campaign-labels"] });
+      setCampaignFilter(activeCampaign);
+    } catch (err) {
+      console.error("[report campagne]", err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+    } finally {
+      setReporting(false);
+    }
+  }
+
+
+
   function toDbRow(r: ProducerRow, registreId: string) {
     return {
       registre_id: registreId,
