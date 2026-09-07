@@ -19,6 +19,8 @@ import { Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useCampaignLabels } from "@/hooks/useCampaign";
+import { normalizeCampaign } from "@/lib/campaign";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Database } from "@/integrations/supabase/types";
 
 type ImportMode = "insert" | "update";
@@ -377,10 +379,15 @@ export default function Producers() {
     return map;
   }
 
+  /** Campagne d'une ligne du fichier : colonne « Campagne » si renseignée, sinon campagne active. */
+  function rowCampaign(r: ProducerRow): string {
+    return normalizeCampaign(r.campaign_label) || activeCampaign;
+  }
+
   function toDbRow(r: ProducerRow, registreId: string) {
     return {
       registre_id: registreId,
-      campaign_label: activeCampaign,
+      campaign_label: rowCampaign(r),
       full_name: r.full_name,
       producer_number: r.producer_number || null,
       national_id: r.national_id || null,
