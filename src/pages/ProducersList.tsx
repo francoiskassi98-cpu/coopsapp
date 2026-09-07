@@ -508,7 +508,7 @@ export default function Producers() {
 
         for (const { row, registreId } of rowsWithRegistre) {
           const payload = toDbRow(row, registreId);
-          const existingId = existingMap.get(row.plantation_code);
+          const existingId = existingMap.get(dupKey(rowCampaign(row), row.plantation_code));
           if (existingId) {
             const { registre_id: _rid, ...rest } = payload;
             updates.push({ id: existingId, payload: rest });
@@ -541,7 +541,12 @@ export default function Producers() {
       }
 
       setImportDone(true);
-      await loadProducers();
+      // La campagne du fichier peut être nouvelle : on rafraîchit la liste des campagnes
+      // et on positionne le filtre dessus pour que les données importées soient visibles.
+      await queryClient.invalidateQueries({ queryKey: ["campaign-labels"] });
+      const targetCampaign = fileCampaigns[0];
+      if (targetCampaign && targetCampaign !== campaignFilter) setCampaignFilter(targetCampaign);
+      else await loadProducers();
     } catch (err: unknown) {
       console.error("[import producers] échec:", { step, error: err });
       const detail = describeSupabaseError(err, step);
