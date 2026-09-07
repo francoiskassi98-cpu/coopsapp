@@ -38,9 +38,12 @@ type ProducerEditForm = Partial<ProducerDbRow>;
 
 export default function Producers() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { cooperativeRefs, isSuperAdmin } = useAuth();
   const [producers, setProducers] = useState<ProducerListRow[]>([]);
   const [search, setSearch] = useState("");
+  const [coopFilter, setCoopFilter] = useState("all");
+  const [reporting, setReporting] = useState(false);
   const [coopFilter, setCoopFilter] = useState("all");
   const { labels: campaignLabels, activeCampaign } = useCampaignLabels();
   const [campaignFilter, setCampaignFilter] = useState(activeCampaign);
