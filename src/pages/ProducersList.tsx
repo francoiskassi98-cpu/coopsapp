@@ -44,7 +44,6 @@ export default function Producers() {
   const [search, setSearch] = useState("");
   const [coopFilter, setCoopFilter] = useState("all");
   const [reporting, setReporting] = useState(false);
-  const [coopFilter, setCoopFilter] = useState("all");
   const { labels: campaignLabels, activeCampaign } = useCampaignLabels();
   const [campaignFilter, setCampaignFilter] = useState(activeCampaign);
   const [loading, setLoading] = useState(true);
