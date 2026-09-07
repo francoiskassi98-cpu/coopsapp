@@ -47,8 +47,9 @@ export default function GlobalSearch() {
     (async () => {
       setLoading(true);
       const term = `%${debounced}%`;
+      const campaign = activeCampaign;
       const [{ data: prods }, { data: coops }, { data: parts }, { data: ships }] = await Promise.all([
-        supabase.from("producers").select("id, full_name, plantation_code, section").or(`full_name.ilike.${term},plantation_code.ilike.${term}`).is("deleted_at", null).limit(6),
+        supabase.from("producers").select("id, full_name, plantation_code, section").eq("campaign_label", campaign).or(`full_name.ilike.${term},plantation_code.ilike.${term}`).is("deleted_at", null).limit(6),
         supabase.from("cooperatives").select("id, name, acronym").or(`name.ilike.${term},acronym.ilike.${term}`).is("deleted_at", null).limit(4),
         supabase.from("partners").select("id, name").ilike("name", term).is("deleted_at", null).limit(4),
         supabase.from("shipments").select("id, connaissement, lot_number, project").or(`connaissement.ilike.${term},lot_number.ilike.${term}`).is("deleted_at", null).limit(6),
