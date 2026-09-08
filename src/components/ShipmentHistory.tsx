@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { useSortableTable, SortableHeader, type SortValue } from "@/hooks/useSortableTable";
 import type { PaginatedQuery } from "@/lib/database-utils";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useCampaignLabels } from "@/hooks/useCampaign";
+import { normalizeCampaign } from "@/lib/campaign";
 
 const ROWS_STEP = 100;
 
