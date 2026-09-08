@@ -39,8 +39,9 @@ interface ShipmentFicheRow {
   truck_number: string | null;
   trailer_number: string | null;
   registre_id: string | null;
+  template_id: string | null;
   partner_id: string | null;
-  registres?: { name: string | null; cooperatives?: { name: string | null } | null } | null;
+  registres?: { name: string | null; cooperative_id?: string | null; cooperatives?: { name: string | null } | null } | null;
   partners?: { name: string | null } | null;
 }
 
@@ -75,12 +76,26 @@ const FALLBACK_TEMPLATE: TemplateConfig = {
   show_partner_logo: true,
 };
 
-async function loadTemplate(registreId: string | null): Promise<TemplateConfig> {
-  if (!registreId) return FALLBACK_TEMPLATE;
+/**
+ * Les modèles ne sont liés ni à un registre ni à une campagne :
+ * on utilise le modèle choisi sur le chargement, sinon le modèle par défaut
+ * de la coopérative.
+ */
+async function loadTemplate(templateId: string | null, cooperativeId: string | null): Promise<TemplateConfig> {
+  if (templateId) {
+    const { data } = await supabase
+      .from("shipment_excel_templates")
+      .select("*")
+      .eq("id", templateId)
+      .maybeSingle();
+    if (data) return { ...FALLBACK_TEMPLATE, ...data } as TemplateConfig;
+  }
+  if (!cooperativeId) return FALLBACK_TEMPLATE;
   const { data } = await supabase
     .from("shipment_excel_templates")
     .select("*")
-    .eq("registre_id", registreId)
+    .eq("cooperative_id", cooperativeId)
+    .eq("is_active", true)
     .order("is_default", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(1);
