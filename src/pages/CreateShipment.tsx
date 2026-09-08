@@ -99,7 +99,7 @@ export default function CreateShipment() {
   const canCreateProject = role === "super_admin" || role === "coop_admin" || role === "agent";
 
   const [coopStats, setCoopStats] = useState<{ potentiel: number; delivered: number; remaining: number } | null>(null);
-  const [coopStats, setCoopStats] = useState<{ potentiel: number; delivered: number; remaining: number } | null>(null);
+
   const [suggestedReceipt, setSuggestedReceipt] = useState<string>("");
   const [receiptNumber, setReceiptNumber] = useState<string>("");
   const [selectedCoopId, setSelectedCoopId] = useState<string>("");
