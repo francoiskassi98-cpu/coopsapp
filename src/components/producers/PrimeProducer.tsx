@@ -35,7 +35,9 @@ interface PrimeRow {
 
 export default function PrimeProducer() {
   
-  const [coops, setCoops] = useState<Coop[]>([]);
+  const { registres } = useRegistres();
+  const coops: Coop[] = registres;
+
   const [sections, setSections] = useState<string[]>([]);
   const [producersList, setProducersList] = useState<ProducerOpt[]>([]);
   const [projects, setProjects] = useState<ProjectOpt[]>([]);
@@ -57,14 +59,13 @@ export default function PrimeProducer() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      const { data: c } = await supabase.from("registres").select("id,name").order("name");
-      const list: Coop[] = (c ?? []).map((r) => ({ id: r.id, name: r.name }));
-      setCoops(list);
-      // Sélection auto : un seul registre accessible → on le sélectionne, sinon « Tous »
-      setCoopId((prev) => prev || (list.length === 1 ? list[0].id : "all"));
-    })();
-  }, []);
+  // Sélection auto : un seul registre accessible → on le sélectionne, sinon « Tous »
+  useEffect(() => {
+    if (coops.length === 0) return;
+    setCoopId((prev) => prev || (coops.length === 1 ? coops[0].id : "all"));
+  }, [coops]);
+
+
 
   // Charge producteurs + sections + projets en fonction du filtre registre
   useEffect(() => {
