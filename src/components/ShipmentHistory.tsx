@@ -128,11 +128,11 @@ export default function ShipmentHistory() {
       if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
       return String(v);
     });
-  }, [shipments, selectedCoop, debouncedSearch, sortData]);
+  }, [campaignShipments, selectedCoop, debouncedSearch, sortData]);
 
   useEffect(() => {
     setVisibleCount(ROWS_STEP);
-  }, [debouncedSearch, selectedCoop, sortConfig]);
+  }, [debouncedSearch, selectedCoop, campaignFilter, sortConfig]);
 
   const visibleRows = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
 
