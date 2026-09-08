@@ -603,7 +603,8 @@ export default function Producers() {
         if (skipped > 0) {
           toast({
             title: `${skipped} producteur(s) ignoré(s)`,
-            description: "Code plantation déjà existant pour cette campagne.",
+            description: "Code plantation déjà existant pour ce registre et cette campagne.",
+
           });
         }
 
