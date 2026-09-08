@@ -119,13 +119,13 @@ export const TEMPLATE_COLUMNS: { header: string; field: keyof ProducerRow }[] = 
 
 const COLUMN_MAP: Record<string, { field: keyof ProducerRow; header: string }> = {};
 for (const col of TEMPLATE_COLUMNS) {
-  COLUMN_MAP[normalizeHeader(col.header)] = { field: col.field, header: col.header };
+  COLUMN_MAP[stripAccents(normalizeHeader(col.header))] = { field: col.field, header: col.header };
 }
 
 /** Ligne brute lue depuis Excel : en-tête → valeur de cellule. */
 type RawExcelRow = Record<string, ExcelJS.CellValue>;
 
-function sheetToJson(worksheet: ExcelJS.Worksheet): RawExcelRow[] {
+function sheetToJson(worksheet: ExcelJS.Worksheet): { headers: string[]; rows: RawExcelRow[] } {
   const rows: RawExcelRow[] = [];
   const headerRow = worksheet.getRow(1);
   const headers: string[] = [];
@@ -136,14 +136,17 @@ function sheetToJson(worksheet: ExcelJS.Worksheet): RawExcelRow[] {
   worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber === 1) return;
     const obj: RawExcelRow = {};
-    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-      const key = headers[colNumber];
-      if (key) obj[key] = cell.value;
-    });
+    // On parcourt TOUTES les colonnes de l'en-tête : une cellule vide sur la première
+    // ligne ne doit jamais faire disparaître la colonne (ex : Carte CCC vide ligne 2).
+    for (let c = 1; c < headers.length; c++) {
+      const key = headers[c];
+      if (!key) continue;
+      obj[key] = row.getCell(c).value;
+    }
     if (Object.keys(obj).length > 0) rows.push(obj);
   });
 
-  return rows;
+  return { headers: headers.filter(Boolean), rows };
 }
 
 
@@ -206,7 +209,7 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
     };
   }
 
-  const rawRows = sheetToJson(sheet);
+  const { headers: sheetHeaders, rows: rawRows } = sheetToJson(sheet);
   if (rawRows.length === 0) {
     return {
       rows: [], errors: [makeError(0, "—", "", "Fichier vide", "Au moins une ligne de données", "Ajoutez des lignes de producteurs.")],
@@ -214,11 +217,11 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
     };
   }
 
-  // Map headers
-  const firstRowKeys = Object.keys(rawRows[0]);
+  // Mappage basé sur la LIGNE D'EN-TÊTE (et non sur la première ligne de données),
+  // insensible à la casse et aux accents.
   const headerMap: Record<string, { field: keyof ProducerRow; header: string }> = {};
-  for (const key of firstRowKeys) {
-    const normalized = normalizeHeader(key);
+  for (const key of sheetHeaders) {
+    const normalized = stripAccents(normalizeHeader(key));
     if (COLUMN_MAP[normalized]) headerMap[key] = COLUMN_MAP[normalized];
   }
 
