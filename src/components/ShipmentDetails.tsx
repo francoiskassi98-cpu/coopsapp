@@ -71,6 +71,8 @@ export default function ShipmentDetails() {
   // Listes partagées et mises en cache (plus de requêtes propres à ce composant)
   const { partners } = usePartners();
   const { registres: cooperativesList } = useRegistres();
+  const partnerNameById = useMemo(() => new Map(partners.map((p) => [p.id, p.name])), [partners]);
+
 
   const [saving, setSaving] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
