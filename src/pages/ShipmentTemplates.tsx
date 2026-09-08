@@ -19,12 +19,12 @@ import PageHeader from "@/components/PageHeader";
 import { useQueryClient } from "@tanstack/react-query";
 import { SHIPMENT_TEMPLATES_QUERY_KEY } from "@/hooks/useShipmentTemplates";
 
-interface Registre { id: string; name: string; cooperative_id: string | null }
+interface Cooperative { id: string; name: string }
 interface Partner { id: string; name: string }
 
 interface Template {
   id: string;
-  registre_id: string;
+  cooperative_id: string;
   template_name: string;
   is_default: boolean;
   is_active: boolean;
@@ -76,7 +76,7 @@ const defaults: Partial<Template> = {
 
 // Champs autorisés côté DB pour la persistance (whitelist)
 const PERSIST_FIELDS: (keyof Template)[] = [
-  "registre_id", "template_name", "is_default", "is_active", "partner_id", "description",
+  "cooperative_id", "template_name", "is_default", "is_active", "partner_id", "description",
   "title", "subtitle", "slogan", "coop_logo_path", "partner_logo_path", "logo_position",
   "custom_header", "custom_footer",
   "show_driver", "show_truck", "show_trailer", "show_bill_of_lading",
@@ -85,9 +85,9 @@ const PERSIST_FIELDS: (keyof Template)[] = [
 ];
 
 export default function ShipmentTemplates() {
-  const [registres, setRegistres] = useState<Registre[]>([]);
+  const [cooperatives, setCooperatives] = useState<Cooperative[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
-  const [registreFilter, setRegistreFilter] = useState<string>("all");
+  const [coopFilter, setCoopFilter] = useState<string>("all");
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Partial<Template> | null>(null);
@@ -98,12 +98,12 @@ export default function ShipmentTemplates() {
   const load = useCallback(async () => {
     queryClient.invalidateQueries({ queryKey: SHIPMENT_TEMPLATES_QUERY_KEY });
     setLoading(true);
-    const [{ data: rs }, { data: ps }, { data: ts }] = await Promise.all([
-      supabase.from("registres").select("id,name,cooperative_id").order("name"),
+    const [{ data: cs }, { data: ps }, { data: ts }] = await Promise.all([
+      supabase.from("cooperatives").select("id,name").is("deleted_at", null).order("name"),
       supabase.from("partners").select("id,name").order("name"),
       supabase.from("shipment_excel_templates").select("*").order("created_at", { ascending: false }),
     ]);
-    setRegistres((rs || []) as unknown as Registre[]);
+    setCooperatives((cs || []) as unknown as Cooperative[]);
     setPartners((ps || []) as unknown as Partner[]);
     setTemplates((ts || []) as unknown as Template[]);
     setLoading(false);
@@ -112,28 +112,28 @@ export default function ShipmentTemplates() {
   useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(
-    () => registreFilter === "all" ? templates : templates.filter(t => t.registre_id === registreFilter),
-    [templates, registreFilter]
+    () => coopFilter === "all" ? templates : templates.filter(t => t.cooperative_id === coopFilter),
+    [templates, coopFilter]
   );
 
   // Le dossier racine du stockage doit être l'ID de la coopérative (RLS storage)
-  const storagePrefix = useMemo(() => {
-    const coopId = registres.find(r => r.id === editing?.registre_id)?.cooperative_id;
-    return coopId ? `${coopId}/templates` : "";
-  }, [registres, editing?.registre_id]);
+  const storagePrefix = useMemo(
+    () => editing?.cooperative_id ? `${editing.cooperative_id}/templates` : "",
+    [editing?.cooperative_id]
+  );
 
   function openNew() {
     setEditing({
       ...defaults,
-      registre_id: registreFilter !== "all" ? registreFilter : (registres[0]?.id ?? ""),
+      cooperative_id: coopFilter !== "all" ? coopFilter : (cooperatives[0]?.id ?? ""),
     });
   }
 
   async function save() {
-    if (!editing || !editing.registre_id || !editing.template_name?.trim()) {
+    if (!editing || !editing.cooperative_id || !editing.template_name?.trim()) {
       toast({
         title: "Champs requis",
-        description: !editing?.registre_id ? "Veuillez sélectionner un registre." : "Veuillez saisir un nom de modèle.",
+        description: !editing?.cooperative_id ? "Veuillez sélectionner une coopérative." : "Veuillez saisir un nom de modèle.",
         variant: "destructive",
       });
       return;
@@ -166,7 +166,7 @@ export default function ShipmentTemplates() {
         console.error("[shipment_excel_templates] save error", { error, payload });
         toast({
           title: editing.id ? "Échec de la modification" : "Échec de la création",
-          description: "Vérifiez les champs obligatoires (registre, nom) et vos permissions.",
+          description: "Vérifiez les champs obligatoires (coopérative, nom) et vos permissions.",
           variant: "destructive",
         });
         return;
@@ -219,17 +219,17 @@ export default function ShipmentTemplates() {
       <PageHeader
         icon={FileSpreadsheet}
         title="Modèles Excel — Chargements"
-        description="Personnalisez l'apparence et le contenu des fiches de chargement exportées."
+        description="Modèles valables pour tous les registres et toutes les campagnes de la coopérative."
         actions={
           <>
-            <Select value={registreFilter} onValueChange={setRegistreFilter}>
-              <SelectTrigger className="w-56"><SelectValue placeholder="Tous les registres" /></SelectTrigger>
+            <Select value={coopFilter} onValueChange={setCoopFilter}>
+              <SelectTrigger className="w-56"><SelectValue placeholder="Toutes les coopératives" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les registres</SelectItem>
-                {registres.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                <SelectItem value="all">Toutes les coopératives</SelectItem>
+                {cooperatives.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button onClick={openNew} disabled={registres.length === 0}>
+            <Button onClick={openNew} disabled={cooperatives.length === 0}>
               <Plus className="h-4 w-4 mr-2" />Nouveau modèle
             </Button>
           </>
@@ -238,9 +238,9 @@ export default function ShipmentTemplates() {
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Chargement...</p>
-      ) : registres.length === 0 ? (
+      ) : cooperatives.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">
-          Aucun registre disponible. Créez d'abord un registre pour rattacher vos modèles.
+          Aucune coopérative disponible.
         </CardContent></Card>
       ) : filtered.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">
@@ -250,7 +250,7 @@ export default function ShipmentTemplates() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(t => {
-            const reg = registres.find(r => r.id === t.registre_id);
+            const coop = cooperatives.find(c => c.id === t.cooperative_id);
             return (
               <Card key={t.id} className="shadow-glass hover:shadow-float transition-all overflow-hidden">
                 <div className={`h-1 w-full ${t.is_default ? "bg-primary" : "bg-muted"}`} />
@@ -267,7 +267,7 @@ export default function ShipmentTemplates() {
                       {t.is_default && <Badge variant="default" className="gap-1"><Star className="h-3 w-3" />Défaut</Badge>}
                     </span>
                   </CardTitle>
-                  <p className="text-xs text-muted-foreground pl-10">{reg?.name ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground pl-10">{coop?.name ?? "—"}</p>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="text-xs text-muted-foreground line-clamp-2">{t.title || "—"}</div>
@@ -303,11 +303,14 @@ export default function ShipmentTemplates() {
               <TabsContent value="config" className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Registre *</Label>
-                  <Select value={editing.registre_id || ""} onValueChange={(v) => setEditing({ ...editing, registre_id: v })}>
+                  <Label>Coopérative *</Label>
+                  <Select value={editing.cooperative_id || ""} onValueChange={(v) => setEditing({ ...editing, cooperative_id: v })}>
                     <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-                    <SelectContent>{registres.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
+                    <SelectContent>{cooperatives.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                   </Select>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Ce modèle sera disponible pour tous les registres et toutes les campagnes.
+                  </p>
                 </div>
                 <div>
                   <Label>Nom du modèle *</Label>
@@ -360,7 +363,7 @@ export default function ShipmentTemplates() {
                     disabled={!storagePrefix}
                     value={editing.coop_logo_path || null}
                     onChange={(p) => setEditing({ ...editing, coop_logo_path: p })}
-                    label="Logo registre"
+                    label="Logo coopérative"
                   />
                 </div>
                 <div>
@@ -417,7 +420,7 @@ export default function ShipmentTemplates() {
                 </p>
                 <TemplatePreview
                   {...editing}
-                  coopName={registres.find(r => r.id === editing.registre_id)?.name}
+                  coopName={cooperatives.find(c => c.id === editing.cooperative_id)?.name}
                 />
               </TabsContent>
             </Tabs>
