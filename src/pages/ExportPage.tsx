@@ -90,12 +90,21 @@ type PotentialSheetRow = Record<string, string | number | null>;
 
 export default function ExportPage() {
   const [shipments, setShipments] = useState<ShipmentOption[]>([]);
-  const [registres, setRegistres] = useState<{ id: string; name: string }[]>([]);
   const [selectedRegistre, setSelectedRegistre] = useState("");
   const [selectedConnaissement, setSelectedConnaissement] = useState("");
   const { labels: campaigns, activeCampaign } = useCampaignLabels();
   const [selectedCampaign, setSelectedCampaign] = useState<string>(activeCampaign);
   const [loading, setLoading] = useState<string | null>(null);
+
+  const { registres: campaignRegistres } = useCampaignRegistres(
+    selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS ? selectedCampaign : null
+  );
+  const { registres: allRegistres } = useRegistres();
+  const registres = selectedCampaign === ALL_CAMPAIGNS ? allRegistres : campaignRegistres;
+
+  useEffect(() => {
+    if (selectedRegistre && !registres.some((r) => r.id === selectedRegistre)) setSelectedRegistre("");
+  }, [registres, selectedRegistre]);
 
   useEffect(() => {
     let q = supabase
@@ -110,11 +119,8 @@ export default function ExportPage() {
       if (error) console.error("[Export] load shipments", error);
       setShipments((data ?? []) as ShipmentOption[]);
     });
-    supabase.from("registres").select("id, name").order("name").then(({ data, error }) => {
-      if (error) console.error("[Export] load registres", error);
-      setRegistres(data ?? []);
-    });
   }, [selectedCampaign]);
+
 
 
   const campaignLabel = () => {
