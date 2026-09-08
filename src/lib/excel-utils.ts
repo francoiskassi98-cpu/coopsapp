@@ -17,6 +17,8 @@ export interface ProducerRow {
   latitude: number;
   longitude: number;
   campaign_label: string;
+  /** Statut du producteur pour la campagne : "ACTIF" ou "INACTIF". */
+  status: "ACTIF" | "INACTIF";
 }
 
 export type ImportSeverity = "error" | "warning";
@@ -64,6 +66,19 @@ export function normalizeSexe(raw: unknown): "Homme" | "Femme" | null | "" {
 }
 
 /**
+ * Normalise le statut importé vers "ACTIF" / "INACTIF".
+ * Vide = ACTIF (valeur par défaut). Retourne null si la valeur est inconnue.
+ */
+export function normalizeStatut(raw: unknown): "ACTIF" | "INACTIF" | null {
+  if (raw === null || raw === undefined) return "ACTIF";
+  const s = stripAccents(String(raw).trim().toLowerCase());
+  if (!s) return "ACTIF";
+  if (["actif", "active", "actifs", "oui", "1", "true", "vrai"].includes(s)) return "ACTIF";
+  if (["inactif", "inactive", "inactifs", "non", "0", "false", "faux"].includes(s)) return "INACTIF";
+  return null;
+}
+
+/**
  * Vérifie qu'une campagne suit le format "YYYY-YYYY" avec années consécutives.
  */
 function validateCampaign(raw: unknown): { ok: boolean; value: string } {
@@ -96,6 +111,7 @@ export const TEMPLATE_COLUMNS: { header: string; field: keyof ProducerRow }[] = 
   { header: "Superficie", field: "plantation_area" },
   { header: "Latitude polygone", field: "latitude" },
   { header: "Longitude polygone", field: "longitude" },
+  { header: "Statut", field: "status" },
 ];
 
 const COLUMN_MAP: Record<string, { field: keyof ProducerRow; header: string }> = {};
@@ -252,6 +268,12 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
       rowErrors.push(makeError(rowNum, "Sexe", row.sexe, "Valeur non reconnue", "Homme ou Femme", "Corriger l'orthographe (accepté : Homme, Femme, H, F, Masculin, Feminin)."));
     }
 
+    // Statut (ACTIF / INACTIF, vide = ACTIF)
+    const statut = normalizeStatut(row.status);
+    if (statut === null) {
+      rowErrors.push(makeError(rowNum, "Statut", row.status, "Valeur non reconnue", "ACTIF ou INACTIF", "Utilisez ACTIF ou INACTIF (la casse n'a pas d'importance), ou laissez vide pour ACTIF."));
+    }
+
     // Campagne
     const campaign = validateCampaign(row.campaign_label);
     if (!campaign.ok) {
@@ -280,6 +302,7 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
       latitude: Number(row.latitude) || 0,
       longitude: Number(row.longitude) || 0,
       campaign_label: campaign.value,
+      status: statut ?? "ACTIF",
     });
   }
 
@@ -357,6 +380,7 @@ export async function downloadImportTemplate() {
     plantation_area: 2.5,
     latitude: 0,
     longitude: 0,
+    status: "ACTIF",
   };
   ws.addRow(example);
 
