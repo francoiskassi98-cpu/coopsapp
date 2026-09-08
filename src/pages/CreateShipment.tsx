@@ -270,16 +270,10 @@ export default function CreateShipment() {
   }, [totalWeight, totalBags, startDate, endDate, departureDate, coopStats]);
 
 
+  // Les détails techniques restent uniquement dans la console; l'utilisateur voit un message générique.
   const formatTechnicalError = (error: unknown, context: string) => {
-    const e = asError(error);
-    const parts = [
-      context,
-      e.code ? `Code: ${e.code}` : null,
-      e.message ? `Message: ${e.message}` : null,
-      e.details ? `Détails: ${e.details}` : null,
-      e.hint ? `Indice: ${e.hint}` : null,
-    ].filter(Boolean);
-    return parts.join("\n");
+    console.error(`[CreateShipment] ${context}`, asError(error));
+    return `${context}. Une erreur est survenue. Veuillez réessayer.`;
   };
 
   const handleCalculate = async () => {

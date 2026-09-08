@@ -44,7 +44,7 @@ export default function OAuthConsent() {
       }
       const { data, error } = await oauthApi().getAuthorizationDetails(authorizationId);
       if (!active) return;
-      if (error) return setError(error.message);
+      if (error) { console.error("[OAuthConsent] details", error); return setError("Une erreur est survenue."); }
       const immediate = data?.redirect_url ?? data?.redirect_to;
       if (immediate && !data?.client) { window.location.href = immediate; return; }
       setDetails(data);
@@ -58,7 +58,7 @@ export default function OAuthConsent() {
     const { data, error } = approve
       ? await oauth.approveAuthorization(authorizationId)
       : await oauth.denyAuthorization(authorizationId);
-    if (error) { setBusy(false); return setError(error.message); }
+    if (error) { console.error("[OAuthConsent] decide", error); setBusy(false); return setError("Une erreur est survenue."); }
     const target = data?.redirect_url ?? data?.redirect_to;
     if (!target) { setBusy(false); return setError("Aucune redirection retournée."); }
     window.location.href = target;

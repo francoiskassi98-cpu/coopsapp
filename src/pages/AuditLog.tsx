@@ -114,7 +114,7 @@ export default function AuditLog() {
           code: error.code, message: error.message, details: error.details,
           hint: error.hint, filters, page,
         });
-        throw new Error(`${error.message}${error.code ? ` (code ${error.code})` : ""}`);
+        throw new Error("Une erreur est survenue.");
       }
       return { rows: data ?? [], count: count ?? 0 };
     },
@@ -144,7 +144,7 @@ export default function AuditLog() {
           .range(from, from + 999);
         if (error) {
           console.error("[AuditLog.load] étape=export", error);
-          throw new Error(error.message);
+          throw new Error("Une erreur est survenue.");
         }
         const batch: AuditRow[] = data ?? [];
         all.push(...batch);
@@ -309,7 +309,7 @@ export default function AuditLog() {
             <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
             <div>
               <div className="font-semibold text-destructive">Chargement du journal impossible</div>
-              <div className="text-muted-foreground">{(error as Error).message}</div>
+              <div className="text-muted-foreground">Une erreur est survenue. Veuillez réessayer.</div>
             </div>
           </CardContent>
         </Card>
