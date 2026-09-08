@@ -656,6 +656,12 @@ export default function Producers() {
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Exporter
           </Button>
+          {campaignFilter !== activeCampaign && producers.length > 0 && (
+            <Button variant="outline" size="sm" onClick={reportToActiveCampaign} disabled={reporting}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${reporting ? "animate-spin" : ""}`} />
+              Reporter en {activeCampaign}
+            </Button>
+          )}
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
