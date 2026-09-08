@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { useSortableTable, SortableHeader, type SortValue } from "@/hooks/useSortableTable";
 import type { PaginatedQuery } from "@/lib/database-utils";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useCampaignLabels } from "@/hooks/useCampaign";
+import { normalizeCampaign } from "@/lib/campaign";
 
 const ROWS_STEP = 100;
 
@@ -44,25 +46,22 @@ async function fetchAllRows<T>(query: PaginatedQuery): Promise<T[]> {
 
 export default function ShipmentHistory() {
   const [shipments, setShipments] = useState<HistoryShipment[]>([]);
-  const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedCoop, setSelectedCoop] = useState("all");
+  const { labels, activeCampaign } = useCampaignLabels();
+  const [campaignFilter, setCampaignFilter] = useState(activeCampaign);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [shipmentsData, coopsData] = await Promise.all([
-        fetchAllRows<HistoryShipment>(
-          supabase
-            .from("shipments")
-            .select("id, connaissement, lot_number, project, destination, total_weight, total_bags, created_at, zone, campaign_label, partners(name), registres(name)")
-            .order("created_at", { ascending: false }) as unknown as PaginatedQuery
-        ),
-        supabase.from("registres").select("id, name").order("name"),
-      ]);
+      const shipmentsData = await fetchAllRows<HistoryShipment>(
+        supabase
+          .from("shipments")
+          .select("id, connaissement, lot_number, project, destination, total_weight, total_bags, created_at, zone, campaign_label, partners(name), registres(name)")
+          .order("created_at", { ascending: false }) as unknown as PaginatedQuery
+      );
       setShipments(shipmentsData);
-      setCooperatives(coopsData.data || []);
     } catch (e) {
       console.error(e);
       toast.error("Erreur lors du chargement");
@@ -87,9 +86,29 @@ export default function ShipmentHistory() {
   const debouncedSearch = useDebounce(search, 250);
   const [visibleCount, setVisibleCount] = useState(ROWS_STEP);
 
+  /** Chargements de la campagne sélectionnée (source des filtres registre). */
+  const campaignShipments = useMemo(
+    () => shipments.filter((s) => normalizeCampaign(s.campaign_label) === campaignFilter),
+    [shipments, campaignFilter]
+  );
+
+  /** Registres réellement présents dans la campagne sélectionnée. */
+  const registreOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(campaignShipments.map((s) => s.registres?.name || s.zone || "").filter(Boolean))
+      ).sort((a, b) => a.localeCompare(b, "fr")),
+    [campaignShipments]
+  );
+
+  // Un registre absent de la campagne sélectionnée revient à « Tous les registres ».
+  useEffect(() => {
+    if (selectedCoop !== "all" && !registreOptions.includes(selectedCoop)) setSelectedCoop("all");
+  }, [registreOptions, selectedCoop]);
+
   const filtered = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
-    const base = shipments.filter((s) => {
+    const base = campaignShipments.filter((s) => {
       const coopName = s.registres?.name || s.zone || "";
       const matchesCoop = selectedCoop === "all" || coopName === selectedCoop;
       const matchesSearch =
@@ -109,11 +128,11 @@ export default function ShipmentHistory() {
       if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
       return String(v);
     });
-  }, [shipments, selectedCoop, debouncedSearch, sortData]);
+  }, [campaignShipments, selectedCoop, debouncedSearch, sortData]);
 
   useEffect(() => {
     setVisibleCount(ROWS_STEP);
-  }, [debouncedSearch, selectedCoop, sortConfig]);
+  }, [debouncedSearch, selectedCoop, campaignFilter, sortConfig]);
 
   const visibleRows = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
 
@@ -125,14 +144,27 @@ export default function ShipmentHistory() {
             <History className="h-5 w-5" /> Historique des chargements ({filtered.length})
           </CardTitle>
           <div className="flex items-center gap-2 flex-wrap">
+            <Select value={campaignFilter} onValueChange={setCampaignFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Campagne" />
+              </SelectTrigger>
+              <SelectContent>
+                {labels.map((l) => (
+                  <SelectItem key={l} value={l}>
+                    {l}
+                    {l === activeCampaign ? " (active)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={selectedCoop} onValueChange={setSelectedCoop}>
               <SelectTrigger className="w-52">
                 <SelectValue placeholder="Tous les registres" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les registres</SelectItem>
-                {cooperatives.map((c) => (
-                  <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                {registreOptions.map((name) => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

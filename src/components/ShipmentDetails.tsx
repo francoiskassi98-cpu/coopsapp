@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Pencil, Package, Users, Weight, Truck, FileSpreadsheet, Loader2 } from "lucide-react";
+import { useCampaignLabels } from "@/hooks/useCampaign";
+import { normalizeCampaign } from "@/lib/campaign";
 
 interface ShipmentRow {
   id: string;
@@ -67,6 +69,9 @@ export default function ShipmentDetails() {
   const [cooperativesList, setCooperativesList] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const { labels, activeCampaign } = useCampaignLabels();
+  const [campaignFilter, setCampaignFilter] = useState(activeCampaign);
+  const [registreFilter, setRegistreFilter] = useState("all");
 
   const handleGenerateFiche = async (id: string) => {
     setGeneratingId(id);
@@ -242,23 +247,70 @@ export default function ShipmentDetails() {
     }
   };
 
+  /** Chargements de la campagne sélectionnée. */
+  const campaignShipments = useMemo(
+    () => shipments.filter((s) => normalizeCampaign(s.campaign) === campaignFilter),
+    [shipments, campaignFilter]
+  );
+
+  /** Registres réellement présents dans la campagne sélectionnée. */
+  const registreOptions = useMemo(
+    () =>
+      Array.from(new Set(campaignShipments.map((s) => s.cooperative_name || "").filter(Boolean)))
+        .sort((a, b) => a.localeCompare(b, "fr")),
+    [campaignShipments]
+  );
+
+  useEffect(() => {
+    if (registreFilter !== "all" && !registreOptions.includes(registreFilter)) setRegistreFilter("all");
+  }, [registreOptions, registreFilter]);
+
+  const visibleShipments = useMemo(
+    () =>
+      registreFilter === "all"
+        ? campaignShipments
+        : campaignShipments.filter((s) => s.cooperative_name === registreFilter),
+    [campaignShipments, registreFilter]
+  );
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-base flex items-center gap-2">
-              <Package className="h-5 w-5" /> Liste des chargements ({shipments.length})
+              <Package className="h-5 w-5" /> Liste des chargements ({visibleShipments.length})
             </CardTitle>
-            <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}>
-              Actualiser
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Select value={campaignFilter} onValueChange={setCampaignFilter}>
+                <SelectTrigger className="w-40"><SelectValue placeholder="Campagne" /></SelectTrigger>
+                <SelectContent>
+                  {labels.map((l) => (
+                    <SelectItem key={l} value={l}>
+                      {l}{l === activeCampaign ? " (active)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={registreFilter} onValueChange={setRegistreFilter}>
+                <SelectTrigger className="w-52"><SelectValue placeholder="Tous les registres" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les registres</SelectItem>
+                  {registreOptions.map((name) => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}>
+                Actualiser
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           {loading ? (
             <p className="text-sm text-muted-foreground text-center py-8">Chargement des données...</p>
-          ) : shipments.length === 0 ? (
+          ) : visibleShipments.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">Aucun chargement trouvé.</p>
           ) : (
             <div className="overflow-auto">
@@ -278,7 +330,7 @@ export default function ShipmentDetails() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {shipments.map((s) => (
+                  {visibleShipments.map((s) => (
                     <TableRow key={s.id}>
                       <TableCell className="font-mono text-xs">{s.connaissement || "—"}</TableCell>
                       <TableCell>{s.cooperative_name || "—"}</TableCell>
