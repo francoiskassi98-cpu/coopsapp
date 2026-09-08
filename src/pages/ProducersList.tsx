@@ -204,13 +204,13 @@ export default function Producers() {
     const { data, error } = await supabase
       .from("disabled_sections")
       .select("section_name, registre_id")
-      .eq("campaign_label", activeCampaign);
+      .eq("campaign_label", campaignFilter);
     if (error) {
       console.error("[disabled_sections] load", error);
       return;
     }
     setDisabledSections(new Set((data ?? []).map((d) => sectionKey(d.registre_id, d.section_name))));
-  }, [activeCampaign]);
+  }, [campaignFilter]);
 
   useEffect(() => {
     loadDisabledSections();
