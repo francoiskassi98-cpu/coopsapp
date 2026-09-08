@@ -86,9 +86,29 @@ export default function ShipmentHistory() {
   const debouncedSearch = useDebounce(search, 250);
   const [visibleCount, setVisibleCount] = useState(ROWS_STEP);
 
+  /** Chargements de la campagne sélectionnée (source des filtres registre). */
+  const campaignShipments = useMemo(
+    () => shipments.filter((s) => normalizeCampaign(s.campaign_label) === campaignFilter),
+    [shipments, campaignFilter]
+  );
+
+  /** Registres réellement présents dans la campagne sélectionnée. */
+  const registreOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(campaignShipments.map((s) => s.registres?.name || s.zone || "").filter(Boolean))
+      ).sort((a, b) => a.localeCompare(b, "fr")),
+    [campaignShipments]
+  );
+
+  // Un registre absent de la campagne sélectionnée revient à « Tous les registres ».
+  useEffect(() => {
+    if (selectedCoop !== "all" && !registreOptions.includes(selectedCoop)) setSelectedCoop("all");
+  }, [registreOptions, selectedCoop]);
+
   const filtered = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
-    const base = shipments.filter((s) => {
+    const base = campaignShipments.filter((s) => {
       const coopName = s.registres?.name || s.zone || "";
       const matchesCoop = selectedCoop === "all" || coopName === selectedCoop;
       const matchesSearch =
