@@ -144,14 +144,27 @@ export default function ShipmentHistory() {
             <History className="h-5 w-5" /> Historique des chargements ({filtered.length})
           </CardTitle>
           <div className="flex items-center gap-2 flex-wrap">
+            <Select value={campaignFilter} onValueChange={setCampaignFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Campagne" />
+              </SelectTrigger>
+              <SelectContent>
+                {labels.map((l) => (
+                  <SelectItem key={l} value={l}>
+                    {l}
+                    {l === activeCampaign ? " (active)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={selectedCoop} onValueChange={setSelectedCoop}>
               <SelectTrigger className="w-52">
                 <SelectValue placeholder="Tous les registres" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les registres</SelectItem>
-                {cooperatives.map((c) => (
-                  <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                {registreOptions.map((name) => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
