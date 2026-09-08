@@ -58,9 +58,9 @@ export default function PrimeProducer() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
   // Sélection auto : un seul registre accessible → on le sélectionne, sinon « Tous »
   useEffect(() => {
+
     if (coops.length === 0) return;
     setCoopId((prev) => prev || (coops.length === 1 ? coops[0].id : "all"));
   }, [coops]);
