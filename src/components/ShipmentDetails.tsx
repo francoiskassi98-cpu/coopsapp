@@ -11,7 +11,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Pencil, Package, Users, Weight, Truck, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useCampaignLabels } from "@/hooks/useCampaign";
+import { useRegistres } from "@/hooks/useRegistres";
+import { usePartners } from "@/hooks/usePartners";
 import { normalizeCampaign } from "@/lib/campaign";
+
 
 interface ShipmentRow {
   id: string;
