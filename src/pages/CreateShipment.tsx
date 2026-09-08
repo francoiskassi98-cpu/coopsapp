@@ -68,7 +68,7 @@ export default function CreateShipment() {
   const [zone, setZone] = useState("");
   const [destination, setDestination] = useState("");
   
-  const [partners, setPartners] = useState<PartnerOption[]>([]);
+  const [newPartnerName, setNewPartnerName] = useState("");
   const [newPartnerName, setNewPartnerName] = useState("");
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
