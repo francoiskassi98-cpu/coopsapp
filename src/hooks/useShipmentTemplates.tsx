@@ -19,14 +19,19 @@ export function useActiveShipmentTemplates(registreId: string | null | undefined
 
   const { data = [], isLoading, error } = useQuery({
     queryKey: [...SHIPMENT_TEMPLATES_QUERY_KEY, "active", coopId ?? "none"],
-    enabled: !!coopId && !loadingRegistres,
+    enabled: !loadingRegistres,
     staleTime: 30_000,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("shipment_excel_templates")
         .select("*")
-        .eq("is_active", true)
-        .eq("cooperative_id", coopId as string)
+        .eq("is_active", true);
+
+      // Si aucun registre n'est encore sélectionné, on s'appuie sur les règles
+      // d'accès (coopératives de l'utilisateur) pour lister les modèles.
+      if (coopId) query = query.eq("cooperative_id", coopId);
+
+      const { data, error } = await query
         .order("is_default", { ascending: false })
         .order("updated_at", { ascending: false });
 
