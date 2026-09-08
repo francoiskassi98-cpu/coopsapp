@@ -143,13 +143,12 @@ export default function Producers() {
     if (coopFilter !== "all" && !cooperatives.includes(coopFilter)) setCoopFilter("all");
   }, [cooperatives, coopFilter, loading]);
 
+  // Un changement de filtre remet à zéro la sélection et le rendu progressif.
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [campaignFilter, coopFilter]);
-
-  useEffect(() => {
     setVisibleCount(ROWS_STEP);
-  }, [debouncedSearch, coopFilter, statusFilter, sortConfig]);
+  }, [campaignFilter, coopFilter, statusFilter, debouncedSearch, sortConfig]);
+
 
   const visibleRows = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
 
