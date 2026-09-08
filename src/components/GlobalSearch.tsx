@@ -47,7 +47,14 @@ export default function GlobalSearch() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const term = `%${debounced}%`;
+      // Neutralise les caractères significatifs de PostgREST (,.()%*\") avant interpolation.
+      const safe = debounced.replace(/[,.()%*"\\]/g, " ").trim();
+      if (!safe) {
+        setHits([]);
+        setLoading(false);
+        return;
+      }
+      const term = `%${safe}%`;
       const campaign = currentCampaign();
       const [{ data: prods }, { data: coops }, { data: parts }, { data: ships }] = await Promise.all([
         supabase.from("producers").select("id, full_name, plantation_code, section").eq("campaign_label", campaign).or(`full_name.ilike.${term},plantation_code.ilike.${term}`).is("deleted_at", null).limit(6),
