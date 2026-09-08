@@ -13,6 +13,8 @@ import { Calculator, Download, Save, Coins } from "lucide-react";
 import { generatePrimeExcel } from "@/lib/prime-excel";
 import { currentCampaign } from "@/lib/campaign";
 import { useCampaignLabels } from "@/hooks/useCampaign";
+import { useRegistres } from "@/hooks/useRegistres";
+
 
 interface Coop { id: string; name: string; logo_path?: string | null }
 interface Campaign { id: string; nom: string }
