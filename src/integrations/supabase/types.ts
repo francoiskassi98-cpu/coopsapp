@@ -848,6 +848,7 @@ export type Database = {
       shipment_excel_templates: {
         Row: {
           coop_logo_path: string | null
+          cooperative_id: string
           created_at: string
           created_by: string | null
           custom_footer: string | null
@@ -859,7 +860,7 @@ export type Database = {
           logo_position: string
           partner_id: string | null
           partner_logo_path: string | null
-          registre_id: string
+          registre_id: string | null
           show_bill_of_lading: boolean
           show_departure_date: boolean
           show_destination: boolean
@@ -880,6 +881,7 @@ export type Database = {
         }
         Insert: {
           coop_logo_path?: string | null
+          cooperative_id: string
           created_at?: string
           created_by?: string | null
           custom_footer?: string | null
@@ -891,7 +893,7 @@ export type Database = {
           logo_position?: string
           partner_id?: string | null
           partner_logo_path?: string | null
-          registre_id: string
+          registre_id?: string | null
           show_bill_of_lading?: boolean
           show_departure_date?: boolean
           show_destination?: boolean
@@ -912,6 +914,7 @@ export type Database = {
         }
         Update: {
           coop_logo_path?: string | null
+          cooperative_id?: string
           created_at?: string
           created_by?: string | null
           custom_footer?: string | null
@@ -923,7 +926,7 @@ export type Database = {
           logo_position?: string
           partner_id?: string | null
           partner_logo_path?: string | null
-          registre_id?: string
+          registre_id?: string | null
           show_bill_of_lading?: boolean
           show_departure_date?: boolean
           show_destination?: boolean
@@ -943,6 +946,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "shipment_excel_templates_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shipment_excel_templates_partner_id_fkey"
             columns: ["partner_id"]
