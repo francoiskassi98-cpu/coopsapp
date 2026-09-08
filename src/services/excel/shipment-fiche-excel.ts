@@ -124,8 +124,8 @@ function extOf(url: string): "png" | "jpeg" {
 // ============================================================================
 // Layout EXACTEMENT conforme au modèle fourni (FICHIER EXEMPLE.xlsx)
 // - A4 Paysage
-// - Largeurs colonnes fixes A=8, B=35, C=18, D=20, E=25, F=28, G=22, H=20
-// - Titre A1:H1 fusionné
+// - Largeurs colonnes fixes A=8, B=35, C=18, D=20, E=25, F=28, G=22, H=20, I=18
+// - Titre A1:I1 fusionné
 // - Logos physiques (coop gauche, partenaire droite) en overlay sur la ligne 1
 // - Bloc infos en horizontal lignes 2-11 (fusions A:B, C:D, F:G)
 // - Tableau producteurs commence STRICTEMENT à la ligne 13
