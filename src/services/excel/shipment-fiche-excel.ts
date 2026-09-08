@@ -149,7 +149,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   const { data: shipment, error: sErr } = await supabase
     .from("shipments")
     .select(
-      "id, connaissement, lot_number, campaign_label, project, destination, total_weight, total_bags, delivery_start, departure_date, driver_name, truck_number, trailer_number, registre_id, partner_id, registres(name, cooperatives(name)), partners(name)"
+      "id, connaissement, lot_number, campaign_label, project, destination, total_weight, total_bags, delivery_start, departure_date, driver_name, truck_number, trailer_number, registre_id, template_id, partner_id, registres(name, cooperative_id, cooperatives(name)), partners(name)"
     )
     .eq("id", shipmentId)
     .returns<ShipmentFicheRow[]>()
@@ -159,7 +159,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   const sh: ShipmentFicheRow = shipment;
 
   const [tpl, deliveriesRes] = await Promise.all([
-    loadTemplate(sh.registre_id),
+    loadTemplate(sh.template_id, sh.registres?.cooperative_id ?? null),
     supabase
       .from("deliveries")
       .select(
