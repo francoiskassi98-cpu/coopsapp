@@ -625,7 +625,7 @@ export default function Producers() {
           });
         }
       } else {
-        // Update mode: upsert by plantation_code (par campagne)
+        // Update mode: upsert par registre + campagne + code plantation
         step = "récupération des producteurs existants";
         const allCodes = rowsWithRegistre.map(({ row }) => row.plantation_code);
         const existingMap = new Map<string, string>();
@@ -633,12 +633,14 @@ export default function Producers() {
           const chunk = allCodes.slice(i, i + 500);
           const { data, error } = await supabase
             .from("producers")
-            .select("id, plantation_code, campaign_label")
+            .select("id, plantation_code, campaign_label, registre_id")
             .in("campaign_label", fileCampaigns)
+            .in("registre_id", fileRegistres)
             .in("plantation_code", chunk);
           if (error) throw error;
-          (data ?? []).forEach((p) => existingMap.set(dupKey(p.campaign_label, p.plantation_code), p.id));
+          (data ?? []).forEach((p) => existingMap.set(dupKey(p.registre_id, p.campaign_label, p.plantation_code), p.id));
         }
+
 
         let updatedCount = 0;
         let insertedCount = 0;
