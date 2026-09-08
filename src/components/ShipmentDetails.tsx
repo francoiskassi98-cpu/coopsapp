@@ -330,7 +330,7 @@ export default function ShipmentDetails() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {shipments.map((s) => (
+                  {visibleShipments.map((s) => (
                     <TableRow key={s.id}>
                       <TableCell className="font-mono text-xs">{s.connaissement || "—"}</TableCell>
                       <TableCell>{s.cooperative_name || "—"}</TableCell>
