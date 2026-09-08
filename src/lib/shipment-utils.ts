@@ -5,6 +5,8 @@ export interface ProducerForDistribution {
   full_name: string;
   section: string;
   plantation_code: string;
+  /** Carte CCC du producteur (texte brut, issue du registre de la campagne). */
+  carte_ccc?: string | null;
   remaining_potential: number;
   delivery_potential: number;
 }
@@ -14,6 +16,7 @@ export interface DistributionResult {
   full_name: string;
   section: string;
   plantation_code: string;
+  carte_ccc?: string | null;
   allocated_weight: number;
   num_bags: number;
   delivery_date: string;
@@ -265,6 +268,7 @@ export function distributeShipment(
       full_name: e.producer.full_name,
       section: e.producer.section,
       plantation_code: e.producer.plantation_code,
+      carte_ccc: e.producer.carte_ccc ?? null,
       allocated_weight: weights[i],
       num_bags: bags[i],
       delivery_date: format(addDays(startDate, Math.round(i * dateStep)), "yyyy-MM-dd"),
