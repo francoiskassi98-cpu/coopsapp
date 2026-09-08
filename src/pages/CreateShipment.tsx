@@ -98,7 +98,7 @@ export default function CreateShipment() {
   const { role } = useAuth();
   const canCreateProject = role === "super_admin" || role === "coop_admin" || role === "agent";
 
-  const [cooperatives, setCooperatives] = useState<{ id: string; name: string; cooperative_id?: string }[]>([]);
+  const [coopStats, setCoopStats] = useState<{ potentiel: number; delivered: number; remaining: number } | null>(null);
   const [coopStats, setCoopStats] = useState<{ potentiel: number; delivered: number; remaining: number } | null>(null);
   const [suggestedReceipt, setSuggestedReceipt] = useState<string>("");
   const [receiptNumber, setReceiptNumber] = useState<string>("");
@@ -665,7 +665,7 @@ export default function CreateShipment() {
       toast({ title: "Création impossible", description: desc, variant: "destructive" });
       return;
     }
-    setPartners((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+    await refreshPartners();
     setPartnerId(data.id);
     setNewPartnerName("");
     setDialogOpen(false);
