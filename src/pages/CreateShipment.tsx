@@ -138,11 +138,11 @@ export default function CreateShipment() {
 
   // Auto-sélection du modèle par défaut lorsque la liste change
   useEffect(() => {
-    if (!selectedCoopId || templatesLoading) return;
+    if (templatesLoading) return;
     if (templateId && templates.some((t) => t.id === templateId)) return;
     const def = templates.find((t) => t.is_default) || templates[0];
     setTemplateId(def?.id || "");
-  }, [templates, templatesLoading, selectedCoopId, templateId]);
+  }, [templates, templatesLoading, templateId]);
 
   // Les projets appartiennent à la coopérative : aucun filtre par registre.
   const loadProjects = useCallback(async () => {
@@ -1053,9 +1053,9 @@ export default function CreateShipment() {
                 {/* 4. Modèle de chargement */}
                 <div className="space-y-2">
                   <Label>Modèle de chargement *</Label>
-                  <Select value={templateId} onValueChange={setTemplateId} disabled={!selectedCoopId}>
+                  <Select value={templateId} onValueChange={setTemplateId}>
                     <SelectTrigger>
-                      <SelectValue placeholder={selectedCoopId ? "Sélectionner un modèle" : "Sélectionnez d'abord un registre"} />
+                      <SelectValue placeholder={templatesLoading ? "Chargement..." : "Sélectionner un modèle"} />
                     </SelectTrigger>
                     <SelectContent>
                       {templatesLoading ? (
