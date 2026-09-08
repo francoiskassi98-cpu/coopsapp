@@ -125,14 +125,8 @@ export default function ShipmentDetails() {
         from += pageSize;
       }
 
-      // Fetch all partners
-      const { data: partnersData } = await supabase.from("partners").select("id, name");
-      const partnerMap = new Map((partnersData || []).map((p) => [p.id, p.name]));
-      setPartners(partnersData || []);
+      // Partenaires et registres proviennent des listes partagées en cache.
 
-      // Fetch registres (used as "Registre" selector in edit)
-      const { data: coopsData } = await supabase.from("registres").select("id, name").order("name");
-      setCooperativesList(coopsData || []);
 
       // Fetch producer counts per shipment (all deliveries)
       let allDeliveries: DeliveryRow[] = [];
