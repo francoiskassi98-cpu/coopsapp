@@ -650,7 +650,7 @@ export default function Producers() {
 
         for (const { row, registreId } of rowsWithRegistre) {
           const payload = toDbRow(row, registreId);
-          const existingId = existingMap.get(dupKey(rowCampaign(row), row.plantation_code));
+          const existingId = existingMap.get(dupKey(registreId, rowCampaign(row), row.plantation_code));
           if (existingId) {
             const { registre_id: _rid, ...rest } = payload;
             updates.push({ id: existingId, payload: rest });
