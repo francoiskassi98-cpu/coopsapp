@@ -297,7 +297,7 @@ export default function ProducersAnalytics() {
         <KpiCard label="Femmes" value={fmt(females)} icon={UserCheck} tone="rose" />
         <KpiCard label="% Femmes" value={`${pctF}%`} icon={PieIcon} tone="violet" sub={`${fmt(females)} / ${fmt(total)}`} />
         <KpiCard label="Actifs" value={fmt(actives)} icon={Activity} tone="green" />
-        <KpiCard label="Inactifs" value={fmt(total - actives)} icon={Activity} tone="red" />
+        <KpiCard label="Inactifs" value={fmt(total - actives)} icon={Activity} tone="rose" />
         <KpiCard label="Potentiel total" value={fmtKg(potentielTotal)} icon={TrendingUp} tone="blue" />
         <KpiCard label="Volume livré" value={fmtKg(livre)} icon={Weight} tone="green" sub={potentielTotal ? `${Math.round((livre / potentielTotal) * 100)}% du potentiel` : undefined} />
         <KpiCard label="Volume restant" value={fmtKg(restant)} icon={Package} tone="orange" />
