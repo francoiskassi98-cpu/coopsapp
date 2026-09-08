@@ -3,7 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
+import { lazyWithRetry } from "@/lib/lazy-with-retry";
 import { Loader2 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -12,25 +13,25 @@ import RouteSeo from "@/components/RouteSeo";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 
-const Auth = lazy(() => import("@/pages/Auth"));
-const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
-const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const Producers = lazy(() => import("@/pages/Producers"));
-const ProducerDetail = lazy(() => import("@/pages/ProducerDetail"));
-const CreateShipment = lazy(() => import("@/pages/CreateShipment"));
-const ExportPage = lazy(() => import("@/pages/ExportPage"));
-const UserManagement = lazy(() => import("@/pages/UserManagement"));
-const SuperAdminDashboard = lazy(() => import("@/pages/SuperAdminDashboard"));
-const CooperativesManagement = lazy(() => import("@/pages/CooperativesManagement"));
-const AuditLog = lazy(() => import("@/pages/AuditLog"));
-const CreateCooperative = lazy(() => import("@/pages/CreateCooperative"));
+const Auth = lazyWithRetry(() => import("@/pages/Auth"));
+const ResetPassword = lazyWithRetry(() => import("@/pages/ResetPassword"));
+const Dashboard = lazyWithRetry(() => import("@/pages/Dashboard"));
+const Producers = lazyWithRetry(() => import("@/pages/Producers"));
+const ProducerDetail = lazyWithRetry(() => import("@/pages/ProducerDetail"));
+const CreateShipment = lazyWithRetry(() => import("@/pages/CreateShipment"));
+const ExportPage = lazyWithRetry(() => import("@/pages/ExportPage"));
+const UserManagement = lazyWithRetry(() => import("@/pages/UserManagement"));
+const SuperAdminDashboard = lazyWithRetry(() => import("@/pages/SuperAdminDashboard"));
+const CooperativesManagement = lazyWithRetry(() => import("@/pages/CooperativesManagement"));
+const AuditLog = lazyWithRetry(() => import("@/pages/AuditLog"));
+const CreateCooperative = lazyWithRetry(() => import("@/pages/CreateCooperative"));
 
-const Trash = lazy(() => import("@/pages/Trash"));
-const LoginEvents = lazy(() => import("@/pages/LoginEvents"));
-const Partners = lazy(() => import("@/pages/Partners"));
-const ShipmentTemplates = lazy(() => import("@/pages/ShipmentTemplates"));
-const NotFound = lazy(() => import("@/pages/NotFound"));
-const OAuthConsent = lazy(() => import("@/pages/OAuthConsent"));
+const Trash = lazyWithRetry(() => import("@/pages/Trash"));
+const LoginEvents = lazyWithRetry(() => import("@/pages/LoginEvents"));
+const Partners = lazyWithRetry(() => import("@/pages/Partners"));
+const ShipmentTemplates = lazyWithRetry(() => import("@/pages/ShipmentTemplates"));
+const NotFound = lazyWithRetry(() => import("@/pages/NotFound"));
+const OAuthConsent = lazyWithRetry(() => import("@/pages/OAuthConsent"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
