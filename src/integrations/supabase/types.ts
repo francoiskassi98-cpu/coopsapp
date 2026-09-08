@@ -493,6 +493,7 @@ export type Database = {
         Row: {
           actif: boolean
           campaign_label: string
+          carte_ccc: string | null
           cni: string | null
           code_plantation: string
           code_producteur: string | null
@@ -514,6 +515,7 @@ export type Database = {
         Insert: {
           actif?: boolean
           campaign_label: string
+          carte_ccc?: string | null
           cni?: string | null
           code_plantation: string
           code_producteur?: string | null
@@ -535,6 +537,7 @@ export type Database = {
         Update: {
           actif?: boolean
           campaign_label?: string
+          carte_ccc?: string | null
           cni?: string | null
           code_plantation?: string
           code_producteur?: string | null
@@ -566,6 +569,7 @@ export type Database = {
       producers: {
         Row: {
           campaign_label: string
+          carte_ccc: string | null
           created_at: string
           deleted_at: string | null
           delivery_potential: number
@@ -591,6 +595,7 @@ export type Database = {
         }
         Insert: {
           campaign_label: string
+          carte_ccc?: string | null
           created_at?: string
           deleted_at?: string | null
           delivery_potential?: number
@@ -616,6 +621,7 @@ export type Database = {
         }
         Update: {
           campaign_label?: string
+          carte_ccc?: string | null
           created_at?: string
           deleted_at?: string | null
           delivery_potential?: number
