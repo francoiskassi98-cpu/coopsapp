@@ -209,7 +209,7 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
     };
   }
 
-  const rawRows = sheetToJson(sheet);
+  const { headers: sheetHeaders, rows: rawRows } = sheetToJson(sheet);
   if (rawRows.length === 0) {
     return {
       rows: [], errors: [makeError(0, "—", "", "Fichier vide", "Au moins une ligne de données", "Ajoutez des lignes de producteurs.")],
@@ -217,11 +217,11 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
     };
   }
 
-  // Map headers
-  const firstRowKeys = Object.keys(rawRows[0]);
+  // Mappage basé sur la LIGNE D'EN-TÊTE (et non sur la première ligne de données),
+  // insensible à la casse et aux accents.
   const headerMap: Record<string, { field: keyof ProducerRow; header: string }> = {};
-  for (const key of firstRowKeys) {
-    const normalized = normalizeHeader(key);
+  for (const key of sheetHeaders) {
+    const normalized = stripAccents(normalizeHeader(key));
     if (COLUMN_MAP[normalized]) headerMap[key] = COLUMN_MAP[normalized];
   }
 
