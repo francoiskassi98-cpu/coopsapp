@@ -114,7 +114,7 @@ export default function AuditLog() {
           code: error.code, message: error.message, details: error.details,
           hint: error.hint, filters, page,
         });
-        throw new Error(`${error.message}${error.code ? ` (code ${error.code})` : ""}`);
+        throw new Error("Une erreur est survenue.");
       }
       return { rows: data ?? [], count: count ?? 0 };
     },
