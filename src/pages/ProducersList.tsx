@@ -583,29 +583,94 @@ export default function Producers() {
       if (importMode === "insert") {
         step = "vérification des codes plantation existants";
         const allCodes = rowsWithRegistre.map(({ row }) => row.plantation_code);
-        const existingCodes = new Set<string>();
+        type ExistingProducer = {
+          id: string;
+          plantation_code: string;
+          campaign_label: string;
+          registre_id: string;
+          carte_ccc: string | null;
+          producer_number: string | null;
+          national_id: string | null;
+          producer_code: string | null;
+          sexe: string | null;
+          section: string | null;
+          total_cocoa_area: number | null;
+          num_plots: number | null;
+          plantation_area: number | null;
+          latitude: number | null;
+          longitude: number | null;
+        };
+        const existingRows = new Map<string, ExistingProducer>();
         for (let i = 0; i < allCodes.length; i += 500) {
           const chunk = allCodes.slice(i, i + 500);
           const { data, error } = await supabase
             .from("producers")
-            .select("plantation_code, campaign_label, registre_id")
+            .select(
+              "id, plantation_code, campaign_label, registre_id, carte_ccc, producer_number, national_id, producer_code, sexe, section, total_cocoa_area, num_plots, plantation_area, latitude, longitude"
+            )
             .in("campaign_label", fileCampaigns)
             .in("registre_id", fileRegistres)
             .in("plantation_code", chunk);
           if (error) throw error;
-          (data ?? []).forEach((p) => existingCodes.add(dupKey(p.registre_id, p.campaign_label, p.plantation_code)));
+          (data ?? []).forEach((p) =>
+            existingRows.set(dupKey(p.registre_id, p.campaign_label, p.plantation_code), p as ExistingProducer)
+          );
         }
 
-        const newRows = rowsWithRegistre.filter(({ row, registreId }) => !existingCodes.has(dupKey(registreId, rowCampaign(row), row.plantation_code)));
+        const newRows: typeof rowsWithRegistre = [];
+        // Complétion non destructive : on ne remplit que les champs vides en base.
+        // Les potentiels, le statut et l'historique ne sont jamais modifiés ici.
+        const completions: { id: string; payload: Record<string, string | number> }[] = [];
 
-        const skipped = rowsWithRegistre.length - newRows.length;
+        for (const entry of rowsWithRegistre) {
+          const key = dupKey(entry.registreId, rowCampaign(entry.row), entry.row.plantation_code);
+          const existing = existingRows.get(key);
+          if (!existing) {
+            newRows.push(entry);
+            continue;
+          }
+          const src = toDbRow(entry.row, entry.registreId);
+          const payload: Record<string, string | number> = {};
+          const fillText = (field: keyof ExistingProducer, value: string | null) => {
+            const current = existing[field];
+            if (value && (current === null || current === undefined || String(current).trim() === "")) {
+              payload[field as string] = value;
+            }
+          };
+          const fillNumber = (field: keyof ExistingProducer, value: number | null) => {
+            const current = existing[field];
+            if (value !== null && value !== undefined && (current === null || current === undefined)) {
+              payload[field as string] = value;
+            }
+          };
+          fillText("carte_ccc", src.carte_ccc);
+          fillText("producer_number", src.producer_number);
+          fillText("national_id", src.national_id);
+          fillText("producer_code", src.producer_code);
+          fillText("sexe", src.sexe);
+          fillText("section", src.section);
+          fillNumber("total_cocoa_area", src.total_cocoa_area);
+          fillNumber("num_plots", src.num_plots);
+          fillNumber("plantation_area", src.plantation_area);
+          fillNumber("latitude", src.latitude);
+          fillNumber("longitude", src.longitude);
+          if (Object.keys(payload).length > 0) completions.push({ id: existing.id, payload });
+        }
 
-        if (skipped > 0) {
+        if (completions.length > 0) {
+          step = "complétion des producteurs existants";
+          const CHUNK = 25;
+          for (let i = 0; i < completions.length; i += CHUNK) {
+            const results = await Promise.all(
+              completions.slice(i, i + CHUNK).map((c) => supabase.from("producers").update(c.payload).eq("id", c.id))
+            );
+            const failed = results.find((r) => r.error);
+            if (failed?.error) throw failed.error;
+          }
           toast({
-            title: `${skipped} producteur(s) ignoré(s)`,
-            description: "Code plantation déjà existant pour ce registre et cette campagne.",
+            title: `${completions.length} producteur(s) complété(s)`,
+            description: "Informations manquantes (dont Carte CCC) ajoutées sans modifier les potentiels.",
           });
-
         }
 
         if (newRows.length > 0) {
@@ -623,6 +688,8 @@ export default function Producers() {
             title: "Importation réussie",
             description: `${newRows.length} producteur(s) ajouté(s) — campagne ${fileCampaigns.join(", ")}.`,
           });
+        } else if (completions.length === 0) {
+          toast({ title: "Aucun changement", description: "Les producteurs du fichier sont déjà à jour." });
         }
       } else {
         // Update mode: upsert par registre + campagne + code plantation
