@@ -19,6 +19,8 @@ export interface ProducerRow {
   campaign_label: string;
   /** Statut du producteur pour la campagne : "ACTIF" ou "INACTIF". */
   status: "ACTIF" | "INACTIF";
+  /** Numéro de Carte CCC — toujours du texte brut (zéros initiaux conservés). */
+  carte_ccc: string;
 }
 
 export type ImportSeverity = "error" | "warning";
@@ -112,6 +114,7 @@ export const TEMPLATE_COLUMNS: { header: string; field: keyof ProducerRow }[] = 
   { header: "Latitude polygone", field: "latitude" },
   { header: "Longitude polygone", field: "longitude" },
   { header: "Statut", field: "status" },
+  { header: "Carte CCC", field: "carte_ccc" },
 ];
 
 const COLUMN_MAP: Record<string, { field: keyof ProducerRow; header: string }> = {};
@@ -164,6 +167,25 @@ function makeError(
     severity,
     message: `[${column}] ${cause}. Attendu : ${expected}. ${action}`,
   };
+}
+
+/**
+ * Lit une cellule Excel comme TEXTE brut : jamais convertie en nombre, zéros initiaux conservés.
+ * Gère les cellules texte riche, formules et valeurs numériques (Excel a pu typer la cellule en nombre).
+ */
+export function cellToText(v: ExcelJS.CellValue): string {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v.trim();
+  if (typeof v === "number") return Number.isInteger(v) ? String(v) : String(v);
+  if (typeof v === "boolean") return v ? "1" : "0";
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === "object") {
+    const o = v as { richText?: { text: string }[]; text?: unknown; result?: unknown; hyperlink?: string };
+    if (Array.isArray(o.richText)) return o.richText.map((t) => t.text).join("").trim();
+    if (o.text !== undefined) return String(o.text).trim();
+    if (o.result !== undefined) return cellToText(o.result as ExcelJS.CellValue);
+  }
+  return String(v).trim();
 }
 
 function isFiniteNumber(v: unknown): boolean {
@@ -303,6 +325,7 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
       longitude: Number(row.longitude) || 0,
       campaign_label: campaign.value,
       status: statut ?? "ACTIF",
+      carte_ccc: cellToText(row.carte_ccc),
     });
   }
 
@@ -381,8 +404,12 @@ export async function downloadImportTemplate() {
     latitude: 0,
     longitude: 0,
     status: "ACTIF",
+    carte_ccc: "00123456",
   };
   ws.addRow(example);
+  // Colonne Carte CCC forcée en format TEXTE pour préserver les zéros initiaux
+  const ccIdx = TEMPLATE_COLUMNS.findIndex((c) => c.field === "carte_ccc") + 1;
+  ws.getColumn(ccIdx).numFmt = "@";
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });

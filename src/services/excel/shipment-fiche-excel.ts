@@ -49,7 +49,7 @@ interface DeliveryFicheRow {
   delivery_date: string | null;
   net_weight: number | null;
   num_bags: number | null;
-  producers?: { full_name: string | null; section: string | null; plantation_code: string | null } | null;
+  producers?: { full_name: string | null; section: string | null; plantation_code: string | null; carte_ccc: string | null } | null;
 }
 
 const FALLBACK_TEMPLATE: TemplateConfig = {
@@ -148,7 +148,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
     supabase
       .from("deliveries")
       .select(
-        "receipt_number, delivery_date, net_weight, num_bags, producers(full_name, section, plantation_code)"
+        "receipt_number, delivery_date, net_weight, num_bags, producers(full_name, section, plantation_code, carte_ccc)"
       )
       .eq("shipment_id", shipmentId)
       .order("receipt_number", { ascending: true })
@@ -181,7 +181,8 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   });
 
   // Largeurs de colonnes fixes (obligatoire — ne jamais laisser Excel auto-générer)
-  const widths = [8, 35, 18, 20, 25, 28, 22, 20];
+  const widths = [8, 35, 18, 20, 25, 28, 22, 20, 18];
+  const LAST_COL = "I";
   widths.forEach((w, i) => (ws.getColumn(i + 1).width = w));
 
   const thin: Partial<ExcelJS.Borders> = {
@@ -211,7 +212,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   };
 
   // ===== LIGNE 1 — TITRE PRINCIPAL =====
-  ws.mergeCells("A1:H1");
+  ws.mergeCells(`A1:${LAST_COL}1`);
   const title = ws.getCell("A1");
   // Titre enrichi avec la campagne active du chargement (ex : "... CAMPAGNE 2025-2026")
   const baseTitle = tpl.title || FALLBACK_TEMPLATE.title;
@@ -220,7 +221,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   title.font = { ...font, bold: true, size: 16 };
   title.alignment = center;
   title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
-  borderRange("A1:H1");
+  borderRange(`A1:${LAST_COL}1`);
   ws.getRow(1).height = 70;
 
   // ===== LOGOS — images physiques en overlay ligne 1 =====
@@ -237,7 +238,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   // Les deux logos sont chargés en parallèle pour accélérer la génération
   await Promise.all([
     tpl.coop_logo_path ? addLogo(tpl.coop_logo_path, 0.1) : null,
-    tpl.show_partner_logo && tpl.partner_logo_path ? addLogo(tpl.partner_logo_path, 7.05) : null,
+    tpl.show_partner_logo && tpl.partner_logo_path ? addLogo(tpl.partner_logo_path, 8.05) : null,
   ]);
 
   // ============================================================
@@ -271,6 +272,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
     ws.mergeCells(`A${rowIdx}:B${rowIdx}`);
     ws.mergeCells(`C${rowIdx}:D${rowIdx}`);
     ws.mergeCells(`F${rowIdx}:G${rowIdx}`);
+    ws.mergeCells(`H${rowIdx}:${LAST_COL}${rowIdx}`);
     writeLabel(ws.getCell(`A${rowIdx}`), leftLabel);
     writeValue(ws.getCell(`C${rowIdx}`), leftValue, leftFmt);
     if (rightLabel !== undefined) {
@@ -278,7 +280,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
       writeValue(ws.getCell(`H${rowIdx}`), rightValue, rightFmt);
     }
     ws.getRow(rowIdx).height = 22;
-    borderRange(`A${rowIdx}:H${rowIdx}`);
+    borderRange(`A${rowIdx}:${LAST_COL}${rowIdx}`);
   };
 
   // Ligne 2 — Fournisseur / Statut projet
@@ -349,12 +351,12 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
 
   // Lignes 9-11 — slogan/sous-titre éventuels (centrés, fusionnés)
   const fillExtra = (rowIdx: number, text: string | null, opts?: { italic?: boolean; bold?: boolean }) => {
-    ws.mergeCells(`A${rowIdx}:H${rowIdx}`);
+    ws.mergeCells(`A${rowIdx}:${LAST_COL}${rowIdx}`);
     const c = ws.getCell(`A${rowIdx}`);
     c.value = text || "";
     c.font = { ...font, size: 10, italic: !!opts?.italic, bold: !!opts?.bold, color: { argb: "FF555555" } };
     c.alignment = center;
-    borderRange(`A${rowIdx}:H${rowIdx}`);
+    borderRange(`A${rowIdx}:${LAST_COL}${rowIdx}`);
     ws.getRow(rowIdx).height = 18;
   };
   fillExtra(9, tpl.subtitle, { bold: true });
@@ -363,7 +365,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
 
   // Ligne 12 — séparateur vide (bordée pour continuité visuelle)
   ws.getRow(12).height = 8;
-  borderRange("A12:H12");
+  borderRange(`A12:${LAST_COL}12`);
 
   // ============================================================
   // LIGNE 13 — EN-TÊTES TABLEAU PRODUCTEURS (position fixe)
@@ -378,6 +380,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
     "Date de livraison au magasin",
     "Poids net livré (Kg)",
     "Nombre de sacs livrés",
+    "Carte CCC",
   ];
   ws.pageSetup.printTitlesRow = `${HEADER_ROW}:${HEADER_ROW}`;
   const headerRow = ws.getRow(HEADER_ROW);
@@ -406,6 +409,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
       d.delivery_date ? new Date(d.delivery_date) : "",
       Number(d.net_weight) || 0,
       Number(d.num_bags) || 0,
+      d.producers?.carte_ccc || "",
     ];
     values.forEach((v, i) => {
       const cell = row.getCell(i + 1);
@@ -421,6 +425,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
     });
     row.getCell(6).numFmt = "dd/mm/yyyy";
     row.getCell(7).numFmt = "#,##0";
+    row.getCell(9).numFmt = "@";
     row.height = 20;
     r += 1;
   });
@@ -448,13 +453,16 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   tb.alignment = center;
   tb.border = thin;
   tb.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F5E9" } };
+  const tc = ws.getCell(r, 9);
+  tc.border = thin;
+  tc.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F5E9" } };
   ws.getRow(r).height = 24;
   r += 1;
 
   // ===== Pied personnalisé éventuel =====
   if (tpl.custom_footer && tpl.custom_footer.trim()) {
     r += 1;
-    ws.mergeCells(`A${r}:H${r}`);
+    ws.mergeCells(`A${r}:${LAST_COL}${r}`);
     const c = ws.getCell(`A${r}`);
     c.value = tpl.custom_footer;
     c.font = { ...font, size: 9, italic: true, color: { argb: "FF555555" } };
