@@ -68,8 +68,10 @@ export default function ShipmentDetails() {
   const [shipments, setShipments] = useState<ShipmentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingShipment, setEditingShipment] = useState<ShipmentWithDetails | null>(null);
-  const [partners, setPartners] = useState<{ id: string; name: string }[]>([]);
-  const [cooperativesList, setCooperativesList] = useState<{ id: string; name: string }[]>([]);
+  // Listes partagées et mises en cache (plus de requêtes propres à ce composant)
+  const { partners } = usePartners();
+  const { registres: cooperativesList } = useRegistres();
+
   const [saving, setSaving] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const { labels, activeCampaign } = useCampaignLabels();
