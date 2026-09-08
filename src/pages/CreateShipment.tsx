@@ -69,7 +69,7 @@ export default function CreateShipment() {
   const [destination, setDestination] = useState("");
   
   const [newPartnerName, setNewPartnerName] = useState("");
-  const [newPartnerName, setNewPartnerName] = useState("");
+
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [newProject, setNewProject] = useState<{ name: string; code: string; partner_id: string; description: string; is_active: boolean }>({ name: "", code: "", partner_id: "", description: "", is_active: true });
