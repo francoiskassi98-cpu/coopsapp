@@ -22,6 +22,8 @@ import { TemplatePreview, type TemplatePreviewData } from "@/components/shipment
 import PageHeader from "@/components/PageHeader";
 import { useActiveShipmentTemplates } from "@/hooks/useShipmentTemplates";
 import { useCampaignRegistres } from "@/hooks/useCampaignRegistres";
+import { usePartners } from "@/hooks/usePartners";
+
 
 import { buildEligibleProducers, validateDistributionBeforeSave, MIN_REMAINING_WEIGHT_KG, MIN_DAYS_BETWEEN_DELIVERIES } from "@/lib/producer-eligibility";
 
@@ -68,8 +70,8 @@ export default function CreateShipment() {
   const [zone, setZone] = useState("");
   const [destination, setDestination] = useState("");
   
-  const [partners, setPartners] = useState<PartnerOption[]>([]);
   const [newPartnerName, setNewPartnerName] = useState("");
+
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [newProject, setNewProject] = useState<{ name: string; code: string; partner_id: string; description: string; is_active: boolean }>({ name: "", code: "", partner_id: "", description: "", is_active: true });
@@ -98,8 +100,8 @@ export default function CreateShipment() {
   const { role } = useAuth();
   const canCreateProject = role === "super_admin" || role === "coop_admin" || role === "agent";
 
-  const [cooperatives, setCooperatives] = useState<{ id: string; name: string; cooperative_id?: string }[]>([]);
   const [coopStats, setCoopStats] = useState<{ potentiel: number; delivered: number; remaining: number } | null>(null);
+
   const [suggestedReceipt, setSuggestedReceipt] = useState<string>("");
   const [receiptNumber, setReceiptNumber] = useState<string>("");
   const [selectedCoopId, setSelectedCoopId] = useState<string>("");
@@ -107,9 +109,11 @@ export default function CreateShipment() {
   const activeCampaign = normalizeCampaign(getCurrentCampaign());
   const { registres: campaignRegistres, loading: registresLoading } = useCampaignRegistres(activeCampaign);
 
-  useEffect(() => {
-    setCooperatives(campaignRegistres.map((r) => ({ id: r.id, name: r.name, cooperative_id: r.cooperative_id ?? undefined })));
-  }, [campaignRegistres]);
+  // Les registres de la campagne sont une donnée dérivée : aucun état ni effet.
+  const cooperatives = useMemo(
+    () => campaignRegistres.map((r) => ({ id: r.id, name: r.name, cooperative_id: r.cooperative_id ?? undefined })),
+    [campaignRegistres]
+  );
 
   // Un registre sans données sur la campagne active ne peut pas être utilisé.
   useEffect(() => {
@@ -117,15 +121,9 @@ export default function CreateShipment() {
     if (selectedCoopId && !campaignRegistres.some((r) => r.id === selectedCoopId)) setSelectedCoopId("");
   }, [campaignRegistres, registresLoading, selectedCoopId]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.from("partners").select("id, name, cooperative_id, logo_path, status").order("name");
-      if (cancelled) return;
-      setPartners(data || []);
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  // Partenaires : source unique mise en cache (partagée avec les autres modules).
+  const { partners, refreshPartners } = usePartners();
+
 
 
 
@@ -669,7 +667,7 @@ export default function CreateShipment() {
       toast({ title: "Création impossible", description: desc, variant: "destructive" });
       return;
     }
-    setPartners((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+    await refreshPartners();
     setPartnerId(data.id);
     setNewPartnerName("");
     setDialogOpen(false);

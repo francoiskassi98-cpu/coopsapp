@@ -11,7 +11,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Pencil, Package, Users, Weight, Truck, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useCampaignLabels } from "@/hooks/useCampaign";
+import { useRegistres } from "@/hooks/useRegistres";
+import { usePartners } from "@/hooks/usePartners";
 import { normalizeCampaign } from "@/lib/campaign";
+
 
 interface ShipmentRow {
   id: string;
@@ -65,8 +68,12 @@ export default function ShipmentDetails() {
   const [shipments, setShipments] = useState<ShipmentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingShipment, setEditingShipment] = useState<ShipmentWithDetails | null>(null);
-  const [partners, setPartners] = useState<{ id: string; name: string }[]>([]);
-  const [cooperativesList, setCooperativesList] = useState<{ id: string; name: string }[]>([]);
+  // Listes partagées et mises en cache (plus de requêtes propres à ce composant)
+  const { partners } = usePartners();
+  const { registres: cooperativesList } = useRegistres();
+  const partnerNameById = useMemo(() => new Map(partners.map((p) => [p.id, p.name])), [partners]);
+
+
   const [saving, setSaving] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const { labels, activeCampaign } = useCampaignLabels();
@@ -120,14 +127,8 @@ export default function ShipmentDetails() {
         from += pageSize;
       }
 
-      // Fetch all partners
-      const { data: partnersData } = await supabase.from("partners").select("id, name");
-      const partnerMap = new Map((partnersData || []).map((p) => [p.id, p.name]));
-      setPartners(partnersData || []);
+      // Partenaires et registres proviennent des listes partagées en cache.
 
-      // Fetch registres (used as "Registre" selector in edit)
-      const { data: coopsData } = await supabase.from("registres").select("id, name").order("name");
-      setCooperativesList(coopsData || []);
 
       // Fetch producer counts per shipment (all deliveries)
       let allDeliveries: DeliveryRow[] = [];
@@ -162,7 +163,7 @@ export default function ShipmentDetails() {
         destination: s.destination,
         campaign: s.campaign_label || "",
         partner_id: s.partner_id,
-        partner_name: s.partner_id ? partnerMap.get(s.partner_id) || "—" : "—",
+        partner_name: null,
         producer_count: producerCountMap.get(s.id)?.size || 0,
         status: s.status,
         delivery_start: s.delivery_start,
@@ -346,7 +347,7 @@ export default function ShipmentDetails() {
                         <Badge variant="outline" className="text-xs">{s.project}</Badge>
                       </TableCell>
                       <TableCell>{s.destination}</TableCell>
-                      <TableCell>{s.partner_name}</TableCell>
+                      <TableCell>{(s.partner_id && partnerNameById.get(s.partner_id)) || "—"}</TableCell>
                       <TableCell className="text-xs">{s.campaign}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">

@@ -8,10 +8,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { currentCampaign, normalizeCampaign } from "@/lib/campaign";
 
-/** Campagne active (format "YYYY-YYYY"). */
-export function useCurrentCampaign(): string {
-  return currentCampaign();
-}
+
+
 
 /**
  * Liste des campagnes réellement présentes dans les données accessibles à

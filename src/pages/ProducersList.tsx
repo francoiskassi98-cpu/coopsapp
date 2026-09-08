@@ -143,13 +143,12 @@ export default function Producers() {
     if (coopFilter !== "all" && !cooperatives.includes(coopFilter)) setCoopFilter("all");
   }, [cooperatives, coopFilter, loading]);
 
+  // Un changement de filtre remet à zéro la sélection et le rendu progressif.
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [campaignFilter, coopFilter]);
-
-  useEffect(() => {
     setVisibleCount(ROWS_STEP);
-  }, [debouncedSearch, coopFilter, statusFilter, sortConfig]);
+  }, [campaignFilter, coopFilter, statusFilter, debouncedSearch, sortConfig]);
+
 
   const visibleRows = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
 
@@ -657,10 +656,18 @@ export default function Producers() {
         }
 
         step = "mise à jour des producteurs";
-        for (const u of updates) {
-          const { error } = await supabase.from("producers").update(u.payload).eq("id", u.id);
-          if (error) throw error;
+        // Mises à jour groupées par lots parallèles (au lieu d'une requête par ligne)
+        const UPDATE_CHUNK = 25;
+        for (let i = 0; i < updates.length; i += UPDATE_CHUNK) {
+          const results = await Promise.all(
+            updates.slice(i, i + UPDATE_CHUNK).map((u) =>
+              supabase.from("producers").update(u.payload).eq("id", u.id)
+            )
+          );
+          const failed = results.find((r) => r.error);
+          if (failed?.error) throw failed.error;
         }
+
 
         if (inserts.length > 0) {
           step = "insertion des nouveaux producteurs";

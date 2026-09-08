@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -102,13 +102,17 @@ export default function ExportPage() {
     selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS ? selectedCampaign : null
   );
   const { registres: allRegistres } = useRegistres();
-  const registres = selectedCampaign === ALL_CAMPAIGNS ? allRegistres : campaignRegistres;
+  const registres = useMemo(
+    () => (selectedCampaign === ALL_CAMPAIGNS ? allRegistres : campaignRegistres),
+    [selectedCampaign, allRegistres, campaignRegistres]
+  );
 
   useEffect(() => {
     if (selectedRegistre && !registres.some((r) => r.id === selectedRegistre)) setSelectedRegistre("");
   }, [registres, selectedRegistre]);
 
   useEffect(() => {
+    let cancelled = false;
     let q = supabase
       .from("shipments")
       .select("id, connaissement, zone, registre_id, campaign_label")
@@ -118,10 +122,13 @@ export default function ExportPage() {
       q = q.eq("campaign_label", selectedCampaign);
     }
     q.then(({ data, error }) => {
+      if (cancelled) return; // évite qu'une réponse tardive écrase la campagne courante
       if (error) console.error("[Export] load shipments", error);
       setShipments((data ?? []) as ShipmentOption[]);
     });
+    return () => { cancelled = true; };
   }, [selectedCampaign]);
+
 
 
 

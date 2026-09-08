@@ -13,6 +13,8 @@ import { Calculator, Download, Save, Coins } from "lucide-react";
 import { generatePrimeExcel } from "@/lib/prime-excel";
 import { currentCampaign } from "@/lib/campaign";
 import { useCampaignLabels } from "@/hooks/useCampaign";
+import { useRegistres } from "@/hooks/useRegistres";
+
 
 interface Coop { id: string; name: string; logo_path?: string | null }
 interface Campaign { id: string; nom: string }
@@ -35,7 +37,9 @@ interface PrimeRow {
 
 export default function PrimeProducer() {
   
-  const [coops, setCoops] = useState<Coop[]>([]);
+  const { registres } = useRegistres();
+  const coops: Coop[] = registres;
+
   const [sections, setSections] = useState<string[]>([]);
   const [producersList, setProducersList] = useState<ProducerOpt[]>([]);
   const [projects, setProjects] = useState<ProjectOpt[]>([]);
@@ -56,15 +60,14 @@ export default function PrimeProducer() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Sélection auto : un seul registre accessible → on le sélectionne, sinon « Tous »
   useEffect(() => {
-    (async () => {
-      const { data: c } = await supabase.from("registres").select("id,name").order("name");
-      const list: Coop[] = (c ?? []).map((r) => ({ id: r.id, name: r.name }));
-      setCoops(list);
-      // Sélection auto : un seul registre accessible → on le sélectionne, sinon « Tous »
-      setCoopId((prev) => prev || (list.length === 1 ? list[0].id : "all"));
-    })();
-  }, []);
+
+    if (coops.length === 0) return;
+    setCoopId((prev) => prev || (coops.length === 1 ? coops[0].id : "all"));
+  }, [coops]);
+
+
 
   // Charge producteurs + sections + projets en fonction du filtre registre
   useEffect(() => {
