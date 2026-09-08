@@ -122,7 +122,8 @@ export default function ImportShipments() {
       });
       setMatchedProducers(matched);
 
-      // Check potential exceeded
+      // ✅ NOUVELLE RÈGLE : Vérifier que AUCUN producteur ne dépasse son potentiel restant
+      // (même en import historique, maintenant la règle s'applique)
       const weightByCode: Record<string, number> = {};
       for (const r of result.rows) {
         weightByCode[r.code_plantation] = (weightByCode[r.code_plantation] || 0) + r.poids_net;
@@ -157,7 +158,7 @@ export default function ImportShipments() {
         toast({ title: "Producteurs non trouvés", description: `${unmatchedCount} code(s) plantation non trouvé(s) dans le registre.`, variant: "destructive" });
       }
       if (potWarn.length > 0) {
-        toast({ title: "Dépassement de potentiel", description: `${potWarn.length} producteur(s) dépassent leur estimation.`, variant: "destructive" });
+        toast({ title: "Dépassement de potentiel BLOQUANT", description: `${potWarn.length} producteur(s) dépassent leur estimation. Corrigez le fichier avant de continuer.`, variant: "destructive" });
       }
     }
 
@@ -167,7 +168,8 @@ export default function ImportShipments() {
   };
 
   const unmatchedCount = matchedProducers.filter((m) => !m.matched).length;
-  const canImport = rows.length > 0 && unmatchedCount === 0 && errors.length === 0 && zoneErrors.length === 0;
+  // ✅ MODIFIER : potentialWarnings empêche l'import
+  const canImport = rows.length > 0 && unmatchedCount === 0 && errors.length === 0 && zoneErrors.length === 0 && potentialWarnings.length === 0;
 
   const handleImportClick = () => {
     if (!canImport) return;
@@ -413,15 +415,18 @@ export default function ImportShipments() {
         </Card>
       )}
 
-      {/* Potential exceeded warnings */}
+      {/* Potential exceeded warnings - NOW BLOCKING */}
       {potentialWarnings.length > 0 && (
-        <Card className="border-destructive">
+        <Card className="border-destructive bg-destructive/5">
           <CardHeader>
             <CardTitle className="text-base text-destructive flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" /> Dépassement d'estimation ({potentialWarnings.length})
+              <AlertCircle className="h-5 w-5" /> ⛔ Dépassement d'estimation - IMPORT BLOQUÉ ({potentialWarnings.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
+            <p className="text-sm text-destructive mb-3 font-medium">
+              Les producteurs suivants dépassent leur potentiel de livraison. Veuillez corriger le fichier Excel et réessayer.
+            </p>
             <ul className="text-sm space-y-1">
               {potentialWarnings.map((w, i) => <li key={i}>{w}</li>)}
             </ul>
@@ -482,7 +487,17 @@ export default function ImportShipments() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Aperçu des données</CardTitle>
-              <Button onClick={handleImportClick} disabled={saving || !canImport}>
+              <Button 
+                onClick={handleImportClick} 
+                disabled={saving || !canImport}
+                title={
+                  potentialWarnings.length > 0 
+                    ? "Impossible : au moins 1 producteur dépasse son potentiel" 
+                    : !canImport 
+                    ? "Importation impossible : vérifiez les erreurs ci-dessus"
+                    : ""
+                }
+              >
                 {saving ? "Importation..." : "Valider et importer"}
               </Button>
             </div>
