@@ -657,10 +657,18 @@ export default function Producers() {
         }
 
         step = "mise à jour des producteurs";
-        for (const u of updates) {
-          const { error } = await supabase.from("producers").update(u.payload).eq("id", u.id);
-          if (error) throw error;
+        // Mises à jour groupées par lots parallèles (au lieu d'une requête par ligne)
+        const UPDATE_CHUNK = 25;
+        for (let i = 0; i < updates.length; i += UPDATE_CHUNK) {
+          const results = await Promise.all(
+            updates.slice(i, i + UPDATE_CHUNK).map((u) =>
+              supabase.from("producers").update(u.payload).eq("id", u.id)
+            )
+          );
+          const failed = results.find((r) => r.error);
+          if (failed?.error) throw failed.error;
         }
+
 
         if (inserts.length > 0) {
           step = "insertion des nouveaux producteurs";
