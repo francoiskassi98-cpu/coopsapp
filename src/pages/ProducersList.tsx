@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle, ShieldOff } from "lucide-react";
+import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle, ShieldOff, ToggleLeft, ToggleRight } from "lucide-react";
 import { useSortableTable, SortableHeader, type SortValue } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { parseExcelFile, downloadImportTemplate, exportToExcel, downloadErrorReport, type ProducerRow, type ImportError, type ImportReport } from "@/lib/excel-utils";
@@ -43,6 +44,9 @@ export default function Producers() {
   const [producers, setProducers] = useState<ProducerListRow[]>([]);
   const [search, setSearch] = useState("");
   const [coopFilter, setCoopFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   const [reporting, setReporting] = useState(false);
   const { labels: campaignLabels, activeCampaign } = useCampaignLabels();
   const [campaignFilter, setCampaignFilter] = useState(activeCampaign);
@@ -112,6 +116,8 @@ export default function Producers() {
     const s = debouncedSearch.trim().toLowerCase();
     const base = producers.filter((p) => {
       if (coopFilter !== "all" && p.cooperative !== coopFilter) return false;
+      if (statusFilter === "active" && p.is_active === false) return false;
+      if (statusFilter === "inactive" && p.is_active !== false) return false;
       if (!s) return true;
       return (
         p.full_name.toLowerCase().includes(s) ||
@@ -126,14 +132,65 @@ export default function Producers() {
       if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
       return String(v);
     });
-  }, [producers, coopFilter, debouncedSearch, sortData]);
+  }, [producers, coopFilter, statusFilter, debouncedSearch, sortData]);
 
   // Rendu progressif : on n'affiche qu'un lot de lignes à la fois pour rester fluide
   useEffect(() => {
+    setSelectedIds(new Set());
+  }, [campaignFilter, coopFilter]);
+
+  useEffect(() => {
     setVisibleCount(ROWS_STEP);
-  }, [debouncedSearch, coopFilter, sortConfig]);
+  }, [debouncedSearch, coopFilter, statusFilter, sortConfig]);
 
   const visibleRows = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+
+  // --- Statut actif / inactif (individuel et groupé) ---
+  const allVisibleSelected = visibleRows.length > 0 && visibleRows.every((p) => selectedIds.has(p.id));
+
+  function toggleSelect(id: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllVisible() {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (visibleRows.every((p) => next.has(p.id))) visibleRows.forEach((p) => next.delete(p.id));
+      else visibleRows.forEach((p) => next.add(p.id));
+      return next;
+    });
+  }
+
+  /** Met à jour le statut d'un lot de producteurs en une seule requête groupée. */
+  async function setProducersActive(ids: string[], active: boolean) {
+    if (ids.length === 0) return;
+    setBulkUpdating(true);
+    try {
+      for (let i = 0; i < ids.length; i += 500) {
+        const chunk = ids.slice(i, i + 500);
+        const { error } = await supabase.from("producers").update({ is_active: active }).in("id", chunk);
+        if (error) throw error;
+      }
+      setProducers((current) =>
+        current.map((p) => (ids.includes(p.id) ? { ...p, is_active: active } : p))
+      );
+      setSelectedIds(new Set());
+      toast({
+        title: active ? "Producteur(s) activé(s)" : "Producteur(s) désactivé(s)",
+        description: `${ids.length} producteur(s) mis à jour.`,
+      });
+    } catch (err) {
+      console.error("[producers] statut", err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+    } finally {
+      setBulkUpdating(false);
+    }
+  }
 
 
   // --- Edit / Delete (existing) ---
@@ -288,6 +345,7 @@ export default function Producers() {
       "Superficie": p.plantation_area || 0,
       "Latitude polygone": p.latitude || 0,
       "Longitude polygone": p.longitude || 0,
+      "Statut": p.is_active === false ? "INACTIF" : "ACTIF",
     }));
     const suffix = cooperative && cooperative !== "all" ? `-${cooperative}` : "";
     await exportToExcel(rows, `Registre-Producteurs${suffix}.xlsx`, "Registre");
@@ -428,7 +486,7 @@ export default function Producers() {
           longitude: p.longitude,
           num_men: p.num_men,
           num_women: p.num_women,
-          is_active: true,
+          is_active: p.is_active !== false,
         }));
       if (toInsert.length === 0) {
         toast({ title: "Rien à reporter", description: `Ces producteurs existent déjà en ${activeCampaign}.` });
@@ -469,7 +527,7 @@ export default function Producers() {
       plantation_area: r.plantation_area || null,
       latitude: r.latitude || null,
       longitude: r.longitude || null,
-      is_active: true,
+      is_active: r.status !== "INACTIF",
     };
   }
 
@@ -729,6 +787,18 @@ export default function Producers() {
             </SelectContent>
           </Select>
         </div>
+        <div className="w-44">
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "all" | "active" | "inactive")}>
+            <SelectTrigger>
+              <SelectValue placeholder="Statut" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les statuts</SelectItem>
+              <SelectItem value="active">Actifs</SelectItem>
+              <SelectItem value="inactive">Inactifs</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="relative w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -743,6 +813,18 @@ export default function Producers() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{filtered.length} producteur(s)</CardTitle>
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2 flex-wrap pt-2">
+              <span className="text-sm text-muted-foreground">{selectedIds.size} sélectionné(s)</span>
+              <Button size="sm" variant="outline" disabled={bulkUpdating} onClick={() => setProducersActive(Array.from(selectedIds), true)}>
+                <ToggleRight className="h-4 w-4 mr-2" /> Activer
+              </Button>
+              <Button size="sm" variant="outline" disabled={bulkUpdating} onClick={() => setProducersActive(Array.from(selectedIds), false)}>
+                <ToggleLeft className="h-4 w-4 mr-2" /> Désactiver
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Annuler la sélection</Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -752,6 +834,13 @@ export default function Producers() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={allVisibleSelected}
+                        onCheckedChange={toggleSelectAllVisible}
+                        aria-label="Tout sélectionner"
+                      />
+                    </TableHead>
                     <TableHead>Statut</TableHead>
                     <SortableHeader column="full_name" label="Nom complet" sortConfig={sortConfig} onToggle={toggleSort} />
                     <SortableHeader column="sexe" label="Sexe" sortConfig={sortConfig} onToggle={toggleSort} />
@@ -766,13 +855,20 @@ export default function Producers() {
                 <TableBody>
                   {filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground">
+                      <TableCell colSpan={10} className="text-center text-muted-foreground">
                         Aucun producteur trouvé
                       </TableCell>
                     </TableRow>
                   ) : (
                     visibleRows.map((p) => (
                       <TableRow key={p.id} className={p.is_active === false || disabledSections.has(sectionKey(p.registre_id, p.section)) ? "opacity-50" : ""}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.has(p.id)}
+                            onCheckedChange={() => toggleSelect(p.id)}
+                            aria-label={`Sélectionner ${p.full_name}`}
+                          />
+                        </TableCell>
                         <TableCell>
                           {p.is_active === false ? (
                             <Badge variant="destructive" className="text-xs">Inactif</Badge>
@@ -793,6 +889,15 @@ export default function Producers() {
                           <div className="flex justify-end gap-1">
                             <Button variant="ghost" size="icon" onClick={() => navigate(`/producteurs/${p.id}`)} title="Fiche complète">
                               <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled={bulkUpdating}
+                              onClick={() => setProducersActive([p.id], p.is_active === false)}
+                              title={p.is_active === false ? "Activer" : "Désactiver"}
+                            >
+                              {p.is_active === false ? <ToggleLeft className="h-4 w-4" /> : <ToggleRight className="h-4 w-4 text-green-600" />}
                             </Button>
                             <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title="Modifier">
                               <Pencil className="h-4 w-4" />
