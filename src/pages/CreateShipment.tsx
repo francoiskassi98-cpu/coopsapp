@@ -102,19 +102,29 @@ export default function CreateShipment() {
   const [receiptNumber, setReceiptNumber] = useState<string>("");
   const [selectedCoopId, setSelectedCoopId] = useState<string>("");
 
+  const activeCampaign = normalizeCampaign(getCurrentCampaign());
+  const { registres: campaignRegistres, loading: registresLoading } = useCampaignRegistres(activeCampaign);
+
+  useEffect(() => {
+    setCooperatives(campaignRegistres.map((r) => ({ id: r.id, name: r.name, cooperative_id: r.cooperative_id ?? undefined })));
+  }, [campaignRegistres]);
+
+  // Un registre sans données sur la campagne active ne peut pas être utilisé.
+  useEffect(() => {
+    if (registresLoading) return;
+    if (selectedCoopId && !campaignRegistres.some((r) => r.id === selectedCoopId)) setSelectedCoopId("");
+  }, [campaignRegistres, registresLoading, selectedCoopId]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [partnersRes, registresRes] = await Promise.all([
-        supabase.from("partners").select("id, name, cooperative_id, logo_path, status").order("name"),
-        supabase.from("registres").select("id, name, cooperative_id").order("name"),
-      ]);
+      const { data } = await supabase.from("partners").select("id, name, cooperative_id, logo_path, status").order("name");
       if (cancelled) return;
-      setPartners(partnersRes.data || []);
-      setCooperatives((registresRes.data || []) as { id: string; name: string; cooperative_id?: string }[]);
+      setPartners(data || []);
     })();
     return () => { cancelled = true; };
   }, []);
+
 
 
   const { templates, loading: templatesLoading } = useActiveShipmentTemplates(selectedCoopId || null);
