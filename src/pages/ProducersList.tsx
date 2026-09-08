@@ -122,6 +122,7 @@ export default function Producers() {
       return (
         p.full_name.toLowerCase().includes(s) ||
         p.plantation_code.toLowerCase().includes(s) ||
+        (p.carte_ccc || "").toLowerCase().includes(s) ||
         p.section.toLowerCase().includes(s)
       );
     });
@@ -284,6 +285,7 @@ export default function Producers() {
       delivery_potential: p.delivery_potential,
       remaining_potential: p.remaining_potential,
       is_active: p.is_active !== false,
+      carte_ccc: p.carte_ccc || "",
     });
     setEditProducer(p);
   }
@@ -346,6 +348,7 @@ export default function Producers() {
       "Latitude polygone": p.latitude || 0,
       "Longitude polygone": p.longitude || 0,
       "Statut": p.is_active === false ? "INACTIF" : "ACTIF",
+      "Carte CCC": p.carte_ccc || "",
     }));
     const suffix = cooperative && cooperative !== "all" ? `-${cooperative}` : "";
     await exportToExcel(rows, `Registre-Producteurs${suffix}.xlsx`, "Registre");
@@ -487,6 +490,7 @@ export default function Producers() {
           num_men: p.num_men,
           num_women: p.num_women,
           is_active: p.is_active !== false,
+          carte_ccc: p.carte_ccc,
         }));
       if (toInsert.length === 0) {
         toast({ title: "Rien à reporter", description: `Ces producteurs existent déjà en ${activeCampaign}.` });
@@ -528,6 +532,7 @@ export default function Producers() {
       latitude: r.latitude || null,
       longitude: r.longitude || null,
       is_active: r.status !== "INACTIF",
+      carte_ccc: r.carte_ccc ? String(r.carte_ccc) : null,
     };
   }
 
@@ -846,6 +851,7 @@ export default function Producers() {
                     <SortableHeader column="sexe" label="Sexe" sortConfig={sortConfig} onToggle={toggleSort} />
                     <SortableHeader column="section" label="Section" sortConfig={sortConfig} onToggle={toggleSort} />
                     <SortableHeader column="plantation_code" label="Code plantation" sortConfig={sortConfig} onToggle={toggleSort} />
+                    <SortableHeader column="carte_ccc" label="Carte CCC" sortConfig={sortConfig} onToggle={toggleSort} />
                     <SortableHeader column="delivery_potential" label="Potentiel initial (kg)" sortConfig={sortConfig} onToggle={toggleSort} />
                     <SortableHeader column="remaining_potential" label="Potentiel restant (kg)" sortConfig={sortConfig} onToggle={toggleSort} />
                     <SortableHeader column="cooperative" label="Registre" sortConfig={sortConfig} onToggle={toggleSort} />
@@ -855,7 +861,7 @@ export default function Producers() {
                 <TableBody>
                   {filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center text-muted-foreground">
+                      <TableCell colSpan={11} className="text-center text-muted-foreground">
                         Aucun producteur trouvé
                       </TableCell>
                     </TableRow>
@@ -882,6 +888,7 @@ export default function Producers() {
                         <TableCell>{p.sexe || "—"}</TableCell>
                         <TableCell>{p.section}</TableCell>
                         <TableCell className="font-mono text-xs">{p.plantation_code}</TableCell>
+                        <TableCell className="font-mono text-xs">{p.carte_ccc || "—"}</TableCell>
                         <TableCell>{Number(p.delivery_potential).toLocaleString("fr-FR")}</TableCell>
                         <TableCell>{Number(p.remaining_potential).toLocaleString("fr-FR")}</TableCell>
                         <TableCell>{p.cooperative}</TableCell>
@@ -1092,6 +1099,7 @@ export default function Producers() {
                       <TableHead>Nom complet</TableHead>
                       <TableHead>Section</TableHead>
                       <TableHead>Code plantation</TableHead>
+                      <TableHead>Carte CCC</TableHead>
                       <TableHead>Potentiel (kg)</TableHead>
                       <TableHead>Registre</TableHead>
                     </TableRow>
@@ -1102,6 +1110,7 @@ export default function Producers() {
                         <TableCell>{r.full_name}</TableCell>
                         <TableCell>{r.section}</TableCell>
                         <TableCell className="font-mono text-xs">{r.plantation_code}</TableCell>
+                        <TableCell className="font-mono text-xs">{r.carte_ccc || "—"}</TableCell>
                         <TableCell>{r.delivery_potential.toLocaleString("fr-FR")}</TableCell>
                         <TableCell>{r.cooperative}</TableCell>
                       </TableRow>
@@ -1136,6 +1145,7 @@ export default function Producers() {
               <div><span className="text-muted-foreground">Code producteur :</span> <strong>{detailProducer.producer_code || "—"}</strong></div>
               <div><span className="text-muted-foreground">N° producteur :</span> <strong>{detailProducer.producer_number || "—"}</strong></div>
               <div><span className="text-muted-foreground">CNI :</span> <strong>{detailProducer.national_id || "—"}</strong></div>
+              <div><span className="text-muted-foreground">Carte CCC :</span> <strong className="font-mono">{detailProducer.carte_ccc || "—"}</strong></div>
               <div><span className="text-muted-foreground">Potentiel initial :</span> <strong>{Number(detailProducer.delivery_potential).toLocaleString("fr-FR")} kg</strong></div>
               <div><span className="text-muted-foreground">Potentiel restant :</span> <strong>{Number(detailProducer.remaining_potential).toLocaleString("fr-FR")} kg</strong></div>
               <div><span className="text-muted-foreground">Surface cacao :</span> <strong>{detailProducer.total_cocoa_area || "—"}</strong></div>
@@ -1161,6 +1171,10 @@ export default function Producers() {
             <div>
               <Label>Nom complet</Label>
               <Input value={editForm.full_name || ""} onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })} />
+            </div>
+            <div>
+              <Label>Carte CCC</Label>
+              <Input inputMode="text" value={editForm.carte_ccc || ""} onChange={(e) => setEditForm({ ...editForm, carte_ccc: e.target.value })} placeholder="ex : 00123456" />
             </div>
             <div>
               <Label>Sexe</Label>
