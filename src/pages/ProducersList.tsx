@@ -136,6 +136,13 @@ export default function Producers() {
   }, [producers, coopFilter, statusFilter, debouncedSearch, sortData]);
 
   // Rendu progressif : on n'affiche qu'un lot de lignes à la fois pour rester fluide
+  // Le filtre registre suit la campagne : si le registre choisi n'existe pas
+  // dans la campagne sélectionnée, on revient sur « Tous les registres ».
+  useEffect(() => {
+    if (loading) return;
+    if (coopFilter !== "all" && !cooperatives.includes(coopFilter)) setCoopFilter("all");
+  }, [cooperatives, coopFilter, loading]);
+
   useEffect(() => {
     setSelectedIds(new Set());
   }, [campaignFilter, coopFilter]);
@@ -204,13 +211,13 @@ export default function Producers() {
     const { data, error } = await supabase
       .from("disabled_sections")
       .select("section_name, registre_id")
-      .eq("campaign_label", activeCampaign);
+      .eq("campaign_label", campaignFilter);
     if (error) {
       console.error("[disabled_sections] load", error);
       return;
     }
     setDisabledSections(new Set((data ?? []).map((d) => sectionKey(d.registre_id, d.section_name))));
-  }, [activeCampaign]);
+  }, [campaignFilter]);
 
   useEffect(() => {
     loadDisabledSections();
@@ -231,10 +238,10 @@ export default function Producers() {
           .delete()
           .eq("section_name", sectionName)
           .eq("registre_id", registreId)
-          .eq("campaign_label", activeCampaign)
+          .eq("campaign_label", campaignFilter)
       : await supabase
           .from("disabled_sections")
-          .insert({ section_name: sectionName, registre_id: registreId, campaign_label: activeCampaign });
+          .insert({ section_name: sectionName, registre_id: registreId, campaign_label: campaignFilter });
 
     if (error) {
       console.error("[disabled_sections] toggle", error);
