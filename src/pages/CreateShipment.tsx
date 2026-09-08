@@ -919,14 +919,22 @@ export default function CreateShipment() {
                 <div className="space-y-2">
                   <Label>Registre *</Label>
                   <Select value={selectedCoopId} onValueChange={handleZoneChange}>
-                    <SelectTrigger><SelectValue placeholder="Sélectionner un registre" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder={registresLoading ? "Chargement..." : cooperatives.length ? "Sélectionner un registre" : `Aucun registre pour la campagne ${activeCampaign}`} />
+                    </SelectTrigger>
                     <SelectContent>
                       {cooperatives.map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {!registresLoading && cooperatives.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Aucun registre n'est encore rattaché à la campagne {activeCampaign}. Importez un registre pour cette campagne.
+                    </p>
+                  )}
                 </div>
+
 
                 {selectedCoopId && (
                   <div className="space-y-2">
