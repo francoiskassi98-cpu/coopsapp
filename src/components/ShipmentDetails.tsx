@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Pencil, Package, Users, Weight, Truck, FileSpreadsheet, Loader2 } from "lucide-react";
+import { useCampaignLabels } from "@/hooks/useCampaign";
+import { normalizeCampaign } from "@/lib/campaign";
 
 interface ShipmentRow {
   id: string;
@@ -67,6 +69,9 @@ export default function ShipmentDetails() {
   const [cooperativesList, setCooperativesList] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const { labels, activeCampaign } = useCampaignLabels();
+  const [campaignFilter, setCampaignFilter] = useState(activeCampaign);
+  const [registreFilter, setRegistreFilter] = useState("all");
 
   const handleGenerateFiche = async (id: string) => {
     setGeneratingId(id);
