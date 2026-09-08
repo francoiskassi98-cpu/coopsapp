@@ -136,6 +136,13 @@ export default function Producers() {
   }, [producers, coopFilter, statusFilter, debouncedSearch, sortData]);
 
   // Rendu progressif : on n'affiche qu'un lot de lignes à la fois pour rester fluide
+  // Le filtre registre suit la campagne : si le registre choisi n'existe pas
+  // dans la campagne sélectionnée, on revient sur « Tous les registres ».
+  useEffect(() => {
+    if (loading) return;
+    if (coopFilter !== "all" && !cooperatives.includes(coopFilter)) setCoopFilter("all");
+  }, [cooperatives, coopFilter, loading]);
+
   useEffect(() => {
     setSelectedIds(new Set());
   }, [campaignFilter, coopFilter]);
