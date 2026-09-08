@@ -1293,6 +1293,7 @@ export default function CreateShipment() {
                                   receipt: d.receipt_number,
                                   section: d.section,
                                   plant: d.plantation_code,
+                                  ccc: producers.find((p) => p.id === d.producer_id)?.carte_ccc || "",
                                   date: d.delivery_date,
                                   weight: Math.round(d.allocated_weight).toLocaleString("fr-FR"),
                                   bags: d.num_bags,

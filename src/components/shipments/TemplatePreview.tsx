@@ -39,6 +39,7 @@ export interface TemplatePreviewData {
     receipt: string;
     section: string;
     plant: string;
+    ccc?: string;
     date: string;
     weight: string | number;
     bags: number;
@@ -220,6 +221,7 @@ export function TemplatePreview(props: TemplatePreviewProps) {
               <th className="border px-2 py-1">Date livraison</th>
               <th className="border px-2 py-1">Poids net (Kg)</th>
               <th className="border px-2 py-1">Sacs</th>
+              <th className="border px-2 py-1">Carte CCC</th>
             </tr>
           </thead>
           <tbody>
@@ -233,6 +235,7 @@ export function TemplatePreview(props: TemplatePreviewProps) {
                 <td className="border px-2 py-1 text-center">{p.date}</td>
                 <td className="border px-2 py-1 text-right">{p.weight}</td>
                 <td className="border px-2 py-1 text-center">{p.bags}</td>
+                <td className="border px-2 py-1 text-center font-mono">{p.ccc || ""}</td>
               </tr>
             ))}
             {(() => {
@@ -243,6 +246,7 @@ export function TemplatePreview(props: TemplatePreviewProps) {
                   <td className="border px-2 py-1 text-right" colSpan={6}>TOTAL</td>
                   <td className="border px-2 py-1 text-right">{totW.toLocaleString("fr-FR")}</td>
                   <td className="border px-2 py-1 text-center">{totB}</td>
+                  <td className="border px-2 py-1"></td>
                 </tr>
               );
             })()}
