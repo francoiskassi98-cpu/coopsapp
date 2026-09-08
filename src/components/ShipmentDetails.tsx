@@ -161,7 +161,7 @@ export default function ShipmentDetails() {
         destination: s.destination,
         campaign: s.campaign_label || "",
         partner_id: s.partner_id,
-        partner_name: s.partner_id ? partnerMap.get(s.partner_id) || "—" : "—",
+        partner_name: null,
         producer_count: producerCountMap.get(s.id)?.size || 0,
         status: s.status,
         delivery_start: s.delivery_start,
@@ -345,7 +345,7 @@ export default function ShipmentDetails() {
                         <Badge variant="outline" className="text-xs">{s.project}</Badge>
                       </TableCell>
                       <TableCell>{s.destination}</TableCell>
-                      <TableCell>{s.partner_name}</TableCell>
+                      <TableCell>{(s.partner_id && partnerNameById.get(s.partner_id)) || "—"}</TableCell>
                       <TableCell className="text-xs">{s.campaign}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
