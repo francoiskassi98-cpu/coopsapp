@@ -251,19 +251,40 @@ export default function ShipmentDetails() {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-base flex items-center gap-2">
-              <Package className="h-5 w-5" /> Liste des chargements ({shipments.length})
+              <Package className="h-5 w-5" /> Liste des chargements ({visibleShipments.length})
             </CardTitle>
-            <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}>
-              Actualiser
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Select value={campaignFilter} onValueChange={setCampaignFilter}>
+                <SelectTrigger className="w-40"><SelectValue placeholder="Campagne" /></SelectTrigger>
+                <SelectContent>
+                  {labels.map((l) => (
+                    <SelectItem key={l} value={l}>
+                      {l}{l === activeCampaign ? " (active)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={registreFilter} onValueChange={setRegistreFilter}>
+                <SelectTrigger className="w-52"><SelectValue placeholder="Tous les registres" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les registres</SelectItem>
+                  {registreOptions.map((name) => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}>
+                Actualiser
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           {loading ? (
             <p className="text-sm text-muted-foreground text-center py-8">Chargement des données...</p>
-          ) : shipments.length === 0 ? (
+          ) : visibleShipments.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">Aucun chargement trouvé.</p>
           ) : (
             <div className="overflow-auto">
