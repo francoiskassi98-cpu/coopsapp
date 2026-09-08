@@ -107,9 +107,11 @@ export default function CreateShipment() {
   const activeCampaign = normalizeCampaign(getCurrentCampaign());
   const { registres: campaignRegistres, loading: registresLoading } = useCampaignRegistres(activeCampaign);
 
-  useEffect(() => {
-    setCooperatives(campaignRegistres.map((r) => ({ id: r.id, name: r.name, cooperative_id: r.cooperative_id ?? undefined })));
-  }, [campaignRegistres]);
+  // Les registres de la campagne sont une donnée dérivée : aucun état ni effet.
+  const cooperatives = useMemo(
+    () => campaignRegistres.map((r) => ({ id: r.id, name: r.name, cooperative_id: r.cooperative_id ?? undefined })),
+    [campaignRegistres]
+  );
 
   // Un registre sans données sur la campagne active ne peut pas être utilisé.
   useEffect(() => {
@@ -117,15 +119,9 @@ export default function CreateShipment() {
     if (selectedCoopId && !campaignRegistres.some((r) => r.id === selectedCoopId)) setSelectedCoopId("");
   }, [campaignRegistres, registresLoading, selectedCoopId]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.from("partners").select("id, name, cooperative_id, logo_path, status").order("name");
-      if (cancelled) return;
-      setPartners(data || []);
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  // Partenaires : source unique mise en cache (partagée avec les autres modules).
+  const { partners, refreshPartners } = usePartners();
+
 
 
 
