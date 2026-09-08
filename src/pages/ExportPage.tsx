@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { exportToExcel } from "@/lib/excel-utils";
 import { fetchAllRows, type PaginatedQuery } from "@/lib/database-utils";
 import { useCampaignLabels } from "@/hooks/useCampaign";
+import { useCampaignRegistres } from "@/hooks/useCampaignRegistres";
+import { useRegistres } from "@/hooks/useRegistres";
 import { toast } from "@/hooks/use-toast";
 import { FileSpreadsheet, Download, Users, Ship, MapPin, Loader2, Calendar } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
