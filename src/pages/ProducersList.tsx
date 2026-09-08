@@ -231,10 +231,10 @@ export default function Producers() {
           .delete()
           .eq("section_name", sectionName)
           .eq("registre_id", registreId)
-          .eq("campaign_label", activeCampaign)
+          .eq("campaign_label", campaignFilter)
       : await supabase
           .from("disabled_sections")
-          .insert({ section_name: sectionName, registre_id: registreId, campaign_label: activeCampaign });
+          .insert({ section_name: sectionName, registre_id: registreId, campaign_label: campaignFilter });
 
     if (error) {
       console.error("[disabled_sections] toggle", error);
