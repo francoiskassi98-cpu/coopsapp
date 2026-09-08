@@ -46,25 +46,22 @@ async function fetchAllRows<T>(query: PaginatedQuery): Promise<T[]> {
 
 export default function ShipmentHistory() {
   const [shipments, setShipments] = useState<HistoryShipment[]>([]);
-  const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedCoop, setSelectedCoop] = useState("all");
+  const { labels, activeCampaign } = useCampaignLabels();
+  const [campaignFilter, setCampaignFilter] = useState(activeCampaign);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [shipmentsData, coopsData] = await Promise.all([
-        fetchAllRows<HistoryShipment>(
-          supabase
-            .from("shipments")
-            .select("id, connaissement, lot_number, project, destination, total_weight, total_bags, created_at, zone, campaign_label, partners(name), registres(name)")
-            .order("created_at", { ascending: false }) as unknown as PaginatedQuery
-        ),
-        supabase.from("registres").select("id, name").order("name"),
-      ]);
+      const shipmentsData = await fetchAllRows<HistoryShipment>(
+        supabase
+          .from("shipments")
+          .select("id, connaissement, lot_number, project, destination, total_weight, total_bags, created_at, zone, campaign_label, partners(name), registres(name)")
+          .order("created_at", { ascending: false }) as unknown as PaginatedQuery
+      );
       setShipments(shipmentsData);
-      setCooperatives(coopsData.data || []);
     } catch (e) {
       console.error(e);
       toast.error("Erreur lors du chargement");
