@@ -247,6 +247,32 @@ export default function ShipmentDetails() {
     }
   };
 
+  /** Chargements de la campagne sélectionnée. */
+  const campaignShipments = useMemo(
+    () => shipments.filter((s) => normalizeCampaign(s.campaign) === campaignFilter),
+    [shipments, campaignFilter]
+  );
+
+  /** Registres réellement présents dans la campagne sélectionnée. */
+  const registreOptions = useMemo(
+    () =>
+      Array.from(new Set(campaignShipments.map((s) => s.cooperative_name || "").filter(Boolean)))
+        .sort((a, b) => a.localeCompare(b, "fr")),
+    [campaignShipments]
+  );
+
+  useEffect(() => {
+    if (registreFilter !== "all" && !registreOptions.includes(registreFilter)) setRegistreFilter("all");
+  }, [registreOptions, registreFilter]);
+
+  const visibleShipments = useMemo(
+    () =>
+      registreFilter === "all"
+        ? campaignShipments
+        : campaignShipments.filter((s) => s.cooperative_name === registreFilter),
+    [campaignShipments, registreFilter]
+  );
+
   return (
     <div className="space-y-4">
       <Card>
