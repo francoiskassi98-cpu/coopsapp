@@ -21,6 +21,8 @@ import ShipmentHistory from "@/components/ShipmentHistory";
 import { TemplatePreview, type TemplatePreviewData } from "@/components/shipments/TemplatePreview";
 import PageHeader from "@/components/PageHeader";
 import { useActiveShipmentTemplates } from "@/hooks/useShipmentTemplates";
+import { useCampaignRegistres } from "@/hooks/useCampaignRegistres";
+
 import { buildEligibleProducers, validateDistributionBeforeSave, MIN_REMAINING_WEIGHT_KG, MIN_DAYS_BETWEEN_DELIVERIES } from "@/lib/producer-eligibility";
 
 
