@@ -577,7 +577,8 @@ export default function Producers() {
 
       // Campagnes présentes dans le fichier (colonne « Campagne », sinon campagne active)
       const fileCampaigns = Array.from(new Set(rowsWithRegistre.map(({ row }) => rowCampaign(row))));
-      const dupKey = (campaign: string, code: string) => `${campaign}|${code}`;
+      const dupKey = (registreId: string, campaign: string, code: string) => `${registreId}|${campaign}|${code}`;
+      const fileRegistres = Array.from(new Set(rowsWithRegistre.map((x) => x.registreId)));
 
       if (importMode === "insert") {
         step = "vérification des codes plantation existants";
@@ -587,14 +588,16 @@ export default function Producers() {
           const chunk = allCodes.slice(i, i + 500);
           const { data, error } = await supabase
             .from("producers")
-            .select("plantation_code, campaign_label")
+            .select("plantation_code, campaign_label, registre_id")
             .in("campaign_label", fileCampaigns)
+            .in("registre_id", fileRegistres)
             .in("plantation_code", chunk);
           if (error) throw error;
-          (data ?? []).forEach((p) => existingCodes.add(dupKey(p.campaign_label, p.plantation_code)));
+          (data ?? []).forEach((p) => existingCodes.add(dupKey(p.registre_id, p.campaign_label, p.plantation_code)));
         }
 
-        const newRows = rowsWithRegistre.filter(({ row }) => !existingCodes.has(dupKey(rowCampaign(row), row.plantation_code)));
+        const newRows = rowsWithRegistre.filter(({ row, registreId }) => !existingCodes.has(dupKey(registreId, rowCampaign(row), row.plantation_code)));
+
         const skipped = rowsWithRegistre.length - newRows.length;
 
         if (skipped > 0) {
