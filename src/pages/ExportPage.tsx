@@ -19,8 +19,7 @@ type QueryErrorLike = { message?: string; details?: string; hint?: string } | nu
 
 const notifyError = (title: string, err?: unknown) => {
   if (err) console.error(`[Export] ${title}`, err);
-  const e = (err ?? null) as QueryErrorLike;
-  const description = e?.message || e?.details || e?.hint || undefined;
+  const description = err ? "Une erreur est survenue. Veuillez réessayer." : undefined;
   toast({ title, description, variant: "destructive" });
 };
 
