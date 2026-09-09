@@ -598,6 +598,8 @@ export default function Producers() {
           campaign_label: string;
           registre_id: string;
           carte_ccc: string | null;
+          nom: string | null;
+          prenom: string | null;
           producer_number: string | null;
           national_id: string | null;
           producer_code: string | null;
@@ -615,7 +617,7 @@ export default function Producers() {
           const { data, error } = await supabase
             .from("producers")
             .select(
-              "id, plantation_code, campaign_label, registre_id, carte_ccc, producer_number, national_id, producer_code, sexe, section, total_cocoa_area, num_plots, plantation_area, latitude, longitude"
+              "id, plantation_code, campaign_label, registre_id, carte_ccc, nom, prenom, producer_number, national_id, producer_code, sexe, section, total_cocoa_area, num_plots, plantation_area, latitude, longitude"
             )
             .in("campaign_label", fileCampaigns)
             .in("registre_id", fileRegistres)
@@ -653,6 +655,8 @@ export default function Producers() {
             }
           };
           fillText("carte_ccc", src.carte_ccc);
+          fillText("nom", src.nom);
+          fillText("prenom", src.prenom);
           fillText("producer_number", src.producer_number);
           fillText("national_id", src.national_id);
           fillText("producer_code", src.producer_code);
@@ -695,7 +699,7 @@ export default function Producers() {
           }
           toast({
             title: "Importation réussie",
-            description: `${newRows.length} producteur(s) ajouté(s) — campagne ${fileCampaigns.join(", ")}.`,
+            description: `${newRows.length} créé(s), ${completions.length} mis à jour, ${existingRows.size} doublon(s) détecté(s), ${importReport?.rejectedRows ?? 0} ligne(s) rejetée(s) — campagne ${fileCampaigns.join(", ")}.`,
           });
         } else if (completions.length === 0) {
           toast({ title: "Aucun changement", description: "Les producteurs du fichier sont déjà à jour." });
@@ -762,7 +766,7 @@ export default function Producers() {
 
         toast({
           title: "Mise à jour réussie",
-          description: `${updatedCount} mis à jour, ${insertedCount} nouveau(x).`,
+          description: `${insertedCount} créé(s), ${updatedCount} mis à jour, ${updatedCount} doublon(s) détecté(s), ${importReport?.rejectedRows ?? 0} ligne(s) rejetée(s).`,
         });
       }
 
