@@ -80,10 +80,11 @@ export async function loadReportData(
   shQ = shQ.eq("is_cancelled", false).order("created_at", { ascending: true });
   let shipments = await fetchAll<ShipmentReportRow>(shQ.returns<ShipmentReportRow[]>());
 
-  // Producer registry (for campaign-specific potential)
+  // Producteurs de la campagne (source unique du potentiel, multi-campagne)
   let prQ = supabase
-    .from("producer_registry")
-    .select("section, potentiel_livraison, potentiel_restant, latitude, longitude, cni, surface_cacao_totale, registres(name)");
+    .from("producers")
+    .select("section, delivery_potential, remaining_potential, latitude, longitude, national_id, total_cocoa_area, registres(name)")
+    .is("deleted_at", null);
   if (filters.campaignId) prQ = prQ.eq("campaign_label", filters.campaignId);
   let registry = (await fetchAll<RegistryReportRow>(prQ.returns<RegistryReportRow[]>())).map((r) => ({
     ...r,
