@@ -127,6 +127,32 @@ const COLUMN_MAP: Record<string, { field: keyof ProducerRow; header: string }> =
 for (const col of TEMPLATE_COLUMNS) {
   COLUMN_MAP[stripAccents(normalizeHeader(col.header))] = { field: col.field, header: col.header };
 }
+// Compatibilité ascendante : les anciens fichiers contenant une seule colonne
+// « Nom et prenom du producteur » restent acceptés et sont scindés automatiquement.
+const LEGACY_FULL_NAME_HEADERS = [
+  "nom et prenom du producteur",
+  "nom et prenoms du producteur",
+  "nom et prenom",
+  "nom et prenoms",
+  "nom complet",
+];
+for (const h of LEGACY_FULL_NAME_HEADERS) {
+  COLUMN_MAP[h] = { field: "full_name", header: "Nom et prenom du producteur" };
+}
+
+/** Scinde un nom complet : premier mot = NOM, le reste = PRÉNOM(S). */
+export function splitFullName(raw: unknown): { nom: string; prenom: string } {
+  const s = String(raw ?? "").replace(/\s+/g, " ").trim();
+  if (!s) return { nom: "", prenom: "" };
+  const idx = s.indexOf(" ");
+  if (idx === -1) return { nom: s, prenom: "" };
+  return { nom: s.slice(0, idx), prenom: s.slice(idx + 1).trim() };
+}
+
+/** Nom complet pour l'affichage uniquement : `NOM PRÉNOM`. */
+export function joinFullName(nom?: string | null, prenom?: string | null): string {
+  return [String(nom ?? "").trim(), String(prenom ?? "").trim()].filter(Boolean).join(" ");
+}
 
 /** Ligne brute lue depuis Excel : en-tête → valeur de cellule. */
 type RawExcelRow = Record<string, ExcelJS.CellValue>;
