@@ -274,9 +274,16 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
 
     const rowErrors: ImportError[] = [];
 
-    // Champs obligatoires
-    if (!row.full_name || String(row.full_name).trim() === "") {
-      rowErrors.push(makeError(rowNum, "Nom et prenom du producteur", row.full_name, "Champ obligatoire vide", "Nom et prénom du producteur", "Renseignez le nom complet."));
+    // Nom / Prénom : colonnes distinctes, avec repli sur l'ancienne colonne unique.
+    let nom = String(row.nom ?? "").replace(/\s+/g, " ").trim();
+    let prenom = String(row.prenom ?? "").replace(/\s+/g, " ").trim();
+    if (!nom && !prenom && row.full_name) {
+      const split = splitFullName(row.full_name);
+      nom = split.nom;
+      prenom = split.prenom;
+    }
+    if (!nom) {
+      rowErrors.push(makeError(rowNum, "Nom", row.nom ?? row.full_name, "Champ obligatoire vide", "Nom du producteur", "Renseignez le nom dans la colonne « Nom »."));
     }
     if (!row.section || String(row.section).trim() === "") {
       rowErrors.push(makeError(rowNum, "Section", row.section, "Champ obligatoire vide", "Nom de la section", "Renseignez la section."));
