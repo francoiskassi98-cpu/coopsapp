@@ -99,8 +99,8 @@ export async function loadReportData(
   }
 
   // Stats
-  const totalPotential = registry.reduce((s, r) => s + num(r.potentiel_livraison), 0);
-  const remaining = registry.reduce((s, r) => s + num(r.potentiel_restant), 0);
+  const totalPotential = registry.reduce((s, r) => s + num(r.delivery_potential), 0);
+  const remaining = registry.reduce((s, r) => s + num(r.remaining_potential), 0);
   const totalDelivered = shipments.reduce((s, sh) => s + num(sh.total_weight), 0);
 
   // Group helpers
@@ -133,8 +133,8 @@ export async function loadReportData(
   registry.forEach((r) => {
     const k = r.cooperative || "Inconnu";
     if (!coopPot[k]) coopPot[k] = { potentiel: 0, remaining: 0 };
-    coopPot[k].potentiel += num(r.potentiel_livraison);
-    coopPot[k].remaining += num(r.potentiel_restant);
+    coopPot[k].potentiel += num(r.delivery_potential);
+    coopPot[k].remaining += num(r.remaining_potential);
   });
   const coopDel: Record<string, { delivered: number; count: number }> = {};
   shipments.forEach((s) => {
@@ -158,7 +158,7 @@ export async function loadReportData(
   registry.forEach((r) => {
     const k = `${r.section}__${r.cooperative}`;
     if (!secMap[k]) secMap[k] = { potentiel: 0, cooperative: r.cooperative || "—" };
-    secMap[k].potentiel += num(r.potentiel_livraison);
+    secMap[k].potentiel += num(r.delivery_potential);
   });
   const topSections = Object.entries(secMap)
     .map(([k, v]) => ({ name: k.split("__")[0], cooperative: v.cooperative, potentiel: v.potentiel }))
@@ -179,8 +179,8 @@ export async function loadReportData(
 
   // Tracability
   const withGps = registry.filter((r) => r.latitude && r.longitude).length;
-  const withoutCni = registry.filter((r) => !r.cni || String(r.cni).trim() === "").length;
-  const areas = registry.map((r) => num(r.surface_cacao_totale)).filter((n) => n > 0);
+  const withoutCni = registry.filter((r) => !r.national_id || String(r.national_id).trim() === "").length;
+  const areas = registry.map((r) => num(r.total_cocoa_area)).filter((n) => n > 0);
   const avgArea = areas.length > 0 ? areas.reduce((s, v) => s + v, 0) / areas.length : 0;
 
   return {
