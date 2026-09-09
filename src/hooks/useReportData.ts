@@ -25,15 +25,15 @@ interface ShipmentReportRow {
   registres?: { name: string } | null;
 }
 
-/** Ligne du registre producteurs utilisée pour les statistiques du rapport. */
+/** Ligne producteur utilisée pour les statistiques du rapport (source : table `producers`). */
 interface RegistryReportRow {
   section: string;
-  potentiel_livraison: number | string | null;
-  potentiel_restant: number | string | null;
+  delivery_potential: number | string | null;
+  remaining_potential: number | string | null;
   latitude: number | string | null;
   longitude: number | string | null;
-  cni: string | null;
-  surface_cacao_totale: number | string | null;
+  national_id: string | null;
+  total_cocoa_area: number | string | null;
   registres?: { name: string } | null;
   /** Nom du registre normalisé côté client. */
   cooperative?: string;
@@ -80,10 +80,11 @@ export async function loadReportData(
   shQ = shQ.eq("is_cancelled", false).order("created_at", { ascending: true });
   let shipments = await fetchAll<ShipmentReportRow>(shQ.returns<ShipmentReportRow[]>());
 
-  // Producer registry (for campaign-specific potential)
+  // Producteurs de la campagne (source unique du potentiel, multi-campagne)
   let prQ = supabase
-    .from("producer_registry")
-    .select("section, potentiel_livraison, potentiel_restant, latitude, longitude, cni, surface_cacao_totale, registres(name)");
+    .from("producers")
+    .select("section, delivery_potential, remaining_potential, latitude, longitude, national_id, total_cocoa_area, registres(name)")
+    .is("deleted_at", null);
   if (filters.campaignId) prQ = prQ.eq("campaign_label", filters.campaignId);
   let registry = (await fetchAll<RegistryReportRow>(prQ.returns<RegistryReportRow[]>())).map((r) => ({
     ...r,
@@ -98,8 +99,8 @@ export async function loadReportData(
   }
 
   // Stats
-  const totalPotential = registry.reduce((s, r) => s + num(r.potentiel_livraison), 0);
-  const remaining = registry.reduce((s, r) => s + num(r.potentiel_restant), 0);
+  const totalPotential = registry.reduce((s, r) => s + num(r.delivery_potential), 0);
+  const remaining = registry.reduce((s, r) => s + num(r.remaining_potential), 0);
   const totalDelivered = shipments.reduce((s, sh) => s + num(sh.total_weight), 0);
 
   // Group helpers
@@ -132,8 +133,8 @@ export async function loadReportData(
   registry.forEach((r) => {
     const k = r.cooperative || "Inconnu";
     if (!coopPot[k]) coopPot[k] = { potentiel: 0, remaining: 0 };
-    coopPot[k].potentiel += num(r.potentiel_livraison);
-    coopPot[k].remaining += num(r.potentiel_restant);
+    coopPot[k].potentiel += num(r.delivery_potential);
+    coopPot[k].remaining += num(r.remaining_potential);
   });
   const coopDel: Record<string, { delivered: number; count: number }> = {};
   shipments.forEach((s) => {
@@ -157,7 +158,7 @@ export async function loadReportData(
   registry.forEach((r) => {
     const k = `${r.section}__${r.cooperative}`;
     if (!secMap[k]) secMap[k] = { potentiel: 0, cooperative: r.cooperative || "—" };
-    secMap[k].potentiel += num(r.potentiel_livraison);
+    secMap[k].potentiel += num(r.delivery_potential);
   });
   const topSections = Object.entries(secMap)
     .map(([k, v]) => ({ name: k.split("__")[0], cooperative: v.cooperative, potentiel: v.potentiel }))
@@ -178,8 +179,8 @@ export async function loadReportData(
 
   // Tracability
   const withGps = registry.filter((r) => r.latitude && r.longitude).length;
-  const withoutCni = registry.filter((r) => !r.cni || String(r.cni).trim() === "").length;
-  const areas = registry.map((r) => num(r.surface_cacao_totale)).filter((n) => n > 0);
+  const withoutCni = registry.filter((r) => !r.national_id || String(r.national_id).trim() === "").length;
+  const areas = registry.map((r) => num(r.total_cocoa_area)).filter((n) => n > 0);
   const avgArea = areas.length > 0 ? areas.reduce((s, v) => s + v, 0) / areas.length : 0;
 
   return {
