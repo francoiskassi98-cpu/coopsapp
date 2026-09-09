@@ -352,7 +352,9 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
 
     rows.push({
       cooperative: String(row.cooperative || "").trim(),
-      full_name: String(row.full_name).trim(),
+      nom,
+      prenom,
+      full_name: joinFullName(nom, prenom),
       producer_number: String(row.producer_number || "").trim(),
       national_id: String(row.national_id || "").trim(),
       producer_code: String(row.producer_code || "").trim(),
