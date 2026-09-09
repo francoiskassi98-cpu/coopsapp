@@ -2,7 +2,12 @@ import { format, addDays, differenceInDays } from "date-fns";
 
 export interface ProducerForDistribution {
   id: string;
+  /** Nom complet (affichage) : `NOM PRÉNOM`. */
   full_name: string;
+  /** Nom (patronyme), conservé séparément jusqu'au fichier Excel. */
+  nom?: string | null;
+  /** Prénom(s), conservé séparément jusqu'au fichier Excel. */
+  prenom?: string | null;
   section: string;
   plantation_code: string;
   /** Carte CCC du producteur (texte brut, issue du registre de la campagne). */
@@ -14,6 +19,8 @@ export interface ProducerForDistribution {
 export interface DistributionResult {
   producer_id: string;
   full_name: string;
+  nom?: string | null;
+  prenom?: string | null;
   section: string;
   plantation_code: string;
   carte_ccc?: string | null;
@@ -266,6 +273,8 @@ export function distributeShipment(
     return {
       producer_id: e.producer.id,
       full_name: e.producer.full_name,
+      nom: e.producer.nom ?? null,
+      prenom: e.producer.prenom ?? null,
       section: e.producer.section,
       plantation_code: e.producer.plantation_code,
       carte_ccc: e.producer.carte_ccc ?? null,

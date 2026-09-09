@@ -330,6 +330,8 @@ export default function CreateShipment() {
       producers.map((p) => ({
         id: p.id,
         full_name: p.full_name,
+        nom: p.nom,
+        prenom: p.prenom,
         section: p.section,
         plantation_code: p.plantation_code,
         carte_ccc: p.carte_ccc,
@@ -1303,6 +1305,8 @@ export default function CreateShipment() {
                                 lot: lotNumber != null ? String(lotNumber) : "Attribué à l'enregistrement",
                                 producers: preview.map((d) => ({
                                   name: d.full_name,
+                                  nom: d.nom || "",
+                                  prenom: d.prenom || "",
                                   receipt: d.receipt_number,
                                   section: d.section,
                                   plant: d.plantation_code,
@@ -1325,6 +1329,7 @@ export default function CreateShipment() {
                                 <TableHead className="w-12">N°</TableHead>
                                 <SortableHeader column="receipt" label="N° Reçu" sortConfig={sortConfig} onToggle={toggleSort} />
                                 <SortableHeader column="name" label="Nom" sortConfig={sortConfig} onToggle={toggleSort} />
+                                <SortableHeader column="prenom" label="Prénom" sortConfig={sortConfig} onToggle={toggleSort} />
                                 <SortableHeader column="code" label="Code plantation" sortConfig={sortConfig} onToggle={toggleSort} />
                                 <SortableHeader column="section" label="Section" sortConfig={sortConfig} onToggle={toggleSort} />
                                 <SortableHeader column="weight" label="Poids (kg)" sortConfig={sortConfig} onToggle={toggleSort} />
@@ -1337,7 +1342,8 @@ export default function CreateShipment() {
                               {sortData(preview, (d, col) => {
                                 switch (col) {
                                   case "receipt": return d.receipt_number;
-                                  case "name": return d.full_name;
+                                  case "name": return d.nom || d.full_name;
+                                  case "prenom": return d.prenom || "";
                                   case "code": return d.plantation_code;
                                   case "section": return d.section;
                                   case "weight": return d.allocated_weight;
@@ -1351,7 +1357,8 @@ export default function CreateShipment() {
                                 <TableRow key={d.receipt_number}>
                                   <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                                   <TableCell className="font-mono text-xs">{d.receipt_number}</TableCell>
-                                  <TableCell>{d.full_name}</TableCell>
+                                  <TableCell>{d.nom || d.full_name}</TableCell>
+                                  <TableCell>{d.prenom || "—"}</TableCell>
                                   <TableCell className="font-mono text-xs">{d.plantation_code}</TableCell>
                                   <TableCell>{d.section}</TableCell>
                                   {editingIndex === originalIndex ? (

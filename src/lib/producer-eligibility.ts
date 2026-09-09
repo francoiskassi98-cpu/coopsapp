@@ -5,7 +5,7 @@ import type { Tables } from "@/integrations/supabase/types";
 /** Colonnes producteurs nécessaires au calcul d'éligibilité. */
 type ProducerRow = Pick<
   Tables<"producers">,
-  "id" | "full_name" | "section" | "plantation_code" | "delivery_potential" | "remaining_potential" | "carte_ccc"
+  "id" | "full_name" | "nom" | "prenom" | "section" | "plantation_code" | "delivery_potential" | "remaining_potential" | "carte_ccc"
 >;
 /** Colonnes livraisons nécessaires au calcul d'éligibilité. */
 type DeliveryRow = Pick<Tables<"deliveries">, "producer_id" | "net_weight" | "delivery_date">;
@@ -16,7 +16,12 @@ export const MIN_DAYS_BETWEEN_DELIVERIES = 15;
 
 export interface EligibleProducer {
   id: string;
+  /** Nom complet (affichage uniquement) : `NOM PRÉNOM`. */
   full_name: string;
+  /** Nom (patronyme) tel que stocké en base. */
+  nom: string;
+  /** Prénom(s) tel que stocké en base. */
+  prenom: string;
   section: string;
   plantation_code: string;
   /** Carte CCC du producteur pour la campagne/registre concernés (texte brut). */
@@ -94,7 +99,7 @@ export async function buildEligibleProducers(
   while (true) {
     const { data, error } = await supabase
       .from("producers")
-      .select("id, full_name, section, plantation_code, delivery_potential, remaining_potential, carte_ccc")
+      .select("id, full_name, nom, prenom, section, plantation_code, delivery_potential, remaining_potential, carte_ccc")
       .eq("is_active", true)
       .eq("registre_id", registreId)
       .eq("campaign_label", campaignLabel)
@@ -183,6 +188,8 @@ export async function buildEligibleProducers(
     eligible.push({
       id: p.id,
       full_name: name,
+      nom: p.nom || "",
+      prenom: p.prenom || "",
       section: p.section || "",
       plantation_code: p.plantation_code || "",
       carte_ccc: p.carte_ccc || null,

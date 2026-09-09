@@ -3,6 +3,11 @@ import { currentCampaign, normalizeCampaign } from "@/lib/campaign";
 
 export interface ProducerRow {
   cooperative: string;
+  /** Nom (patronyme) du producteur — stocké séparément. */
+  nom: string;
+  /** Prénom(s) du producteur — stocké séparément. */
+  prenom: string;
+  /** Nom complet reconstitué pour l'affichage uniquement : `NOM PRÉNOM`. */
   full_name: string;
   producer_number: string;
   national_id: string;
@@ -100,7 +105,8 @@ function validateCampaign(raw: unknown): { ok: boolean; value: string } {
 export const TEMPLATE_COLUMNS: { header: string; field: keyof ProducerRow }[] = [
   { header: "Registre", field: "cooperative" },
   { header: "Campagne", field: "campaign_label" },
-  { header: "Nom et prenom du producteur", field: "full_name" },
+  { header: "Nom", field: "nom" },
+  { header: "Prénom", field: "prenom" },
   { header: "Numero du producteur", field: "producer_number" },
   { header: "N° identification nationale du producteur", field: "national_id" },
   { header: "Code du producteur", field: "producer_code" },
@@ -120,6 +126,32 @@ export const TEMPLATE_COLUMNS: { header: string; field: keyof ProducerRow }[] = 
 const COLUMN_MAP: Record<string, { field: keyof ProducerRow; header: string }> = {};
 for (const col of TEMPLATE_COLUMNS) {
   COLUMN_MAP[stripAccents(normalizeHeader(col.header))] = { field: col.field, header: col.header };
+}
+// Compatibilité ascendante : les anciens fichiers contenant une seule colonne
+// « Nom et prenom du producteur » restent acceptés et sont scindés automatiquement.
+const LEGACY_FULL_NAME_HEADERS = [
+  "nom et prenom du producteur",
+  "nom et prenoms du producteur",
+  "nom et prenom",
+  "nom et prenoms",
+  "nom complet",
+];
+for (const h of LEGACY_FULL_NAME_HEADERS) {
+  COLUMN_MAP[h] = { field: "full_name", header: "Nom et prenom du producteur" };
+}
+
+/** Scinde un nom complet : premier mot = NOM, le reste = PRÉNOM(S). */
+export function splitFullName(raw: unknown): { nom: string; prenom: string } {
+  const s = String(raw ?? "").replace(/\s+/g, " ").trim();
+  if (!s) return { nom: "", prenom: "" };
+  const idx = s.indexOf(" ");
+  if (idx === -1) return { nom: s, prenom: "" };
+  return { nom: s.slice(0, idx), prenom: s.slice(idx + 1).trim() };
+}
+
+/** Nom complet pour l'affichage uniquement : `NOM PRÉNOM`. */
+export function joinFullName(nom?: string | null, prenom?: string | null): string {
+  return [String(nom ?? "").trim(), String(prenom ?? "").trim()].filter(Boolean).join(" ");
 }
 
 /** Ligne brute lue depuis Excel : en-tête → valeur de cellule. */
@@ -242,9 +274,16 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
 
     const rowErrors: ImportError[] = [];
 
-    // Champs obligatoires
-    if (!row.full_name || String(row.full_name).trim() === "") {
-      rowErrors.push(makeError(rowNum, "Nom et prenom du producteur", row.full_name, "Champ obligatoire vide", "Nom et prénom du producteur", "Renseignez le nom complet."));
+    // Nom / Prénom : colonnes distinctes, avec repli sur l'ancienne colonne unique.
+    let nom = String(row.nom ?? "").replace(/\s+/g, " ").trim();
+    let prenom = String(row.prenom ?? "").replace(/\s+/g, " ").trim();
+    if (!nom && !prenom && row.full_name) {
+      const split = splitFullName(row.full_name);
+      nom = split.nom;
+      prenom = split.prenom;
+    }
+    if (!nom) {
+      rowErrors.push(makeError(rowNum, "Nom", row.nom ?? row.full_name, "Champ obligatoire vide", "Nom du producteur", "Renseignez le nom dans la colonne « Nom »."));
     }
     if (!row.section || String(row.section).trim() === "") {
       rowErrors.push(makeError(rowNum, "Section", row.section, "Champ obligatoire vide", "Nom de la section", "Renseignez la section."));
@@ -313,7 +352,9 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
 
     rows.push({
       cooperative: String(row.cooperative || "").trim(),
-      full_name: String(row.full_name).trim(),
+      nom,
+      prenom,
+      full_name: joinFullName(nom, prenom),
       producer_number: String(row.producer_number || "").trim(),
       national_id: String(row.national_id || "").trim(),
       producer_code: String(row.producer_code || "").trim(),
@@ -393,7 +434,8 @@ export async function downloadImportTemplate() {
   const example: Record<string, string | number> = {
     cooperative: "COOP-EXEMPLE",
     campaign_label: currentCampaign(),
-    full_name: "KOUAME KOFFI",
+    nom: "KOUAME",
+    prenom: "KOFFI JEAN",
     producer_number: "001",
     national_id: "",
     producer_code: "P-001",

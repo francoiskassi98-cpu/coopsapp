@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle, ShieldOff, ToggleLeft, ToggleRight } from "lucide-react";
 import { useSortableTable, SortableHeader, type SortValue } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
-import { parseExcelFile, downloadImportTemplate, exportToExcel, downloadErrorReport, type ProducerRow, type ImportError, type ImportReport } from "@/lib/excel-utils";
+import { parseExcelFile, downloadImportTemplate, exportToExcel, downloadErrorReport, type ProducerRow, type ImportError, type ImportReport, joinFullName } from "@/lib/excel-utils";
 import PageHeader from "@/components/PageHeader";
 import { Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -81,7 +81,7 @@ export default function Producers() {
         .select("*, registres(id, name)")
         .eq("campaign_label", campaignFilter)
         .order("section", { ascending: true })
-        .order("full_name", { ascending: true })
+        .order("nom", { ascending: true })
         .range(from, from + PAGE - 1)
         .returns<FetchedProducer[]>();
       if (!data || data.length === 0) break;
@@ -120,7 +120,10 @@ export default function Producers() {
       if (statusFilter === "inactive" && p.is_active !== false) return false;
       if (!s) return true;
       return (
+        (p.nom || "").toLowerCase().includes(s) ||
+        (p.prenom || "").toLowerCase().includes(s) ||
         p.full_name.toLowerCase().includes(s) ||
+        (p.producer_code || "").toLowerCase().includes(s) ||
         p.plantation_code.toLowerCase().includes(s) ||
         (p.carte_ccc || "").toLowerCase().includes(s) ||
         p.section.toLowerCase().includes(s)
@@ -283,7 +286,8 @@ export default function Producers() {
 
   function openEdit(p: ProducerListRow) {
     setEditForm({
-      full_name: p.full_name,
+      nom: p.nom || "",
+      prenom: p.prenom || "",
       section: p.section,
       plantation_code: p.plantation_code,
       registre_id: p.registre_id,
@@ -340,7 +344,8 @@ export default function Producers() {
     const rows = data.map((p) => ({
       "Registre": p.cooperative,
       "Campagne": p.campaign_label || "",
-      "Nom et prenom du producteur": p.full_name,
+      "Nom": p.nom || "",
+      "Prénom": p.prenom || "",
       "Numero du producteur": p.producer_number || "",
       "N° identification nationale du producteur": p.national_id || "",
       "Code du producteur": p.producer_code || "",
@@ -479,6 +484,8 @@ export default function Producers() {
         .map((p) => ({
           registre_id: p.registre_id,
           campaign_label: activeCampaign,
+          nom: p.nom,
+          prenom: p.prenom,
           full_name: p.full_name,
           producer_number: p.producer_number,
           national_id: p.national_id,
@@ -523,7 +530,9 @@ export default function Producers() {
     return {
       registre_id: registreId,
       campaign_label: rowCampaign(r),
-      full_name: r.full_name,
+      nom: r.nom,
+      prenom: r.prenom || null,
+      full_name: joinFullName(r.nom, r.prenom),
       producer_number: r.producer_number || null,
       national_id: r.national_id || null,
       producer_code: r.producer_code || null,
@@ -589,6 +598,8 @@ export default function Producers() {
           campaign_label: string;
           registre_id: string;
           carte_ccc: string | null;
+          nom: string | null;
+          prenom: string | null;
           producer_number: string | null;
           national_id: string | null;
           producer_code: string | null;
@@ -606,7 +617,7 @@ export default function Producers() {
           const { data, error } = await supabase
             .from("producers")
             .select(
-              "id, plantation_code, campaign_label, registre_id, carte_ccc, producer_number, national_id, producer_code, sexe, section, total_cocoa_area, num_plots, plantation_area, latitude, longitude"
+              "id, plantation_code, campaign_label, registre_id, carte_ccc, nom, prenom, producer_number, national_id, producer_code, sexe, section, total_cocoa_area, num_plots, plantation_area, latitude, longitude"
             )
             .in("campaign_label", fileCampaigns)
             .in("registre_id", fileRegistres)
@@ -644,6 +655,8 @@ export default function Producers() {
             }
           };
           fillText("carte_ccc", src.carte_ccc);
+          fillText("nom", src.nom);
+          fillText("prenom", src.prenom);
           fillText("producer_number", src.producer_number);
           fillText("national_id", src.national_id);
           fillText("producer_code", src.producer_code);
@@ -686,7 +699,7 @@ export default function Producers() {
           }
           toast({
             title: "Importation réussie",
-            description: `${newRows.length} producteur(s) ajouté(s) — campagne ${fileCampaigns.join(", ")}.`,
+            description: `${newRows.length} créé(s), ${completions.length} mis à jour, ${existingRows.size} doublon(s) détecté(s), ${importReport?.rejectedRows ?? 0} ligne(s) rejetée(s) — campagne ${fileCampaigns.join(", ")}.`,
           });
         } else if (completions.length === 0) {
           toast({ title: "Aucun changement", description: "Les producteurs du fichier sont déjà à jour." });
@@ -753,7 +766,7 @@ export default function Producers() {
 
         toast({
           title: "Mise à jour réussie",
-          description: `${updatedCount} mis à jour, ${insertedCount} nouveau(x).`,
+          description: `${insertedCount} créé(s), ${updatedCount} mis à jour, ${updatedCount} doublon(s) détecté(s), ${importReport?.rejectedRows ?? 0} ligne(s) rejetée(s).`,
         });
       }
 
@@ -894,7 +907,7 @@ export default function Producers() {
         <div className="relative w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher par nom, code, section..."
+            placeholder="Rechercher par nom, prénom, code producteur, section..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -934,7 +947,8 @@ export default function Producers() {
                       />
                     </TableHead>
                     <TableHead>Statut</TableHead>
-                    <SortableHeader column="full_name" label="Nom complet" sortConfig={sortConfig} onToggle={toggleSort} />
+                    <SortableHeader column="nom" label="Nom" sortConfig={sortConfig} onToggle={toggleSort} />
+                    <SortableHeader column="prenom" label="Prénom" sortConfig={sortConfig} onToggle={toggleSort} />
                     <SortableHeader column="sexe" label="Sexe" sortConfig={sortConfig} onToggle={toggleSort} />
                     <SortableHeader column="section" label="Section" sortConfig={sortConfig} onToggle={toggleSort} />
                     <SortableHeader column="plantation_code" label="Code plantation" sortConfig={sortConfig} onToggle={toggleSort} />
@@ -948,7 +962,7 @@ export default function Producers() {
                 <TableBody>
                   {filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center text-muted-foreground">
+                      <TableCell colSpan={12} className="text-center text-muted-foreground">
                         Aucun producteur trouvé
                       </TableCell>
                     </TableRow>
@@ -971,7 +985,8 @@ export default function Producers() {
                             <Badge variant="default" className="text-xs bg-green-600">Actif</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="font-medium">{p.full_name}</TableCell>
+                        <TableCell className="font-medium">{p.nom || p.full_name}</TableCell>
+                        <TableCell>{p.prenom || "—"}</TableCell>
                         <TableCell>{p.sexe || "—"}</TableCell>
                         <TableCell>{p.section}</TableCell>
                         <TableCell className="font-mono text-xs">{p.plantation_code}</TableCell>
@@ -1183,7 +1198,8 @@ export default function Producers() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nom complet</TableHead>
+                      <TableHead>Nom</TableHead>
+                      <TableHead>Prénom</TableHead>
                       <TableHead>Section</TableHead>
                       <TableHead>Code plantation</TableHead>
                       <TableHead>Carte CCC</TableHead>
@@ -1194,7 +1210,8 @@ export default function Producers() {
                   <TableBody>
                     {parsedRows.slice(0, 100).map((r, i) => (
                       <TableRow key={i}>
-                        <TableCell>{r.full_name}</TableCell>
+                        <TableCell>{r.nom}</TableCell>
+                        <TableCell>{r.prenom || "—"}</TableCell>
                         <TableCell>{r.section}</TableCell>
                         <TableCell className="font-mono text-xs">{r.plantation_code}</TableCell>
                         <TableCell className="font-mono text-xs">{r.carte_ccc || "—"}</TableCell>
@@ -1224,7 +1241,8 @@ export default function Producers() {
           </DialogHeader>
           {detailProducer && (
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><span className="text-muted-foreground">Nom :</span> <strong>{detailProducer.full_name}</strong></div>
+              <div><span className="text-muted-foreground">Nom :</span> <strong>{detailProducer.nom || detailProducer.full_name}</strong></div>
+              <div><span className="text-muted-foreground">Prénom :</span> <strong>{detailProducer.prenom || "—"}</strong></div>
               <div><span className="text-muted-foreground">Sexe :</span> <strong>{detailProducer.sexe || "—"}</strong></div>
               <div><span className="text-muted-foreground">Section :</span> <strong>{detailProducer.section}</strong></div>
               <div><span className="text-muted-foreground">Registre :</span> <strong>{detailProducer.cooperative}</strong></div>
@@ -1255,9 +1273,15 @@ export default function Producers() {
             <DialogDescription>Modifiez les informations du producteur</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div>
-              <Label>Nom complet</Label>
-              <Input value={editForm.full_name || ""} onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Nom</Label>
+                <Input value={editForm.nom || ""} onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })} placeholder="ex : KOUASSI" />
+              </div>
+              <div>
+                <Label>Prénom</Label>
+                <Input value={editForm.prenom || ""} onChange={(e) => setEditForm({ ...editForm, prenom: e.target.value })} placeholder="ex : Jean Pierre" />
+              </div>
             </div>
             <div>
               <Label>Carte CCC</Label>
