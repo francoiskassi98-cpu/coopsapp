@@ -501,12 +501,14 @@ export type Database = {
           id: string
           latitude: number | null
           longitude: number | null
+          nom: string | null
           nom_complet: string
           num_men: number | null
           num_women: number | null
           numero_producteur: string | null
           potentiel_livraison: number
           potentiel_restant: number
+          prenom: string | null
           registre_id: string
           section: string
           sexe: string | null
@@ -523,12 +525,14 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
+          nom?: string | null
           nom_complet: string
           num_men?: number | null
           num_women?: number | null
           numero_producteur?: string | null
           potentiel_livraison?: number
           potentiel_restant?: number
+          prenom?: string | null
           registre_id: string
           section: string
           sexe?: string | null
@@ -545,12 +549,14 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
+          nom?: string | null
           nom_complet?: string
           num_men?: number | null
           num_women?: number | null
           numero_producteur?: string | null
           potentiel_livraison?: number
           potentiel_restant?: number
+          prenom?: string | null
           registre_id?: string
           section?: string
           sexe?: string | null
@@ -579,11 +585,13 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           national_id: string | null
+          nom: string | null
           num_men: number | null
           num_plots: number | null
           num_women: number | null
           plantation_area: number | null
           plantation_code: string
+          prenom: string | null
           producer_code: string | null
           producer_number: string | null
           registre_id: string
@@ -605,11 +613,13 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           national_id?: string | null
+          nom?: string | null
           num_men?: number | null
           num_plots?: number | null
           num_women?: number | null
           plantation_area?: number | null
           plantation_code: string
+          prenom?: string | null
           producer_code?: string | null
           producer_number?: string | null
           registre_id: string
@@ -631,11 +641,13 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           national_id?: string | null
+          nom?: string | null
           num_men?: number | null
           num_plots?: number | null
           num_women?: number | null
           plantation_area?: number | null
           plantation_code?: string
+          prenom?: string | null
           producer_code?: string | null
           producer_number?: string | null
           registre_id?: string
