@@ -434,7 +434,8 @@ export async function downloadImportTemplate() {
   const example: Record<string, string | number> = {
     cooperative: "COOP-EXEMPLE",
     campaign_label: currentCampaign(),
-    full_name: "KOUAME KOFFI",
+    nom: "KOUAME",
+    prenom: "KOFFI JEAN",
     producer_number: "001",
     national_id: "",
     producer_code: "P-001",
