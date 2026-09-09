@@ -50,7 +50,14 @@ interface DeliveryFicheRow {
   delivery_date: string | null;
   net_weight: number | null;
   num_bags: number | null;
-  producers?: { full_name: string | null; section: string | null; plantation_code: string | null; carte_ccc: string | null } | null;
+  producers?: {
+    full_name: string | null;
+    nom: string | null;
+    prenom: string | null;
+    section: string | null;
+    plantation_code: string | null;
+    carte_ccc: string | null;
+  } | null;
 }
 
 const FALLBACK_TEMPLATE: TemplateConfig = {
@@ -139,8 +146,8 @@ function extOf(url: string): "png" | "jpeg" {
 // ============================================================================
 // Layout EXACTEMENT conforme au modèle fourni (FICHIER EXEMPLE.xlsx)
 // - A4 Paysage
-// - Largeurs colonnes fixes A=8, B=35, C=18, D=20, E=25, F=28, G=22, H=20, I=18
-// - Titre A1:I1 fusionné
+// - Largeurs colonnes fixes A=8, B=24 (Nom), C=24 (Prénom), D=18, E=20, F=25, G=28, H=22, I=20, J=18
+// - Titre A1:J1 fusionné
 // - Logos physiques (coop gauche, partenaire droite) en overlay sur la ligne 1
 // - Bloc infos en horizontal lignes 2-11 (fusions A:B, C:D, F:G)
 // - Tableau producteurs commence STRICTEMENT à la ligne 13
@@ -163,7 +170,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
     supabase
       .from("deliveries")
       .select(
-        "receipt_number, delivery_date, net_weight, num_bags, producers(full_name, section, plantation_code, carte_ccc)"
+        "receipt_number, delivery_date, net_weight, num_bags, producers(full_name, nom, prenom, section, plantation_code, carte_ccc)"
       )
       .eq("shipment_id", shipmentId)
       .order("receipt_number", { ascending: true })
@@ -196,8 +203,8 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   });
 
   // Largeurs de colonnes fixes (obligatoire — ne jamais laisser Excel auto-générer)
-  const widths = [8, 35, 18, 20, 25, 28, 22, 20, 18];
-  const LAST_COL = "I";
+  const widths = [8, 24, 24, 18, 20, 25, 28, 22, 20, 18];
+  const LAST_COL = "J";
   widths.forEach((w, i) => (ws.getColumn(i + 1).width = w));
 
   const thin: Partial<ExcelJS.Borders> = {
@@ -253,7 +260,7 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   // Les deux logos sont chargés en parallèle pour accélérer la génération
   await Promise.all([
     tpl.coop_logo_path ? addLogo(tpl.coop_logo_path, 0.1) : null,
-    tpl.show_partner_logo && tpl.partner_logo_path ? addLogo(tpl.partner_logo_path, 8.05) : null,
+    tpl.show_partner_logo && tpl.partner_logo_path ? addLogo(tpl.partner_logo_path, 9.05) : null,
   ]);
 
   // ============================================================
@@ -388,7 +395,8 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   const HEADER_ROW = 13;
   const headers = [
     "N°",
-    "Nom et Prénoms Planteur",
+    "Nom",
+    "Prénom",
     "N° de reçu",
     "Section",
     "Code Plantation",
@@ -417,7 +425,8 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
     const row = ws.getRow(r);
     const values: ExcelJS.CellValue[] = [
       idx + 1,
-      d.producers?.full_name || "",
+      d.producers?.nom || (d.producers?.full_name || "").split(" ")[0] || "",
+      d.producers?.prenom || (d.producers?.full_name || "").split(" ").slice(1).join(" "),
       d.receipt_number || "",
       d.producers?.section || "",
       d.producers?.plantation_code || "",
@@ -433,14 +442,14 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
       cell.border = thin;
       cell.alignment = {
         vertical: "middle",
-        horizontal: i === 1 || i === 4 ? "left" : "center",
-        indent: i === 1 ? 1 : 0,
+        horizontal: i === 1 || i === 2 || i === 5 ? "left" : "center",
+        indent: i === 1 || i === 2 ? 1 : 0,
         wrapText: true,
       };
     });
-    row.getCell(6).numFmt = "dd/mm/yyyy";
-    row.getCell(7).numFmt = "#,##0";
-    row.getCell(9).numFmt = "@";
+    row.getCell(7).numFmt = "dd/mm/yyyy";
+    row.getCell(8).numFmt = "#,##0";
+    row.getCell(10).numFmt = "@";
     row.height = 20;
     r += 1;
   });
@@ -448,27 +457,27 @@ export async function buildShipmentFicheWorkbook(shipmentId: string): Promise<{ 
   // ===== LIGNE TOTAL =====
   const totalWeight = rows.reduce((s, d) => s + (Number(d.net_weight) || 0), 0);
   const totalBags = rows.reduce((s, d) => s + (Number(d.num_bags) || 0), 0);
-  ws.mergeCells(`A${r}:F${r}`);
+  ws.mergeCells(`A${r}:G${r}`);
   const totalLabel = ws.getCell(`A${r}`);
   totalLabel.value = "TOTAL";
   totalLabel.font = { ...font, bold: true, size: 11 };
   totalLabel.alignment = { horizontal: "right", vertical: "middle", indent: 1 };
   totalLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F5E9" } };
-  for (let c = 1; c <= 6; c++) ws.getCell(r, c).border = thin;
-  const tw = ws.getCell(r, 7);
+  for (let c = 1; c <= 7; c++) ws.getCell(r, c).border = thin;
+  const tw = ws.getCell(r, 8);
   tw.value = totalWeight;
   tw.numFmt = "#,##0";
   tw.font = { ...font, bold: true };
   tw.alignment = center;
   tw.border = thin;
   tw.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F5E9" } };
-  const tb = ws.getCell(r, 8);
+  const tb = ws.getCell(r, 9);
   tb.value = totalBags;
   tb.font = { ...font, bold: true };
   tb.alignment = center;
   tb.border = thin;
   tb.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F5E9" } };
-  const tc = ws.getCell(r, 9);
+  const tc = ws.getCell(r, 10);
   tc.border = thin;
   tc.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F5E9" } };
   ws.getRow(r).height = 24;
