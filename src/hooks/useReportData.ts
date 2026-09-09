@@ -25,15 +25,15 @@ interface ShipmentReportRow {
   registres?: { name: string } | null;
 }
 
-/** Ligne du registre producteurs utilisée pour les statistiques du rapport. */
+/** Ligne producteur utilisée pour les statistiques du rapport (source : table `producers`). */
 interface RegistryReportRow {
   section: string;
-  potentiel_livraison: number | string | null;
-  potentiel_restant: number | string | null;
+  delivery_potential: number | string | null;
+  remaining_potential: number | string | null;
   latitude: number | string | null;
   longitude: number | string | null;
-  cni: string | null;
-  surface_cacao_totale: number | string | null;
+  national_id: string | null;
+  total_cocoa_area: number | string | null;
   registres?: { name: string } | null;
   /** Nom du registre normalisé côté client. */
   cooperative?: string;
