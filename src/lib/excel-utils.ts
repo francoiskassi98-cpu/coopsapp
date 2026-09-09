@@ -3,6 +3,11 @@ import { currentCampaign, normalizeCampaign } from "@/lib/campaign";
 
 export interface ProducerRow {
   cooperative: string;
+  /** Nom (patronyme) du producteur — stocké séparément. */
+  nom: string;
+  /** Prénom(s) du producteur — stocké séparément. */
+  prenom: string;
+  /** Nom complet reconstitué pour l'affichage uniquement : `NOM PRÉNOM`. */
   full_name: string;
   producer_number: string;
   national_id: string;
