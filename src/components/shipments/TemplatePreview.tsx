@@ -35,7 +35,12 @@ export interface TemplatePreviewData {
   num_producers?: string | number;
   lot?: string;
   producers?: Array<{
+    /** Nom complet (repli d'affichage si nom/prénom absents). */
     name: string;
+    /** Nom (patronyme) — colonne distincte. */
+    nom?: string;
+    /** Prénom(s) — colonne distincte. */
+    prenom?: string;
     receipt: string;
     section: string;
     plant: string;
@@ -89,10 +94,18 @@ const defaultSample = {
 };
 
 const defaultProducers = [
-  { name: "KOFFI Jean", receipt: "000123", section: "A", plant: "PL-001", date: "20/06/2026", weight: "1 250", bags: 20 },
-  { name: "YAO Marie", receipt: "000124", section: "B", plant: "PL-002", date: "20/06/2026", weight: "980", bags: 15 },
-  { name: "TRAORE Paul", receipt: "000125", section: "A", plant: "PL-003", date: "21/06/2026", weight: "1 470", bags: 23 },
+  { name: "KOFFI Jean", nom: "KOFFI", prenom: "Jean", receipt: "000123", section: "A", plant: "PL-001", date: "20/06/2026", weight: "1 250", bags: 20 },
+  { name: "YAO Marie", nom: "YAO", prenom: "Marie", receipt: "000124", section: "B", plant: "PL-002", date: "20/06/2026", weight: "980", bags: 15 },
+  { name: "TRAORE Paul", nom: "TRAORE", prenom: "Paul", receipt: "000125", section: "A", plant: "PL-003", date: "21/06/2026", weight: "1 470", bags: 23 },
 ];
+
+/** Nom / Prénom affichés séparément ; repli sur le nom complet si besoin. */
+function splitName(p: { name?: string; nom?: string; prenom?: string }): { nom: string; prenom: string } {
+  if (p.nom || p.prenom) return { nom: p.nom || "", prenom: p.prenom || "" };
+  const s = String(p.name || "").replace(/\s+/g, " ").trim();
+  const i = s.indexOf(" ");
+  return i === -1 ? { nom: s, prenom: "" } : { nom: s.slice(0, i), prenom: s.slice(i + 1) };
+}
 
 const LOGO_POSITIONS = ["left", "center", "right", "split"] as const;
 export type LogoPosition = (typeof LOGO_POSITIONS)[number];
@@ -214,7 +227,8 @@ export function TemplatePreview(props: TemplatePreviewProps) {
           <thead>
             <tr className="bg-green-700 text-white">
               <th className="border px-2 py-1">N°</th>
-              <th className="border px-2 py-1 text-left">Nom et Prénoms Planteur</th>
+              <th className="border px-2 py-1 text-left">Nom</th>
+              <th className="border px-2 py-1 text-left">Prénom</th>
               <th className="border px-2 py-1">N° de reçu</th>
               <th className="border px-2 py-1">Section</th>
               <th className="border px-2 py-1">Code Plantation</th>
@@ -228,7 +242,8 @@ export function TemplatePreview(props: TemplatePreviewProps) {
             {producers.map((p, i) => (
               <tr key={i}>
                 <td className="border px-2 py-1 text-center">{i + 1}</td>
-                <td className="border px-2 py-1">{p.name}</td>
+                <td className="border px-2 py-1">{splitName(p).nom}</td>
+                <td className="border px-2 py-1">{splitName(p).prenom}</td>
                 <td className="border px-2 py-1 text-center">{p.receipt}</td>
                 <td className="border px-2 py-1 text-center">{p.section}</td>
                 <td className="border px-2 py-1">{p.plant}</td>
@@ -243,7 +258,7 @@ export function TemplatePreview(props: TemplatePreviewProps) {
               const totB = producers.reduce((s, p) => s + (Number(p.bags) || 0), 0);
               return (
                 <tr className="bg-green-50 font-bold">
-                  <td className="border px-2 py-1 text-right" colSpan={6}>TOTAL</td>
+                  <td className="border px-2 py-1 text-right" colSpan={7}>TOTAL</td>
                   <td className="border px-2 py-1 text-right">{totW.toLocaleString("fr-FR")}</td>
                   <td className="border px-2 py-1 text-center">{totB}</td>
                   <td className="border px-2 py-1"></td>
