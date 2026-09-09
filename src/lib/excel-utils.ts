@@ -105,7 +105,8 @@ function validateCampaign(raw: unknown): { ok: boolean; value: string } {
 export const TEMPLATE_COLUMNS: { header: string; field: keyof ProducerRow }[] = [
   { header: "Registre", field: "cooperative" },
   { header: "Campagne", field: "campaign_label" },
-  { header: "Nom et prenom du producteur", field: "full_name" },
+  { header: "Nom", field: "nom" },
+  { header: "Prénom", field: "prenom" },
   { header: "Numero du producteur", field: "producer_number" },
   { header: "N° identification nationale du producteur", field: "national_id" },
   { header: "Code du producteur", field: "producer_code" },
