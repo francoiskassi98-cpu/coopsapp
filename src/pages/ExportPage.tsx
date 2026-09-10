@@ -80,6 +80,8 @@ interface RegistryExportRow {
 
 interface ProducerExportRow {
   full_name: string;
+  nom: string | null;
+  prenom: string | null;
   section: string;
   plantation_code: string;
   delivery_potential: number | null;
