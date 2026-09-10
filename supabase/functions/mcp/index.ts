@@ -27,8 +27,8 @@ var list_producers_default = defineTool({
   handler: async ({ search, limit }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "Non authentifi\xE9" }], isError: true };
     const sb = sbForUser(ctx);
-    let q = sb.from("producers").select("id,full_name,section,plantation_code,delivery_potential,remaining_potential,sexe,is_active,registre_id").order("full_name", { ascending: true }).limit(limit ?? 50);
-    if (search) q = q.ilike("full_name", `%${search}%`);
+    let q = sb.from("producers").select("id,full_name,nom,prenom,section,plantation_code,delivery_potential,remaining_potential,sexe,is_active,registre_id").order("nom", { ascending: true }).limit(limit ?? 50);
+    if (search) q = q.or(`full_name.ilike.%${search}%,nom.ilike.%${search}%,prenom.ilike.%${search}%`);
     const { data, error } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {

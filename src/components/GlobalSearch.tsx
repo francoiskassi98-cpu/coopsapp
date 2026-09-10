@@ -57,14 +57,14 @@ export default function GlobalSearch() {
       const term = `%${safe}%`;
       const campaign = currentCampaign();
       const [{ data: prods }, { data: coops }, { data: parts }, { data: ships }] = await Promise.all([
-        supabase.from("producers").select("id, full_name, plantation_code, section").eq("campaign_label", campaign).or(`full_name.ilike.${term},plantation_code.ilike.${term}`).is("deleted_at", null).limit(6),
+        supabase.from("producers").select("id, full_name, nom, prenom, plantation_code, section").eq("campaign_label", campaign).or(`full_name.ilike.${term},nom.ilike.${term},prenom.ilike.${term},producer_code.ilike.${term},plantation_code.ilike.${term}`).is("deleted_at", null).limit(6),
         supabase.from("cooperatives").select("id, name, acronym").or(`name.ilike.${term},acronym.ilike.${term}`).is("deleted_at", null).limit(4),
         supabase.from("partners").select("id, name").ilike("name", term).is("deleted_at", null).limit(4),
         supabase.from("shipments").select("id, connaissement, lot_number, project").or(`connaissement.ilike.${term},lot_number.ilike.${term}`).is("deleted_at", null).limit(6),
       ]);
       if (cancelled) return;
       const list: Hit[] = [
-        ...((prods ?? []).map((p) => ({ id: p.id, label: p.full_name, sub: `${p.plantation_code} • ${p.section ?? ""}`, route: "/producteurs", icon: Users }))),
+        ...((prods ?? []).map((p) => ({ id: p.id, label: [p.nom, p.prenom].filter(Boolean).join(" ") || p.full_name, sub: `${p.plantation_code} • ${p.section ?? ""}`, route: "/producteurs", icon: Users }))),
         ...((coops ?? []).map((c) => ({ id: c.id, label: c.name, sub: c.acronym, route: "/gestion", icon: Building2 }))),
         ...((parts ?? []).map((p) => ({ id: p.id, label: p.name, route: "/partenaires", icon: Handshake }))),
         ...((ships ?? []).map((s) => ({ id: s.id, label: s.lot_number || s.connaissement || s.id.slice(0, 8), sub: s.project, route: "/chargements", icon: Truck }))),

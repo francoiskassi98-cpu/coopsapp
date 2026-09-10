@@ -295,7 +295,8 @@ export default function ProducerDetail() {
               <CardHeader><CardTitle className="text-base">Informations générales</CardTitle></CardHeader>
               <CardContent>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <Info label="Nom complet" value={producer.full_name} />
+                  <Info label="Nom" value={producer.nom || producer.full_name} />
+                  <Info label="Prénom" value={producer.prenom || "—"} />
                   <Info label="Sexe" value={producer.sexe} />
                   <Info label="N° producteur" value={producer.producer_number} />
                   <Info label="Code producteur" value={producer.producer_code} mono />
