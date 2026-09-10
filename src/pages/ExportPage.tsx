@@ -55,7 +55,7 @@ interface DeliveryExportRow {
   net_weight: number;
   num_bags: number;
   delivery_date: string;
-  producers: { full_name: string | null; section: string | null; plantation_code: string | null } | null;
+  producers: { full_name: string | null; nom: string | null; prenom: string | null; section: string | null; plantation_code: string | null } | null;
   shipments?: {
     connaissement: string | null;
     project: string | null;
@@ -172,7 +172,7 @@ export default function ExportPage() {
         const chunk = shipmentIds.slice(i, i + chunkSize);
         const chunkDeliveries = await fetchAllRows<DeliveryExportRow>(
           "deliveries",
-          "*, producers(full_name, section, plantation_code)",
+          "*, producers(full_name, nom, prenom, section, plantation_code)",
           {
             filters: (q) => q.in("shipment_id", chunk),
             order: { column: "receipt_number", ascending: true },
@@ -189,7 +189,8 @@ export default function ExportPage() {
           "N°": "",
           "Connaissement": s?.connaissement || "",
           "N° Reçu": d.receipt_number,
-          "Nom complet": d.producers?.full_name || "",
+          "Nom": d.producers?.nom || "",
+          "Prénom": d.producers?.prenom || "",
           "Code plantation": d.producers?.plantation_code || "",
           "Section": d.producers?.section || "",
           "Poids net (kg)": d.net_weight,
@@ -240,7 +241,7 @@ export default function ExportPage() {
       }
 
       const deliveries: DeliveryExportRow[] = [];
-      const selectStr = "*, producers(full_name, section, plantation_code), shipments!inner(connaissement, project, destination, campaign_label, zone, registre_id, registres(name), partners(name))";
+      const selectStr = "*, producers(full_name, nom, prenom, section, plantation_code), shipments!inner(connaissement, project, destination, campaign_label, zone, registre_id, registres(name), partners(name))";
       if (shipmentIdFilter && shipmentIdFilter.length > 0) {
         const chunkSize = 100;
         for (let i = 0; i < shipmentIdFilter.length; i += chunkSize) {
@@ -274,7 +275,8 @@ export default function ExportPage() {
         "N°": "",
         "Connaissement": d.shipments?.connaissement || "",
         "N° Reçu": d.receipt_number,
-        "Nom complet": d.producers?.full_name || "",
+        "Nom": d.producers?.nom || "",
+          "Prénom": d.producers?.prenom || "",
         "Code plantation": d.producers?.plantation_code || "",
         "Section": d.producers?.section || "",
         "Poids net (kg)": d.net_weight,
@@ -332,7 +334,7 @@ export default function ExportPage() {
         if (rows.length === 0) {
           const producers = await fetchAllRows<ProducerExportRow>(
             "producers",
-            "full_name, section, plantation_code, delivery_potential, remaining_potential, registre_id, registres(name)",
+            "full_name, nom, prenom, section, plantation_code, delivery_potential, remaining_potential, registre_id, registres(name)",
             {
               filters: (q) => registreFilter ? q.eq("registre_id", registreFilter) : q,
               pageSize: 500,
@@ -340,7 +342,8 @@ export default function ExportPage() {
           );
           rows = producers.map((p) => ({
             "Registre": p.registres?.name || "",
-            "Nom complet": p.full_name,
+            "Nom": p.nom || "",
+            "Prénom": p.prenom || "",
             "Section": p.section,
             "Code plantation": p.plantation_code,
             "Potentiel initial (kg)": p.delivery_potential,
@@ -351,7 +354,7 @@ export default function ExportPage() {
       } else {
         const producers = await fetchAllRows<ProducerExportRow>(
           "producers",
-          "full_name, section, plantation_code, delivery_potential, remaining_potential, registre_id, registres(name)",
+          "full_name, nom, prenom, section, plantation_code, delivery_potential, remaining_potential, registre_id, registres(name)",
           {
             filters: (q) => registreFilter ? q.eq("registre_id", registreFilter) : q,
             pageSize: 500,
@@ -359,7 +362,8 @@ export default function ExportPage() {
         );
         rows = producers.map((p) => ({
           "Registre": p.registres?.name || "",
-          "Nom complet": p.full_name,
+          "Nom": p.nom || "",
+            "Prénom": p.prenom || "",
           "Section": p.section,
           "Code plantation": p.plantation_code,
           "Potentiel initial (kg)": p.delivery_potential,

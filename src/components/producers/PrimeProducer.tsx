@@ -19,7 +19,7 @@ import { useRegistres } from "@/hooks/useRegistres";
 interface Coop { id: string; name: string; logo_path?: string | null }
 interface Campaign { id: string; nom: string }
 interface ProjectOpt { id: string; name: string }
-interface ProducerOpt { id: string; full_name: string; section: string; registre_id: string | null }
+interface ProducerOpt { id: string; full_name: string; nom: string | null; prenom: string | null; section: string; registre_id: string | null }
 
 interface PrimeRow {
   producer_id: string; // représentant (première plantation) pour l'enregistrement
@@ -77,8 +77,8 @@ export default function PrimeProducer() {
       let from = 0;
       while (true) {
         let q = supabase.from("producers")
-          .select("id,full_name,section,registre_id")
-          .order("full_name")
+          .select("id,full_name,nom,prenom,section,registre_id")
+          .order("nom")
           .range(from, from + 999);
         if (coopId && coopId !== "all") q = q.eq("registre_id", coopId);
         if (campaignId !== "all") q = q.eq("campaign_label", campaignId);
@@ -160,7 +160,7 @@ export default function PrimeProducer() {
       for (let i = 0; i < plantationIds.length; i += 500) {
         const chunk = plantationIds.slice(i, i + 500);
         let pq = supabase.from("producers")
-          .select("id,producer_code,full_name,section,registre_id")
+          .select("id,producer_code,full_name,nom,prenom,section,registre_id")
           .in("id", chunk);
         if (campaignId !== "all") pq = pq.eq("campaign_label", campaignId);
         if (section !== "all") pq = pq.eq("section", section);
@@ -367,7 +367,7 @@ export default function PrimeProducer() {
                   {producersList
                     .filter(p => section === "all" || p.section === section)
                     .slice(0, 500)
-                    .map(p => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
+                    .map(p => <SelectItem key={p.id} value={p.id}>{[p.nom, p.prenom].filter(Boolean).join(" ") || p.full_name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
