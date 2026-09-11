@@ -2,12 +2,7 @@ import { format, addDays, differenceInDays } from "date-fns";
 
 export interface ProducerForDistribution {
   id: string;
-  /** Nom complet (affichage) : `NOM PRÉNOM`. */
   full_name: string;
-  /** Nom (patronyme), conservé séparément jusqu'au fichier Excel. */
-  nom?: string | null;
-  /** Prénom(s), conservé séparément jusqu'au fichier Excel. */
-  prenom?: string | null;
   section: string;
   plantation_code: string;
   /** Carte CCC du producteur (texte brut, issue du registre de la campagne). */
@@ -19,8 +14,6 @@ export interface ProducerForDistribution {
 export interface DistributionResult {
   producer_id: string;
   full_name: string;
-  nom?: string | null;
-  prenom?: string | null;
   section: string;
   plantation_code: string;
   carte_ccc?: string | null;
@@ -35,6 +28,12 @@ const MIN_ALLOCATION_KG = 50;
 
 /** Tolérance autorisée autour du sac moyen, en kg (plage ±5 kg). */
 export const BAG_WEIGHT_TOLERANCE_KG = 5;
+
+/** Pourcentage du potentiel prélevé à chaque chargement (règle métier). */
+export const ALLOCATION_PERCENTAGE = 0.1; // 10%
+
+/** Nombre maximum de sacs par producteur par chargement (règle métier). */
+export const MAX_BAGS_PER_PRODUCER = 15;
 
 /**
  * Sac moyen = POIDS TOTAL DÉCLARÉ / NOMBRE DE SACS DÉCLARÉ, arrondi à l'entier supérieur.
@@ -65,9 +64,15 @@ export function isBagWeightInRange(weight: number, bags: number, averageBagWeigh
  * Répartit `totalBags` (entier) sur des poids entiers, de façon EXACTE :
  * la somme des sacs retournés est toujours égale à `totalBags`, et le poids par sac
  * de chaque producteur reste dans la plage sac moyen ±5 kg.
+ * Applique la limite de sacs par producteur (maxBagsPerProducer).
  * Retourne `null` si une répartition entière valide est impossible.
  */
-export function splitBagsExactly(weights: number[], totalBags: number, averageBagWeight: number): number[] | null {
+export function splitBagsExactly(
+  weights: number[],
+  totalBags: number,
+  averageBagWeight: number,
+  maxBagsPerProducer: number = MAX_BAGS_PER_PRODUCER
+): number[] | null {
   const n = weights.length;
   if (n === 0 || !Number.isInteger(totalBags) || totalBags < n) return null;
   const { min, max } = bagWeightRange(averageBagWeight);
@@ -77,8 +82,8 @@ export function splitBagsExactly(weights: number[], totalBags: number, averageBa
   for (const w of weights) {
     if (!Number.isInteger(w) || w <= 0) return null;
     const l = Math.max(1, Math.ceil(w / max));
-    const h = Math.floor(w / min);
-    if (h < l) return null; // poids incompatible avec la plage ±5 kg
+    const h = Math.min(Math.floor(w / min), maxBagsPerProducer); // ✅ Applique la limite max
+    if (h < l) return null; // poids incompatible avec la plage ±5 kg ou dépasse le max
     lo.push(l);
     hi.push(h);
   }
@@ -124,9 +129,10 @@ export function verifyDistributionTotals(
 
 /**
  * Distribue le poids d'un chargement entre les producteurs.
- * Règles conservées : 40 % du potentiel de livraison, solde final si le potentiel restant
+ * Règles conservées : 10% du potentiel de livraison (modifié de 40%), solde final si le potentiel restant
  * est inférieur à ce seuil, exclusion sous 50 kg, jamais plus que le potentiel restant,
  * tri par section A-Z, dates chronologiques, reçus séquentiels.
+ * Nouvelle règle : maximum 15 sacs par producteur par chargement.
  *
  * Garanties strictes ajoutées :
  * - tous les poids et sacs sont des ENTIERS ;
@@ -158,7 +164,7 @@ export function distributeShipment(
   for (const producer of sorted) {
     if (left <= 0) break;
     const cap = Math.floor(producer.remaining_potential);
-    const target = Math.floor(producer.delivery_potential * 0.4);
+    const target = Math.floor(producer.delivery_potential * ALLOCATION_PERCENTAGE); // ✅ 10% au lieu de 40%
     const desired = Math.min(cap, cap < target ? cap : target);
     let take = Math.min(desired, left);
     if (take < MIN_ALLOCATION_KG) continue;
@@ -208,7 +214,7 @@ export function distributeShipment(
     if (entries.length === 0) return [];
     const bagsRange = entries.map((e) => {
       const { min, max } = bagWeightRange(averageBagWeight);
-      return { lo: Math.max(1, Math.ceil(e.weight / max)), hi: Math.floor(e.weight / min) };
+      return { lo: Math.max(1, Math.ceil(e.weight / max)), hi: Math.min(Math.floor(e.weight / min), MAX_BAGS_PER_PRODUCER) }; // ✅ Applique limite max
     });
     const badIndex = bagsRange.findIndex((r, i) => r.hi < r.lo || entries[i].weight < minBagWeight);
     const sumLo = bagsRange.reduce((s, r) => s + r.lo, 0);
@@ -259,7 +265,7 @@ export function distributeShipment(
   if (entries.reduce((s, e) => s + e.weight, 0) !== totalWeight) return [];
 
   const weights = entries.map((e) => e.weight);
-  const bags = splitBagsExactly(weights, totalBags, averageBagWeight);
+  const bags = splitBagsExactly(weights, totalBags, averageBagWeight, MAX_BAGS_PER_PRODUCER); // ✅ Passe la limite de 15 sacs
   if (!bags) return [];
 
 
@@ -273,8 +279,6 @@ export function distributeShipment(
     return {
       producer_id: e.producer.id,
       full_name: e.producer.full_name,
-      nom: e.producer.nom ?? null,
-      prenom: e.producer.prenom ?? null,
       section: e.producer.section,
       plantation_code: e.producer.plantation_code,
       carte_ccc: e.producer.carte_ccc ?? null,
