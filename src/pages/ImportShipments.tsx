@@ -297,11 +297,18 @@ export default function ImportShipments() {
         if (shipErr) throw shipErr;
         totalShipments++;
 
+        const rowProducerKey = (r: ShipmentImportRow) =>
+          producerKey(
+            registreId as string,
+            detectCampaignFromDate(r.date_livraison) || campaignLabel,
+            r.code_plantation
+          );
+
         const deliveries: DeliveryInsert[] = group
-          .filter((r) => producerMap.has(r.code_plantation))
+          .filter((r) => producerMap.has(rowProducerKey(r)))
           .map((r) => ({
             shipment_id: (shipment as { id: string }).id,
-            producer_id: producerMap.get(r.code_plantation)!.id as string,
+            producer_id: producerMap.get(rowProducerKey(r))!.id as string,
             receipt_number: r.numero_recu,
             delivery_date: r.date_livraison || deliveryStart,
             net_weight: r.poids_net,
@@ -317,7 +324,7 @@ export default function ImportShipments() {
         }
 
         for (const r of group) {
-          const producer = producerMap.get(r.code_plantation);
+          const producer = producerMap.get(rowProducerKey(r));
           if (producer) {
             const newPotential = Math.max(0, Number(producer.remaining_potential) - r.poids_net);
             await supabase.from("producers").update({ remaining_potential: newPotential }).eq("id", producer.id as string);
