@@ -210,11 +210,6 @@ export default function ImportShipments() {
     setSaving(true);
 
     try {
-      const allCodes = [...new Set(importRows.map((r) => r.code_plantation))];
-      const producers = await chunkedProducerLookup("id, plantation_code, remaining_potential", allCodes);
-
-      const producerMap = new Map<string, ProducerLookup>(producers.map((p) => [p.plantation_code, p]));
-
       const { data: existingPartners } = await supabase.from("partners").select("id, name");
       const partnerMap = new Map<string, string>((existingPartners ?? []).map((p) => [p.name.toLowerCase(), p.id]));
 
@@ -222,6 +217,20 @@ export default function ImportShipments() {
       const { data: regsData } = await supabase.from("registres").select("id, name, cooperative_id");
       const regNameToId = new Map<string, string>((regsData ?? []).map((r) => [r.name.toLowerCase(), r.id]));
       const regIdToCoopId = new Map<string, string>((regsData ?? []).map((r) => [r.id, r.cooperative_id]));
+
+      const allCodes = [...new Set(importRows.map((r) => r.code_plantation))];
+      const producers = await chunkedProducerLookup(
+        "id, plantation_code, registre_id, campaign_label, remaining_potential",
+        allCodes
+      );
+
+      // Indexation par registre + campagne + code plantation (identité réelle du producteur)
+      const producerMap = new Map<string, ProducerLookup>(
+        producers
+          .filter((p) => p.registre_id && p.campaign_label)
+          .map((p) => [producerKey(p.registre_id as string, p.campaign_label as string, p.plantation_code), p])
+      );
+
 
 
       const groups = groupByShipment(importRows);
