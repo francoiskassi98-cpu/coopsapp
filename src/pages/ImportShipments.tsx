@@ -114,43 +114,56 @@ export default function ImportShipments() {
     setErrors(result.errors);
 
     if (result.rows.length > 0) {
+      // Registres : nécessaires pour identifier le producteur du bon registre
+      const { data: regs } = await supabase.from("registres").select("id, name");
+      const regNameToId = new Map<string, string>((regs ?? []).map((r) => [r.name.toLowerCase(), r.id]));
+      const regNames = new Set((regs ?? []).map((r) => r.name.toLowerCase()));
+
       const codes = [...new Set(result.rows.map((r) => r.code_plantation))];
       const producers = await chunkedProducerLookup(
-        "plantation_code, full_name, section, registre_id, remaining_potential, registres(name)",
+        "plantation_code, full_name, section, registre_id, campaign_label, remaining_potential, registres(name)",
         codes
       );
 
+      // Le même code plantation peut exister dans plusieurs registres/campagnes :
+      // on indexe donc sur registre + campagne + code.
       const producerMap = new Map<string, ProducerLookup>(
-        producers.map((p) => [p.plantation_code, p])
+        producers
+          .filter((p) => p.registre_id && p.campaign_label)
+          .map((p) => [producerKey(p.registre_id as string, p.campaign_label as string, p.plantation_code), p])
       );
 
-      const matched: MatchedProducer[] = codes.map((code) => {
-        const dbProducer = producerMap.get(code);
-
-        const fileRow = result.rows.find((r) => r.code_plantation === code);
-        return {
-          code_plantation: code,
+      const seen = new Set<string>();
+      const matched: MatchedProducer[] = [];
+      for (const r of result.rows) {
+        const key = rowKey(r, regNameToId) ?? `?||?||${r.code_plantation}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const dbProducer = producerMap.get(key);
+        matched.push({
+          code_plantation: r.code_plantation,
           db_full_name: dbProducer?.full_name || "",
           db_section: dbProducer?.section || "",
           db_cooperative: dbProducer?.registres?.name || "",
           db_remaining_potential: Number(dbProducer?.remaining_potential || 0),
-          file_nom_producteur: fileRow?.nom_producteur || "",
+          file_nom_producteur: r.nom_producteur || "",
           matched: !!dbProducer,
-        };
-      });
+        });
+      }
       setMatchedProducers(matched);
 
-      // ✅ NOUVELLE RÈGLE : Vérifier que AUCUN producteur ne dépasse son potentiel restant
-      // (même en import historique, maintenant la règle s'applique)
-      const weightByCode: Record<string, number> = {};
+      // Dépassement de potentiel : avertissement (les imports historiques restent possibles)
+      const weightByKey: Record<string, { code: string; total: number }> = {};
       for (const r of result.rows) {
-        weightByCode[r.code_plantation] = (weightByCode[r.code_plantation] || 0) + r.poids_net;
+        const key = rowKey(r, regNameToId) ?? `?||?||${r.code_plantation}`;
+        const prev = weightByKey[key] ?? { code: r.code_plantation, total: 0 };
+        weightByKey[key] = { code: prev.code, total: prev.total + r.poids_net };
       }
       const potWarn: string[] = [];
-      for (const [code, totalW] of Object.entries(weightByCode)) {
-        const potential = producerMap.get(code)?.remaining_potential;
-        if (potential !== undefined && totalW > Number(potential)) {
-          potWarn.push(`${code} (${totalW.toLocaleString("fr-FR")} kg > potentiel ${Number(potential).toLocaleString("fr-FR")} kg)`);
+      for (const [key, { code, total }] of Object.entries(weightByKey)) {
+        const potential = producerMap.get(key)?.remaining_potential;
+        if (potential !== undefined && potential !== null && total > Number(potential)) {
+          potWarn.push(`${code} (${total.toLocaleString("fr-FR")} kg > potentiel ${Number(potential).toLocaleString("fr-FR")} kg)`);
         }
       }
       setPotentialWarnings(potWarn);
@@ -160,8 +173,6 @@ export default function ImportShipments() {
       // No duplicate check for historical imports
 
       // Vérifie que chaque zone du fichier correspond à un registre existant
-      const { data: regs } = await supabase.from("registres").select("name");
-      const regNames = new Set((regs ?? []).map((r) => r.name.toLowerCase()));
       const missingZones = [...new Set(result.rows.map((r) => r.zone))].filter((z) => !regNames.has(z.toLowerCase()));
       setZoneErrors(missingZones.map((z) => `Zone « ${z} » : aucun registre correspondant. Créez ce registre avant l'import.`));
       if (missingZones.length > 0) {
@@ -173,10 +184,10 @@ export default function ImportShipments() {
         toast({ title: "Fichier valide", description: `${result.rows.length} lignes prêtes à importer.` });
       }
       if (unmatchedCount > 0) {
-        toast({ title: "Producteurs non trouvés", description: `${unmatchedCount} code(s) plantation non trouvé(s) dans le registre.`, variant: "destructive" });
+        toast({ title: "Producteurs non trouvés", description: `${unmatchedCount} code(s) plantation non trouvé(s) dans le registre de cette campagne.`, variant: "destructive" });
       }
       if (potWarn.length > 0) {
-        toast({ title: "Dépassement de potentiel BLOQUANT", description: `${potWarn.length} producteur(s) dépassent leur estimation. Corrigez le fichier avant de continuer.`, variant: "destructive" });
+        toast({ title: "Dépassement de potentiel", description: `${potWarn.length} producteur(s) dépassent leur estimation. Vérifiez le fichier avant de continuer.`, variant: "destructive" });
       }
     }
 
