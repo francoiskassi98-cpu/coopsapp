@@ -535,13 +535,7 @@ export default function ImportShipments() {
               <Button 
                 onClick={handleImportClick} 
                 disabled={saving || !canImport}
-                title={
-                  potentialWarnings.length > 0 
-                    ? "Impossible : au moins 1 producteur dépasse son potentiel" 
-                    : !canImport 
-                    ? "Importation impossible : vérifiez les erreurs ci-dessus"
-                    : ""
-                }
+                title={!canImport ? "Importation impossible : vérifiez les erreurs ci-dessus" : ""}
               >
                 {saving ? "Importation..." : "Valider et importer"}
               </Button>
