@@ -460,17 +460,17 @@ export default function ImportShipments() {
         </Card>
       )}
 
-      {/* Potential exceeded warnings - NOW BLOCKING */}
+      {/* Dépassement de potentiel : avertissement (import historique autorisé) */}
       {potentialWarnings.length > 0 && (
-        <Card className="border-destructive bg-destructive/5">
+        <Card className="border-yellow-500 bg-yellow-500/5">
           <CardHeader>
-            <CardTitle className="text-base text-destructive flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" /> ⛔ Dépassement d'estimation - IMPORT BLOQUÉ ({potentialWarnings.length})
+            <CardTitle className="text-base text-yellow-600 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" /> Dépassement d'estimation ({potentialWarnings.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-destructive mb-3 font-medium">
-              Les producteurs suivants dépassent leur potentiel de livraison. Veuillez corriger le fichier Excel et réessayer.
+            <p className="text-sm text-yellow-600 mb-3 font-medium">
+              Les producteurs suivants dépassent leur potentiel de livraison restant. Vérifiez le fichier ; l'import reste possible pour les chargements historiques.
             </p>
             <ul className="text-sm space-y-1">
               {potentialWarnings.map((w, i) => <li key={i}>{w}</li>)}
