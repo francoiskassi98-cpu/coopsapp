@@ -47,8 +47,26 @@ export default function ImportShipments() {
     full_name?: string;
     section?: string;
     registre_id?: string;
+    campaign_label?: string;
     remaining_potential?: number | string | null;
     registres?: { name: string } | null;
+  };
+
+  /**
+   * Clé d'identité d'un producteur : le même code plantation peut exister
+   * une fois par registre ET par campagne (index unique partiel).
+   */
+  const producerKey = (registreId: string, campaign: string, code: string) =>
+    `${registreId}||${campaign}||${code}`;
+
+  /** Clé d'une ligne du fichier : zone (registre) + campagne déduite de la date. */
+  const rowKey = (
+    row: ShipmentImportRow,
+    regNameToId: Map<string, string>
+  ): string | null => {
+    const registreId = row.zone ? regNameToId.get(row.zone.toLowerCase()) : null;
+    if (!registreId) return null;
+    return producerKey(registreId, detectCampaignFromDate(row.date_livraison), row.code_plantation);
   };
 
   // Helper: chunked insert for deliveries
