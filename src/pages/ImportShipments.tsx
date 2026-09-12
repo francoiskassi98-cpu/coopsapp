@@ -47,8 +47,26 @@ export default function ImportShipments() {
     full_name?: string;
     section?: string;
     registre_id?: string;
+    campaign_label?: string;
     remaining_potential?: number | string | null;
     registres?: { name: string } | null;
+  };
+
+  /**
+   * Clé d'identité d'un producteur : le même code plantation peut exister
+   * une fois par registre ET par campagne (index unique partiel).
+   */
+  const producerKey = (registreId: string, campaign: string, code: string) =>
+    `${registreId}||${campaign}||${code}`;
+
+  /** Clé d'une ligne du fichier : zone (registre) + campagne déduite de la date. */
+  const rowKey = (
+    row: ShipmentImportRow,
+    regNameToId: Map<string, string>
+  ): string | null => {
+    const registreId = row.zone ? regNameToId.get(row.zone.toLowerCase()) : null;
+    if (!registreId) return null;
+    return producerKey(registreId, detectCampaignFromDate(row.date_livraison), row.code_plantation);
   };
 
   // Helper: chunked insert for deliveries
@@ -96,43 +114,56 @@ export default function ImportShipments() {
     setErrors(result.errors);
 
     if (result.rows.length > 0) {
+      // Registres : nécessaires pour identifier le producteur du bon registre
+      const { data: regs } = await supabase.from("registres").select("id, name");
+      const regNameToId = new Map<string, string>((regs ?? []).map((r) => [r.name.toLowerCase(), r.id]));
+      const regNames = new Set((regs ?? []).map((r) => r.name.toLowerCase()));
+
       const codes = [...new Set(result.rows.map((r) => r.code_plantation))];
       const producers = await chunkedProducerLookup(
-        "plantation_code, full_name, section, registre_id, remaining_potential, registres(name)",
+        "plantation_code, full_name, section, registre_id, campaign_label, remaining_potential, registres(name)",
         codes
       );
 
+      // Le même code plantation peut exister dans plusieurs registres/campagnes :
+      // on indexe donc sur registre + campagne + code.
       const producerMap = new Map<string, ProducerLookup>(
-        producers.map((p) => [p.plantation_code, p])
+        producers
+          .filter((p) => p.registre_id && p.campaign_label)
+          .map((p) => [producerKey(p.registre_id as string, p.campaign_label as string, p.plantation_code), p])
       );
 
-      const matched: MatchedProducer[] = codes.map((code) => {
-        const dbProducer = producerMap.get(code);
-
-        const fileRow = result.rows.find((r) => r.code_plantation === code);
-        return {
-          code_plantation: code,
+      const seen = new Set<string>();
+      const matched: MatchedProducer[] = [];
+      for (const r of result.rows) {
+        const key = rowKey(r, regNameToId) ?? `?||?||${r.code_plantation}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const dbProducer = producerMap.get(key);
+        matched.push({
+          code_plantation: r.code_plantation,
           db_full_name: dbProducer?.full_name || "",
           db_section: dbProducer?.section || "",
           db_cooperative: dbProducer?.registres?.name || "",
           db_remaining_potential: Number(dbProducer?.remaining_potential || 0),
-          file_nom_producteur: fileRow?.nom_producteur || "",
+          file_nom_producteur: r.nom_producteur || "",
           matched: !!dbProducer,
-        };
-      });
+        });
+      }
       setMatchedProducers(matched);
 
-      // ✅ NOUVELLE RÈGLE : Vérifier que AUCUN producteur ne dépasse son potentiel restant
-      // (même en import historique, maintenant la règle s'applique)
-      const weightByCode: Record<string, number> = {};
+      // Dépassement de potentiel : avertissement (les imports historiques restent possibles)
+      const weightByKey: Record<string, { code: string; total: number }> = {};
       for (const r of result.rows) {
-        weightByCode[r.code_plantation] = (weightByCode[r.code_plantation] || 0) + r.poids_net;
+        const key = rowKey(r, regNameToId) ?? `?||?||${r.code_plantation}`;
+        const prev = weightByKey[key] ?? { code: r.code_plantation, total: 0 };
+        weightByKey[key] = { code: prev.code, total: prev.total + r.poids_net };
       }
       const potWarn: string[] = [];
-      for (const [code, totalW] of Object.entries(weightByCode)) {
-        const potential = producerMap.get(code)?.remaining_potential;
-        if (potential !== undefined && totalW > Number(potential)) {
-          potWarn.push(`${code} (${totalW.toLocaleString("fr-FR")} kg > potentiel ${Number(potential).toLocaleString("fr-FR")} kg)`);
+      for (const [key, { code, total }] of Object.entries(weightByKey)) {
+        const potential = producerMap.get(key)?.remaining_potential;
+        if (potential !== undefined && potential !== null && total > Number(potential)) {
+          potWarn.push(`${code} (${total.toLocaleString("fr-FR")} kg > potentiel ${Number(potential).toLocaleString("fr-FR")} kg)`);
         }
       }
       setPotentialWarnings(potWarn);
@@ -142,8 +173,6 @@ export default function ImportShipments() {
       // No duplicate check for historical imports
 
       // Vérifie que chaque zone du fichier correspond à un registre existant
-      const { data: regs } = await supabase.from("registres").select("name");
-      const regNames = new Set((regs ?? []).map((r) => r.name.toLowerCase()));
       const missingZones = [...new Set(result.rows.map((r) => r.zone))].filter((z) => !regNames.has(z.toLowerCase()));
       setZoneErrors(missingZones.map((z) => `Zone « ${z} » : aucun registre correspondant. Créez ce registre avant l'import.`));
       if (missingZones.length > 0) {
@@ -155,10 +184,10 @@ export default function ImportShipments() {
         toast({ title: "Fichier valide", description: `${result.rows.length} lignes prêtes à importer.` });
       }
       if (unmatchedCount > 0) {
-        toast({ title: "Producteurs non trouvés", description: `${unmatchedCount} code(s) plantation non trouvé(s) dans le registre.`, variant: "destructive" });
+        toast({ title: "Producteurs non trouvés", description: `${unmatchedCount} code(s) plantation non trouvé(s) dans le registre de cette campagne.`, variant: "destructive" });
       }
       if (potWarn.length > 0) {
-        toast({ title: "Dépassement de potentiel BLOQUANT", description: `${potWarn.length} producteur(s) dépassent leur estimation. Corrigez le fichier avant de continuer.`, variant: "destructive" });
+        toast({ title: "Dépassement de potentiel", description: `${potWarn.length} producteur(s) dépassent leur estimation. Vérifiez le fichier avant de continuer.`, variant: "destructive" });
       }
     }
 
@@ -168,8 +197,8 @@ export default function ImportShipments() {
   };
 
   const unmatchedCount = matchedProducers.filter((m) => !m.matched).length;
-  // ✅ MODIFIER : potentialWarnings empêche l'import
-  const canImport = rows.length > 0 && unmatchedCount === 0 && errors.length === 0 && zoneErrors.length === 0 && potentialWarnings.length === 0;
+  // Les dépassements de potentiel sont signalés mais n'empêchent pas la reprise historique.
+  const canImport = rows.length > 0 && unmatchedCount === 0 && errors.length === 0 && zoneErrors.length === 0;
 
   const handleImportClick = () => {
     if (!canImport) return;
@@ -181,11 +210,6 @@ export default function ImportShipments() {
     setSaving(true);
 
     try {
-      const allCodes = [...new Set(importRows.map((r) => r.code_plantation))];
-      const producers = await chunkedProducerLookup("id, plantation_code, remaining_potential", allCodes);
-
-      const producerMap = new Map<string, ProducerLookup>(producers.map((p) => [p.plantation_code, p]));
-
       const { data: existingPartners } = await supabase.from("partners").select("id, name");
       const partnerMap = new Map<string, string>((existingPartners ?? []).map((p) => [p.name.toLowerCase(), p.id]));
 
@@ -193,6 +217,20 @@ export default function ImportShipments() {
       const { data: regsData } = await supabase.from("registres").select("id, name, cooperative_id");
       const regNameToId = new Map<string, string>((regsData ?? []).map((r) => [r.name.toLowerCase(), r.id]));
       const regIdToCoopId = new Map<string, string>((regsData ?? []).map((r) => [r.id, r.cooperative_id]));
+
+      const allCodes = [...new Set(importRows.map((r) => r.code_plantation))];
+      const producers = await chunkedProducerLookup(
+        "id, plantation_code, registre_id, campaign_label, remaining_potential",
+        allCodes
+      );
+
+      // Indexation par registre + campagne + code plantation (identité réelle du producteur)
+      const producerMap = new Map<string, ProducerLookup>(
+        producers
+          .filter((p) => p.registre_id && p.campaign_label)
+          .map((p) => [producerKey(p.registre_id as string, p.campaign_label as string, p.plantation_code), p])
+      );
+
 
 
       const groups = groupByShipment(importRows);
@@ -259,11 +297,18 @@ export default function ImportShipments() {
         if (shipErr) throw shipErr;
         totalShipments++;
 
+        const rowProducerKey = (r: ShipmentImportRow) =>
+          producerKey(
+            registreId as string,
+            detectCampaignFromDate(r.date_livraison) || campaignLabel,
+            r.code_plantation
+          );
+
         const deliveries: DeliveryInsert[] = group
-          .filter((r) => producerMap.has(r.code_plantation))
+          .filter((r) => producerMap.has(rowProducerKey(r)))
           .map((r) => ({
             shipment_id: (shipment as { id: string }).id,
-            producer_id: producerMap.get(r.code_plantation)!.id as string,
+            producer_id: producerMap.get(rowProducerKey(r))!.id as string,
             receipt_number: r.numero_recu,
             delivery_date: r.date_livraison || deliveryStart,
             net_weight: r.poids_net,
@@ -279,7 +324,7 @@ export default function ImportShipments() {
         }
 
         for (const r of group) {
-          const producer = producerMap.get(r.code_plantation);
+          const producer = producerMap.get(rowProducerKey(r));
           if (producer) {
             const newPotential = Math.max(0, Number(producer.remaining_potential) - r.poids_net);
             await supabase.from("producers").update({ remaining_potential: newPotential }).eq("id", producer.id as string);
@@ -415,17 +460,17 @@ export default function ImportShipments() {
         </Card>
       )}
 
-      {/* Potential exceeded warnings - NOW BLOCKING */}
+      {/* Dépassement de potentiel : avertissement (import historique autorisé) */}
       {potentialWarnings.length > 0 && (
-        <Card className="border-destructive bg-destructive/5">
+        <Card className="border-yellow-500 bg-yellow-500/5">
           <CardHeader>
-            <CardTitle className="text-base text-destructive flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" /> ⛔ Dépassement d'estimation - IMPORT BLOQUÉ ({potentialWarnings.length})
+            <CardTitle className="text-base text-yellow-600 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" /> Dépassement d'estimation ({potentialWarnings.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-destructive mb-3 font-medium">
-              Les producteurs suivants dépassent leur potentiel de livraison. Veuillez corriger le fichier Excel et réessayer.
+            <p className="text-sm text-yellow-600 mb-3 font-medium">
+              Les producteurs suivants dépassent leur potentiel de livraison restant. Vérifiez le fichier ; l'import reste possible pour les chargements historiques.
             </p>
             <ul className="text-sm space-y-1">
               {potentialWarnings.map((w, i) => <li key={i}>{w}</li>)}
@@ -490,13 +535,7 @@ export default function ImportShipments() {
               <Button 
                 onClick={handleImportClick} 
                 disabled={saving || !canImport}
-                title={
-                  potentialWarnings.length > 0 
-                    ? "Impossible : au moins 1 producteur dépasse son potentiel" 
-                    : !canImport 
-                    ? "Importation impossible : vérifiez les erreurs ci-dessus"
-                    : ""
-                }
+                title={!canImport ? "Importation impossible : vérifiez les erreurs ci-dessus" : ""}
               >
                 {saving ? "Importation..." : "Valider et importer"}
               </Button>
