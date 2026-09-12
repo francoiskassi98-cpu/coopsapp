@@ -197,8 +197,8 @@ export default function ImportShipments() {
   };
 
   const unmatchedCount = matchedProducers.filter((m) => !m.matched).length;
-  // ✅ MODIFIER : potentialWarnings empêche l'import
-  const canImport = rows.length > 0 && unmatchedCount === 0 && errors.length === 0 && zoneErrors.length === 0 && potentialWarnings.length === 0;
+  // Les dépassements de potentiel sont signalés mais n'empêchent pas la reprise historique.
+  const canImport = rows.length > 0 && unmatchedCount === 0 && errors.length === 0 && zoneErrors.length === 0;
 
   const handleImportClick = () => {
     if (!canImport) return;
