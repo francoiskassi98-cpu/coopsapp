@@ -195,11 +195,11 @@ export function distributeShipment(
   const used = new Set(entries.map((e) => e.producer.id));
   const pool = sorted.filter((p) => !used.has(p.id));
 
-  /** Ajoute `amount` kg sur les entrées disposant encore de marge (potentiel restant). Retourne le reliquat. */
+  /** Ajoute `amount` kg sur les entrées disposant encore de marge (potentiel/max sacs). Retourne le reliquat. */
   const spread = (amount: number, skip?: number): number => {
     for (let i = 0; i < entries.length && amount > 0; i++) {
       if (i === skip) continue;
-      const room = entries[i].cap - entries[i].weight;
+      const room = entries[i].maxWeight - entries[i].weight;
       if (room <= 0) continue;
       const add = Math.min(room, amount);
       entries[i].weight += add;
@@ -213,7 +213,10 @@ export function distributeShipment(
     if (entries.length === 0) return [];
     const bagsRange = entries.map((e) => {
       const { min, max } = bagWeightRange(averageBagWeight);
-      return { lo: Math.max(1, Math.ceil(e.weight / max)), hi: Math.floor(e.weight / min) };
+      return {
+        lo: Math.max(1, Math.ceil(e.weight / max)),
+        hi: Math.min(Math.floor(e.weight / min), MAX_BAGS_PER_PRODUCER),
+      };
     });
     const badIndex = bagsRange.findIndex((r, i) => r.hi < r.lo || entries[i].weight < minBagWeight);
     const sumLo = bagsRange.reduce((s, r) => s + r.lo, 0);
@@ -238,7 +241,7 @@ export function distributeShipment(
       const next = pool.shift();
       if (!next) return [];
       const cap = Math.floor(next.remaining_potential);
-      const need = Math.min(cap, Math.max(minBagWeight, MIN_ALLOCATION_KG));
+      const need = Math.min(cap, maxProducerWeight, Math.max(minBagWeight, MIN_ALLOCATION_KG));
       let collected = 0;
       const donors = [...entries].sort((a, b) => b.weight - a.weight);
       for (const d of donors) {
@@ -254,7 +257,7 @@ export function distributeShipment(
         if (collected > 0 && spread(collected) !== 0) return [];
         return [];
       }
-      entries.push({ producer: next, cap, weight: collected });
+      entries.push({ producer: next, cap, maxWeight: Math.min(cap, maxProducerWeight), weight: collected });
       continue;
     }
 
