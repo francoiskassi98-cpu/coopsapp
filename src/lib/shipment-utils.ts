@@ -149,37 +149,38 @@ export function distributeShipment(
 
   // Sac moyen dynamique (arrondi supérieur) et plage autorisée ±5 kg.
   const averageBagWeight = computeAverageBagWeight(totalWeight, totalBags);
-  const { min: minBagWeight } = bagWeightRange(averageBagWeight);
+  const { min: minBagWeight, max: maxBagWeight } = bagWeightRange(averageBagWeight);
+  const maxProducerWeight = Math.floor(MAX_BAGS_PER_PRODUCER * maxBagWeight);
 
   const sorted = [...producers]
     .filter((p) => Math.floor(p.remaining_potential) >= MIN_ALLOCATION_KG)
     .sort((a, b) => a.section.localeCompare(b.section));
 
-  // Phase 1 : allocations entières, jamais au-dessus du potentiel restant.
-  const entries: { producer: ProducerForDistribution; cap: number; weight: number }[] = [];
+  // Phase 1 : allocations entières, jamais au-dessus du potentiel restant ni du nombre max de sacs.
+  const entries: { producer: ProducerForDistribution; cap: number; maxWeight: number; weight: number }[] = [];
   let left = totalWeight;
 
   for (const producer of sorted) {
     if (left <= 0) break;
     const cap = Math.floor(producer.remaining_potential);
-    const target = Math.floor(producer.delivery_potential * 0.4);
-    const desired = Math.min(cap, cap < target ? cap : target);
+    const target = Math.floor(producer.delivery_potential * 0.2);
+    const desired = Math.min(cap, target, maxProducerWeight);
     let take = Math.min(desired, left);
     if (take < MIN_ALLOCATION_KG) continue;
-    // Éviter de laisser un reliquat non attribuable (< 50 kg) sur le dernier producteur.
+    // Éviter de laisser un reliquat non attribuable (< 50 kg) sur le dernier producteur (sans dépasser le plafond de sacs).
     const rest = left - take;
-    if (rest > 0 && rest < MIN_ALLOCATION_KG && take + rest <= cap) {
+    if (rest > 0 && rest < MIN_ALLOCATION_KG && take + rest <= cap && take + rest <= maxProducerWeight) {
       take += rest;
     }
-    entries.push({ producer, cap, weight: take });
+    entries.push({ producer, cap, maxWeight: Math.min(cap, maxProducerWeight), weight: take });
     left -= take;
   }
 
-  // Phase 2 : compléter le reliquat éventuel sur les producteurs déjà servis (dans la limite du potentiel).
+  // Phase 2 : compléter le reliquat éventuel sur les producteurs déjà servis (dans les limites du potentiel et du max de sacs).
   if (left > 0) {
     for (const e of entries) {
       if (left <= 0) break;
-      const room = e.cap - e.weight;
+      const room = Math.min(e.cap, e.maxWeight) - e.weight;
       if (room <= 0) continue;
       const add = Math.min(room, left);
       e.weight += add;
