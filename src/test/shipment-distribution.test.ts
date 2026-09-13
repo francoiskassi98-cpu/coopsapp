@@ -73,6 +73,24 @@ describe("distributeShipment — exactitude stricte et plage ±5 kg", () => {
     });
   }
 
+  it("limite chaque producteur à 15 sacs maximum", () => {
+    const r = distributeShipment(producers(20, 3000), 10000, 200, start, end, 0);
+    expect(r.length).toBeGreaterThan(0);
+    for (const d of r) {
+      expect(d.num_bags).toBeLessThanOrEqual(15);
+    }
+  });
+
+  it("prélève 20 % du potentiel de livraison par producteur", () => {
+    // 20 producteurs de 3000 kg, 20 % = 600 kg chacun. Le poids total (10 000) impose un plafond par producteur.
+    const r = distributeShipment(producers(20, 3000), 10000, 200, start, end, 0);
+    expect(r.length).toBeGreaterThan(0);
+    for (const d of r) {
+      expect(d.allocated_weight).toBeLessThanOrEqual(3000);
+      expect(d.allocated_weight).toBeLessThanOrEqual(Math.floor(15 * 55)); // max 15 sacs × poids max
+    }
+  });
+
   it("refuse les totaux non entiers", () => {
     expect(distributeShipment(producers(10), 10000.5, 200, start, end, 0)).toEqual([]);
     expect(distributeShipment(producers(10), 10000, 200.5, start, end, 0)).toEqual([]);
