@@ -149,8 +149,9 @@ export function distributeShipment(
 
   // Sac moyen dynamique (arrondi supérieur) et plage autorisée ±5 kg.
   const averageBagWeight = computeAverageBagWeight(totalWeight, totalBags);
-  const { min: minBagWeight, max: maxBagWeight } = bagWeightRange(averageBagWeight);
-  const maxProducerWeight = Math.floor(MAX_BAGS_PER_PRODUCER * maxBagWeight);
+  const { min: minBagWeight } = bagWeightRange(averageBagWeight);
+  // Poids maximal autorisé pour qu'un producteur puisse être servi en 15 sacs maximum.
+  const maxProducerWeight = Math.floor(MAX_BAGS_PER_PRODUCER * minBagWeight);
 
   const sorted = [...producers]
     .filter((p) => Math.floor(p.remaining_potential) >= MIN_ALLOCATION_KG)
