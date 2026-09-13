@@ -124,9 +124,9 @@ export function verifyDistributionTotals(
 
 /**
  * Distribue le poids d'un chargement entre les producteurs.
- * Règles conservées : 40 % du potentiel de livraison, solde final si le potentiel restant
+ * Règles conservées : 20 % du potentiel de livraison, solde final si le potentiel restant
  * est inférieur à ce seuil, exclusion sous 50 kg, jamais plus que le potentiel restant,
- * tri par section A-Z, dates chronologiques, reçus séquentiels.
+ * maximum 15 sacs par producteur, tri par section A-Z, dates chronologiques, reçus séquentiels.
  *
  * Garanties strictes ajoutées :
  * - tous les poids et sacs sont des ENTIERS ;
