@@ -80,7 +80,8 @@ export function splitBagsExactly(weights: number[], totalBags: number, averageBa
   for (const w of weights) {
     if (!Number.isInteger(w) || w <= 0) return null;
     const l = Math.max(1, Math.ceil(w / max));
-    const h = Math.floor(w / min);
+    if (l > MAX_BAGS_PER_PRODUCER) return null; // impossible de tenir dans 15 sacs
+    const h = Math.min(Math.floor(w / min), MAX_BAGS_PER_PRODUCER);
     if (h < l) return null; // poids incompatible avec la plage ±5 kg
     lo.push(l);
     hi.push(h);
