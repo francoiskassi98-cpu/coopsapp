@@ -33,6 +33,9 @@ export interface DistributionResult {
 /** Poids minimal attribuable à un producteur (règle métier existante). */
 const MIN_ALLOCATION_KG = 50;
 
+/** Nombre maximal de sacs qu'un producteur peut recevoir lors d'une livraison. */
+const MAX_BAGS_PER_PRODUCER = 15;
+
 /** Tolérance autorisée autour du sac moyen, en kg (plage ±5 kg). */
 export const BAG_WEIGHT_TOLERANCE_KG = 5;
 
