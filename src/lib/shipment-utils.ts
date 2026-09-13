@@ -33,6 +33,9 @@ export interface DistributionResult {
 /** Poids minimal attribuable à un producteur (règle métier existante). */
 const MIN_ALLOCATION_KG = 50;
 
+/** Nombre maximal de sacs qu'un producteur peut recevoir lors d'une livraison. */
+const MAX_BAGS_PER_PRODUCER = 15;
+
 /** Tolérance autorisée autour du sac moyen, en kg (plage ±5 kg). */
 export const BAG_WEIGHT_TOLERANCE_KG = 5;
 
@@ -77,7 +80,8 @@ export function splitBagsExactly(weights: number[], totalBags: number, averageBa
   for (const w of weights) {
     if (!Number.isInteger(w) || w <= 0) return null;
     const l = Math.max(1, Math.ceil(w / max));
-    const h = Math.floor(w / min);
+    if (l > MAX_BAGS_PER_PRODUCER) return null; // impossible de tenir dans 15 sacs
+    const h = Math.min(Math.floor(w / min), MAX_BAGS_PER_PRODUCER);
     if (h < l) return null; // poids incompatible avec la plage ±5 kg
     lo.push(l);
     hi.push(h);
@@ -124,9 +128,9 @@ export function verifyDistributionTotals(
 
 /**
  * Distribue le poids d'un chargement entre les producteurs.
- * Règles conservées : 40 % du potentiel de livraison, solde final si le potentiel restant
+ * Règles conservées : 20 % du potentiel de livraison, solde final si le potentiel restant
  * est inférieur à ce seuil, exclusion sous 50 kg, jamais plus que le potentiel restant,
- * tri par section A-Z, dates chronologiques, reçus séquentiels.
+ * maximum 15 sacs par producteur, tri par section A-Z, dates chronologiques, reçus séquentiels.
  *
  * Garanties strictes ajoutées :
  * - tous les poids et sacs sont des ENTIERS ;
@@ -146,36 +150,38 @@ export function distributeShipment(
   // Sac moyen dynamique (arrondi supérieur) et plage autorisée ±5 kg.
   const averageBagWeight = computeAverageBagWeight(totalWeight, totalBags);
   const { min: minBagWeight } = bagWeightRange(averageBagWeight);
+  // Poids maximal autorisé pour qu'un producteur puisse être servi en 15 sacs maximum.
+  const maxProducerWeight = Math.floor(MAX_BAGS_PER_PRODUCER * minBagWeight);
 
   const sorted = [...producers]
     .filter((p) => Math.floor(p.remaining_potential) >= MIN_ALLOCATION_KG)
     .sort((a, b) => a.section.localeCompare(b.section));
 
-  // Phase 1 : allocations entières, jamais au-dessus du potentiel restant.
-  const entries: { producer: ProducerForDistribution; cap: number; weight: number }[] = [];
+  // Phase 1 : allocations entières, jamais au-dessus du potentiel restant ni du nombre max de sacs.
+  const entries: { producer: ProducerForDistribution; cap: number; maxWeight: number; weight: number }[] = [];
   let left = totalWeight;
 
   for (const producer of sorted) {
     if (left <= 0) break;
     const cap = Math.floor(producer.remaining_potential);
-    const target = Math.floor(producer.delivery_potential * 0.4);
-    const desired = Math.min(cap, cap < target ? cap : target);
+    const target = Math.floor(producer.delivery_potential * 0.2);
+    const desired = Math.min(cap, target, maxProducerWeight);
     let take = Math.min(desired, left);
     if (take < MIN_ALLOCATION_KG) continue;
-    // Éviter de laisser un reliquat non attribuable (< 50 kg) sur le dernier producteur.
+    // Éviter de laisser un reliquat non attribuable (< 50 kg) sur le dernier producteur (sans dépasser le plafond de sacs).
     const rest = left - take;
-    if (rest > 0 && rest < MIN_ALLOCATION_KG && take + rest <= cap) {
+    if (rest > 0 && rest < MIN_ALLOCATION_KG && take + rest <= cap && take + rest <= maxProducerWeight) {
       take += rest;
     }
-    entries.push({ producer, cap, weight: take });
+    entries.push({ producer, cap, maxWeight: Math.min(cap, maxProducerWeight), weight: take });
     left -= take;
   }
 
-  // Phase 2 : compléter le reliquat éventuel sur les producteurs déjà servis (dans la limite du potentiel).
+  // Phase 2 : compléter le reliquat éventuel sur les producteurs déjà servis (dans les limites du potentiel et du max de sacs).
   if (left > 0) {
     for (const e of entries) {
       if (left <= 0) break;
-      const room = e.cap - e.weight;
+      const room = Math.min(e.cap, e.maxWeight) - e.weight;
       if (room <= 0) continue;
       const add = Math.min(room, left);
       e.weight += add;
@@ -190,11 +196,11 @@ export function distributeShipment(
   const used = new Set(entries.map((e) => e.producer.id));
   const pool = sorted.filter((p) => !used.has(p.id));
 
-  /** Ajoute `amount` kg sur les entrées disposant encore de marge (potentiel restant). Retourne le reliquat. */
+  /** Ajoute `amount` kg sur les entrées disposant encore de marge (potentiel/max sacs). Retourne le reliquat. */
   const spread = (amount: number, skip?: number): number => {
     for (let i = 0; i < entries.length && amount > 0; i++) {
       if (i === skip) continue;
-      const room = entries[i].cap - entries[i].weight;
+      const room = entries[i].maxWeight - entries[i].weight;
       if (room <= 0) continue;
       const add = Math.min(room, amount);
       entries[i].weight += add;
@@ -208,7 +214,10 @@ export function distributeShipment(
     if (entries.length === 0) return [];
     const bagsRange = entries.map((e) => {
       const { min, max } = bagWeightRange(averageBagWeight);
-      return { lo: Math.max(1, Math.ceil(e.weight / max)), hi: Math.floor(e.weight / min) };
+      return {
+        lo: Math.max(1, Math.ceil(e.weight / max)),
+        hi: Math.min(Math.floor(e.weight / min), MAX_BAGS_PER_PRODUCER),
+      };
     });
     const badIndex = bagsRange.findIndex((r, i) => r.hi < r.lo || entries[i].weight < minBagWeight);
     const sumLo = bagsRange.reduce((s, r) => s + r.lo, 0);
@@ -233,7 +242,7 @@ export function distributeShipment(
       const next = pool.shift();
       if (!next) return [];
       const cap = Math.floor(next.remaining_potential);
-      const need = Math.min(cap, Math.max(minBagWeight, MIN_ALLOCATION_KG));
+      const need = Math.min(cap, maxProducerWeight, Math.max(minBagWeight, MIN_ALLOCATION_KG));
       let collected = 0;
       const donors = [...entries].sort((a, b) => b.weight - a.weight);
       for (const d of donors) {
@@ -249,7 +258,7 @@ export function distributeShipment(
         if (collected > 0 && spread(collected) !== 0) return [];
         return [];
       }
-      entries.push({ producer: next, cap, weight: collected });
+      entries.push({ producer: next, cap, maxWeight: Math.min(cap, maxProducerWeight), weight: collected });
       continue;
     }
 
