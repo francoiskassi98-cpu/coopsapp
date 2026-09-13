@@ -94,10 +94,10 @@ describe("distributeShipment — exactitude stricte et plage ±5 kg", () => {
 
 describe("splitBagsExactly", () => {
   it("répartit exactement les sacs dans la plage ±5 kg", () => {
-    const bags = splitBagsExactly([1000, 2500, 3500, 3000], 200, 50);
+    const bags = splitBagsExactly([300, 400, 500, 600], 36, 50);
     expect(bags).not.toBeNull();
-    expect(bags!.reduce((s, b) => s + b, 0)).toBe(200);
-    expect(bags!.every((b) => Number.isInteger(b) && b > 0)).toBe(true);
+    expect(bags!.reduce((s, b) => s + b, 0)).toBe(36);
+    expect(bags!.every((b) => Number.isInteger(b) && b > 0 && b <= 15)).toBe(true);
   });
 
   it("refuse si moins de sacs que de producteurs", () => {
@@ -106,6 +106,13 @@ describe("splitBagsExactly", () => {
 
   it("refuse un poids incompatible avec la plage", () => {
     expect(splitBagsExactly([10, 20], 2, 70)).toBeNull();
+  });
+
+  it("respecte la limite de 15 sacs par producteur", () => {
+    expect(splitBagsExactly([1000], 20, 50)).toBeNull(); // nécessiterait 19 sacs minimum
+    const capped = splitBagsExactly([600, 600, 600], 33, 50);
+    expect(capped).not.toBeNull();
+    expect(capped!.every((b) => b <= 15)).toBe(true);
   });
 });
 
