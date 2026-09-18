@@ -21,7 +21,12 @@ import { Loader2, UserPlus, Eye, EyeOff, Users, Pencil, Ban, CheckCircle2, KeyRo
 import { useAuth } from "@/hooks/useAuth";
 import PageHeader from "@/components/PageHeader";
 import { PasswordRequirements } from "@/components/PasswordRequirements";
-import { isPasswordValid, PASSWORD_MIN_LENGTH, PASSWORD_REJECTED_MESSAGE } from "@/lib/password-policy";
+import {
+  isPasswordValid,
+  PASSWORD_COMPROMISED_MESSAGE,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REJECTED_MESSAGE,
+} from "@/lib/password-policy";
 
 
 interface UserProfile {
@@ -63,6 +68,19 @@ async function edgeErrorMessage(error: unknown, data: unknown, fallback: string)
     }
   }
   return fallback;
+}
+
+function createUserErrorMessage(message: string): string {
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes("weak") ||
+    normalized.includes("guess") ||
+    normalized.includes("compromis") ||
+    normalized.includes("fuite")
+  ) {
+    return PASSWORD_COMPROMISED_MESSAGE;
+  }
+  return message;
 }
 
 
@@ -191,9 +209,10 @@ export default function UserManagement() {
       });
       if (error || data?.error) {
         console.error("[create-user]", error || data?.error);
+        const message = await edgeErrorMessage(error, data, "La création de l'utilisateur a échoué.");
         toast({
           title: "Création impossible",
-          description: await edgeErrorMessage(error, data, "La création de l'utilisateur a échoué."),
+          description: createUserErrorMessage(message),
           variant: "destructive",
         });
         return;

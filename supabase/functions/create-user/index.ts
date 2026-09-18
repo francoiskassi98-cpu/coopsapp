@@ -113,9 +113,15 @@ Deno.serve(async (req) => {
 
     if (createError || !newUser.user) {
       console.error("[create-user] createUser error:", createError?.message);
-      const already = (createError?.message || "").toLowerCase().includes("already");
+      const createMessage = (createError?.message || "").toLowerCase();
+      const already = createMessage.includes("already");
+      const compromised = createMessage.includes("weak") || createMessage.includes("guess");
       return json({
-        error: already ? "Un utilisateur existe déjà avec cette adresse e-mail." : "Impossible de créer l'utilisateur.",
+        error: already
+          ? "Un utilisateur existe déjà avec cette adresse e-mail."
+          : compromised
+            ? "Ce mot de passe est trop courant ou figure dans une fuite de données connue. Choisissez un mot de passe unique, puis réessayez."
+            : "Impossible de créer l'utilisateur.",
       }, 400);
     }
 
