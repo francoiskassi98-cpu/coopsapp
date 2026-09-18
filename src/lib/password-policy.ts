@@ -71,3 +71,6 @@ export function isPasswordValid(value: string): boolean {
 /** Message affiché lorsque le serveur refuse un mot de passe. */
 export const PASSWORD_REJECTED_MESSAGE =
   "Mot de passe non conforme. Vérifiez les règles affichées sous le champ.";
+
+export const PASSWORD_COMPROMISED_MESSAGE =
+  "Ce mot de passe est trop courant ou figure dans une fuite de données connue. Choisissez un mot de passe unique, puis réessayez.";
