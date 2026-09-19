@@ -91,6 +91,13 @@ describe("distributeShipment — exactitude stricte et plage ±5 kg", () => {
     }
   });
 
+  it("n'attribue jamais le même poids à deux producteurs", () => {
+    const r = distributeShipment(producers(20, 3000), 10000, 200, start, end, 0);
+    expect(r.length).toBeGreaterThan(1);
+    const weights = r.map((d) => d.allocated_weight);
+    expect(new Set(weights).size).toBe(weights.length);
+  });
+
   it("refuse les totaux non entiers", () => {
     expect(distributeShipment(producers(10), 10000.5, 200, start, end, 0)).toEqual([]);
     expect(distributeShipment(producers(10), 10000, 200.5, start, end, 0)).toEqual([]);

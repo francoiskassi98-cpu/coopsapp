@@ -267,6 +267,96 @@ export function distributeShipment(
 
   if (entries.reduce((s, e) => s + e.weight, 0) !== totalWeight) return [];
 
+  // Phase 2 ter : diversification des poids — deux producteurs ne doivent jamais
+  // recevoir exactement le même poids (le nombre de sacs peut, lui, être identique).
+  // Les groupes de poids égaux sont éclatés par des offsets symétriques de somme nulle,
+  // ce qui conserve le total exact, le potentiel et la plage ±5 kg.
+  const minEntryWeight = Math.max(minBagWeight, MIN_ALLOCATION_KG);
+  const upperOf = (e: (typeof entries)[number]) => Math.min(e.cap, e.maxWeight);
+  const diversify = (): boolean => {
+    const counts = new Map<number, number>();
+    for (const e of entries) counts.set(e.weight, (counts.get(e.weight) ?? 0) + 1);
+    const bump = (w: number, d: number) => {
+      const c = (counts.get(w) ?? 0) + d;
+      if (c <= 0) counts.delete(w);
+      else counts.set(w, c);
+    };
+    /** Répartit `-delta` kg sur les autres producteurs (delta>0 : ils perdent, sinon ils gagnent). */
+    const compensate = (delta: number, skip: number): boolean => {
+      const snap = entries.map((e) => e.weight);
+      const snapCounts = new Map(counts);
+      let remaining = Math.abs(delta);
+      const sign = Math.sign(delta);
+      for (let j = 0; j < entries.length && remaining > 0; j++) {
+        if (j === skip) continue;
+        const room = sign > 0 ? entries[j].weight - minEntryWeight : upperOf(entries[j]) - entries[j].weight;
+        if (room <= 0) continue;
+        for (let take = Math.min(room, remaining); take >= 1; take--) {
+          const nw = entries[j].weight - sign * take;
+          if (counts.has(nw)) continue; // ne pas créer de nouveau doublon
+          bump(entries[j].weight, -1);
+          entries[j].weight = nw;
+          bump(nw, 1);
+          remaining -= take;
+          break;
+        }
+      }
+      if (remaining !== 0) {
+        entries.forEach((e, k) => (e.weight = snap[k]));
+        counts.clear();
+        for (const [k, v] of snapCounts) counts.set(k, v);
+        return false;
+      }
+      return true;
+    };
+    for (let i = 0; i < entries.length; i++) {
+      if ((counts.get(entries[i].weight) ?? 0) < 2) continue;
+      let fixed = false;
+      for (let d = 1; d <= 500 && !fixed; d++) {
+        for (const cand of [entries[i].weight + d, entries[i].weight - d]) {
+          if (fixed) break;
+          if (counts.has(cand)) continue;
+          if (cand < minEntryWeight || cand > upperOf(entries[i])) continue;
+          const delta = cand - entries[i].weight;
+          bump(entries[i].weight, -1);
+          entries[i].weight = cand;
+          bump(cand, 1);
+          if (compensate(delta, i)) fixed = true;
+          else {
+            bump(cand, -1);
+            entries[i].weight = cand - delta;
+            bump(cand - delta, 1);
+          }
+        }
+      }
+      if (!fixed) return false;
+    }
+    return counts.size === entries.length;
+  };
+  // Si la diversification est impossible (trop de producteurs au plafond de poids),
+  // élargir la distribution à un participant supplémentaire puis réessayer.
+  for (let guard = 0; entries.length > 1 && !diversify(); guard++) {
+    const next = pool.shift();
+    if (!next || guard > sorted.length + 16) return [];
+    const cap = Math.floor(next.remaining_potential);
+    const need = Math.min(cap, maxProducerWeight, minEntryWeight);
+    let collected = 0;
+    const donors = [...entries].sort((a, b) => b.weight - a.weight);
+    for (const d of donors) {
+      if (collected >= need) break;
+      const spare = d.weight - minEntryWeight;
+      if (spare <= 0) continue;
+      const take = Math.min(spare, need - collected);
+      d.weight -= take;
+      collected += take;
+    }
+    if (collected < need) {
+      if (collected > 0 && spread(collected) !== 0) return [];
+      return [];
+    }
+    entries.push({ producer: next, cap, maxWeight: Math.min(cap, maxProducerWeight), weight: collected });
+  }
+
   const weights = entries.map((e) => e.weight);
   const bags = splitBagsExactly(weights, totalBags, averageBagWeight);
   if (!bags) return [];
