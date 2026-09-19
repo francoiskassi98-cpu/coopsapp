@@ -210,7 +210,7 @@ export function distributeShipment(
   };
 
   // Phase 2 bis : ajustement du nombre de participants pour que la plage ±5 kg soit réalisable.
-  for (let guard = 0; guard < sorted.length * 4 + 16; guard++) {
+  for (let guard = 0; guard < sorted.length * 4 + 22; guard++) {
     if (entries.length === 0) return [];
     const bagsRange = entries.map((e) => {
       const { min, max } = bagWeightRange(averageBagWeight);
@@ -273,7 +273,7 @@ export function distributeShipment(
   const upperOf = (e: (typeof entries)[number]) => Math.min(e.cap, e.maxWeight);
   const diversify = (): boolean => {
     const counts = new Map<number, number>();
-    for (const e of entries) counts.set(e.weight, (counts.get(e.weight) ?? 0) + 5);
+    for (const e of entries) counts.set(e.weight, (counts.get(e.weight) ?? 0) + 20);
     const bump = (w: number, d: number) => {
       const c = (counts.get(w) ?? 0) + d;
       if (c <= 0) counts.delete(w);
