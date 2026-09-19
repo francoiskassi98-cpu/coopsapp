@@ -291,13 +291,15 @@ export function distributeShipment(
         if (j === skip) continue;
         const room = sign > 0 ? entries[j].weight - minEntryWeight : upperOf(entries[j]) - entries[j].weight;
         if (room <= 0) continue;
-        const take = Math.min(room, remaining);
-        const nw = entries[j].weight - sign * take;
-        if (counts.has(nw)) continue; // ne pas créer de nouveau doublon
-        bump(entries[j].weight, -1);
-        entries[j].weight = nw;
-        bump(nw, 1);
-        remaining -= take;
+        for (let take = Math.min(room, remaining); take >= 1; take--) {
+          const nw = entries[j].weight - sign * take;
+          if (counts.has(nw)) continue; // ne pas créer de nouveau doublon
+          bump(entries[j].weight, -1);
+          entries[j].weight = nw;
+          bump(nw, 1);
+          remaining -= take;
+          break;
+        }
       }
       if (remaining !== 0) {
         entries.forEach((e, k) => (e.weight = snap[k]));
