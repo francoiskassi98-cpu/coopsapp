@@ -26,6 +26,7 @@ export function usePartners() {
       const { data, error } = await supabase
         .from("partners")
         .select("id, name, cooperative_id, logo_path, status")
+        .is("deleted_at", null)
         .order("name");
       if (error) { console.error("[usePartners]", error); return []; }
       return (data ?? []) as PartnerRef[];
