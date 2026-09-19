@@ -27,9 +27,9 @@ const totals = (r: { allocated_weight: number; num_bags: number }[]) => ({
 });
 
 describe("sac moyen dynamique", () => {
-  it("TEST 1 : 10 000 kg / 200 sacs → 50 kg, plage 45–55", () => {
+  it("TEST 1 : 10 000 kg / 200 sacs → 50 kg, plage 30–70", () => {
     expect(computeAverageBagWeight(10000, 200)).toBe(50);
-    expect(bagWeightRange(50)).toEqual({ min: 45, max: 55 });
+    expect(bagWeightRange(50)).toEqual({ min: 30, max:  });
   });
 
   it("TEST 2 : 45 223 kg / 652 sacs → 70 kg, plage 65–75", () => {

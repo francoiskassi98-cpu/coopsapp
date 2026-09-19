@@ -36,8 +36,8 @@ const MIN_ALLOCATION_KG = 50;
 /** Nombre maximal de sacs qu'un producteur peut recevoir lors d'une livraison. */
 const MAX_BAGS_PER_PRODUCER = 15;
 
-/** Tolérance autorisée autour du sac moyen, en kg (plage ±20 kg). */
-export const BAG_WEIGHT_TOLERANCE_KG = 20;
+/** Tolérance autorisée autour du sac moyen, en kg (plage ±15 kg). */
+export const BAG_WEIGHT_TOLERANCE_KG = 15;
 
 /**
  * Sac moyen = POIDS TOTAL DÉCLARÉ / NOMBRE DE SACS DÉCLARÉ, arrondi à l'entier supérieur.
@@ -48,7 +48,7 @@ export function computeAverageBagWeight(totalWeight: number, totalBags: number):
   return Math.ceil(totalWeight / totalBags);
 }
 
-/** Plage autorisée du poids par sac d'un producteur : sac moyen ±5 kg. */
+/** Plage autorisée du poids par sac d'un producteur : sac moyen ±15 kg. */
 export function bagWeightRange(averageBagWeight: number): { min: number; max: number } {
   return {
     min: Math.max(1, averageBagWeight - BAG_WEIGHT_TOLERANCE_KG),
@@ -56,7 +56,7 @@ export function bagWeightRange(averageBagWeight: number): { min: number; max: nu
   };
 }
 
-/** Vrai si le poids par sac du producteur respecte la plage sac moyen ±5 kg. */
+/** Vrai si le poids par sac du producteur respecte la plage sac moyen ±15 kg. */
 export function isBagWeightInRange(weight: number, bags: number, averageBagWeight: number): boolean {
   if (!(bags > 0)) return false;
   const { min, max } = bagWeightRange(averageBagWeight);
@@ -82,7 +82,7 @@ export function splitBagsExactly(weights: number[], totalBags: number, averageBa
     const l = Math.max(1, Math.ceil(w / max));
     if (l > MAX_BAGS_PER_PRODUCER) return null; // impossible de tenir dans 15 sacs
     const h = Math.min(Math.floor(w / min), MAX_BAGS_PER_PRODUCER);
-    if (h < l) return null; // poids incompatible avec la plage ±5 kg
+    if (h < l) return null; // poids incompatible avec la plage ±15 kg
     lo.push(l);
     hi.push(h);
   }
@@ -164,7 +164,7 @@ export function distributeShipment(
   for (const producer of sorted) {
     if (left <= 0) break;
     const cap = Math.floor(producer.remaining_potential);
-    const target = Math.floor(producer.delivery_potential * 0.2);
+    const target = Math.floor(producer.delivery_potential * 0.15);
     const desired = Math.min(cap, target, maxProducerWeight);
     let take = Math.min(desired, left);
     if (take < MIN_ALLOCATION_KG) continue;
@@ -210,7 +210,7 @@ export function distributeShipment(
   };
 
   // Phase 2 bis : ajustement du nombre de participants pour que la plage ±5 kg soit réalisable.
-  for (let guard = 0; guard < sorted.length * 4 + 22; guard++) {
+  for (let guard = 0; guard < sorted.length * 4 + 16; guard++) {
     if (entries.length === 0) return [];
     const bagsRange = entries.map((e) => {
       const { min, max } = bagWeightRange(averageBagWeight);
