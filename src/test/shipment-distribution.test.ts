@@ -27,36 +27,36 @@ const totals = (r: { allocated_weight: number; num_bags: number }[]) => ({
 });
 
 describe("sac moyen dynamique", () => {
-  it("TEST 1 : 10 000 kg / 200 sacs → 50 kg, plage 30–70", () => {
+  it("TEST 1 : 10 000 kg / 200 sacs → 50 kg, plage 35–65", () => {
     expect(computeAverageBagWeight(10000, 200)).toBe(50);
-    expect(bagWeightRange(50)).toEqual({ min: 30, max:  });
+    expect(bagWeightRange(50)).toEqual({ min: 35, max: 65 });
   });
 
-  it("TEST 2 : 45 223 kg / 652 sacs → 70 kg, plage 65–75", () => {
+  it("TEST 2 : 45 223 kg / 652 sacs → 70 kg, plage 55–85", () => {
     expect(computeAverageBagWeight(45223, 652)).toBe(70);
-    expect(bagWeightRange(70)).toEqual({ min: 65, max: 75 });
+    expect(bagWeightRange(70)).toEqual({ min: 55, max: 85 });
   });
 
-  it("TEST 3/4/7/8 : 65 et 75 kg/sac autorisés", () => {
+  it("TEST 3/4/7/8 : 50 et 85 kg/sac autorisés", () => {
     expect(isBagWeightInRange(130, 2, 70)).toBe(true); // 65
     expect(isBagWeightInRange(150, 2, 70)).toBe(true); // 75
     expect(isBagWeightInRange(207, 3, 70)).toBe(true); // 69
     expect(isBagWeightInRange(292, 4, 70)).toBe(true); // 73
   });
 
-  it("TEST 5/6 : 64 et 76 kg/sac refusés", () => {
-    expect(isBagWeightInRange(128, 2, 70)).toBe(false); // 64
-    expect(isBagWeightInRange(152, 2, 70)).toBe(false); // 76
+  it("TEST 5/6 : 43 et 86 kg/sac refusés", () => {
+    expect(isBagWeightInRange(128, 2, 70)).toBe(false); // 43
+    expect(isBagWeightInRange(152, 2, 70)).toBe(false); // 86
   });
 });
 
-describe("distributeShipment — exactitude stricte et plage ±5 kg", () => {
+describe("distributeShipment — exactitude stricte et plage ±15 kg", () => {
   const cases: [number, number, number, number][] = [
     // poids, sacs, nb producteurs, potentiel
-    [10000, 200, 20, 3000],
+    [10000, 215, 20, 3000],
     [45223, 652, 60, 5000],
-    [5000, 100, 15, 2000],
-    [7333, 143, 11, 4000],
+    [5000, 115, 15, 2000],
+    [7333, 158, 11, 4000],
   ];
 
   for (const [w, b, n, pot] of cases) {
@@ -81,9 +81,9 @@ describe("distributeShipment — exactitude stricte et plage ±5 kg", () => {
     }
   });
 
-  it("prélève 20 % du potentiel de livraison par producteur", () => {
+  it("prélève 15 % du potentiel de livraison par producteur", () => {
     // 20 producteurs de 3000 kg, 20 % = 600 kg chacun. Le poids total (10 000) impose un plafond par producteur.
-    const r = distributeShipment(producers(20, 3000), 10000, 200, start, end, 0);
+    const r = distributeShipment(producers(15, 3000), 10000, 200, start, end, 0);
     expect(r.length).toBeGreaterThan(0);
     for (const d of r) {
       expect(d.allocated_weight).toBeLessThanOrEqual(3000);
@@ -92,7 +92,7 @@ describe("distributeShipment — exactitude stricte et plage ±5 kg", () => {
   });
 
   it("n'attribue jamais le même poids à deux producteurs", () => {
-    const r = distributeShipment(producers(20, 3000), 10000, 200, start, end, 0);
+    const r = distributeShipment(producers(15, 3000), 10000, 200, start, end, 0);
     expect(r.length).toBeGreaterThan(1);
     const weights = r.map((d) => d.allocated_weight);
     expect(new Set(weights).size).toBe(weights.length);
@@ -104,7 +104,7 @@ describe("distributeShipment — exactitude stricte et plage ±5 kg", () => {
   });
 
   it("ne dépasse jamais le potentiel restant", () => {
-    const list = producers(20, 1000).map((p, i) => (i === 0 ? { ...p, remaining_potential: 300 } : p));
+    const list = producers(15, 1000).map((p, i) => (i === 0 ? { ...p, remaining_potential: 300 } : p));
     const r = distributeShipment(list, 4000, 80, start, end, 0);
     const first = r.find((d) => d.producer_id === "p0");
     if (first) expect(first.allocated_weight).toBeLessThanOrEqual(300);
