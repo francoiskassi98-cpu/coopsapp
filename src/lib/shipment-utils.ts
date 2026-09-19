@@ -281,31 +281,49 @@ export function distributeShipment(
       if (c <= 0) counts.delete(w);
       else counts.set(w, c);
     };
+    /** Répartit `-delta` kg sur les autres producteurs (delta>0 : ils perdent, sinon ils gagnent). */
+    const compensate = (delta: number, skip: number): boolean => {
+      const snap = entries.map((e) => e.weight);
+      const snapCounts = new Map(counts);
+      let remaining = Math.abs(delta);
+      const sign = Math.sign(delta);
+      for (let j = 0; j < entries.length && remaining > 0; j++) {
+        if (j === skip) continue;
+        const room = sign > 0 ? entries[j].weight - minEntryWeight : upperOf(entries[j]) - entries[j].weight;
+        if (room <= 0) continue;
+        const take = Math.min(room, remaining);
+        const nw = entries[j].weight - sign * take;
+        if (counts.has(nw)) continue; // ne pas créer de nouveau doublon
+        bump(entries[j].weight, -1);
+        entries[j].weight = nw;
+        bump(nw, 1);
+        remaining -= take;
+      }
+      if (remaining !== 0) {
+        entries.forEach((e, k) => (e.weight = snap[k]));
+        counts.clear();
+        for (const [k, v] of snapCounts) counts.set(k, v);
+        return false;
+      }
+      return true;
+    };
     for (let i = 0; i < entries.length; i++) {
       if ((counts.get(entries[i].weight) ?? 0) < 2) continue;
       let fixed = false;
-      for (let d = 1; d <= 200 && !fixed; d++) {
+      for (let d = 1; d <= 500 && !fixed; d++) {
         for (const cand of [entries[i].weight + d, entries[i].weight - d]) {
           if (fixed) break;
           if (counts.has(cand)) continue;
           if (cand < minEntryWeight || cand > upperOf(entries[i])) continue;
           const delta = cand - entries[i].weight;
-          // Compenser le delta sur un autre producteur disposant de marge.
-          for (let j = 0; j < entries.length; j++) {
-            if (j === i) continue;
-            const wj = entries[j].weight - delta;
-            if (wj < minEntryWeight || wj > upperOf(entries[j])) continue;
-            const wjCount = counts.get(wj) ?? 0;
-            // wj ne doit pas créer un nouveau doublon (sauf s'il absorbe l'ancien poids de i).
-            if (wjCount > (wj === entries[i].weight ? 1 : 0)) continue;
-            bump(entries[i].weight, -1);
-            bump(entries[j].weight, -1);
-            entries[i].weight = cand;
-            entries[j].weight = wj;
-            bump(cand, 1);
-            bump(wj, 1);
-            fixed = true;
-            break;
+          bump(entries[i].weight, -1);
+          entries[i].weight = cand;
+          bump(cand, 1);
+          if (compensate(delta, i)) fixed = true;
+          else {
+            bump(cand, -1);
+            entries[i].weight = cand - delta;
+            bump(cand - delta, 1);
           }
         }
       }
