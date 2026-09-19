@@ -272,37 +272,39 @@ export function distributeShipment(
   // Les groupes de poids égaux sont éclatés par des offsets symétriques de somme nulle,
   // ce qui conserve le total exact, le potentiel et la plage ±5 kg.
   const minEntryWeight = Math.max(minBagWeight, MIN_ALLOCATION_KG);
-  const snapshot = entries.map((e) => e.weight);
+  const upperOf = (e: (typeof entries)[number]) => Math.min(e.cap, e.maxWeight);
   const diversify = (): boolean => {
-    for (let mult = 1; mult <= 10; mult++) {
-      entries.forEach((e, i) => (e.weight = snapshot[i]));
-      let ok = true;
-      const seen = new Map<number, number[]>();
-      entries.forEach((e, i) => {
-        const idx = seen.get(e.weight) ?? [];
-        idx.push(i);
-        seen.set(e.weight, idx);
-      });
-      for (const group of seen.values()) {
-        if (group.length < 2) continue;
-        const base = entries[group[0]].weight;
-        const k = group.length;
-        // Offsets distincts de somme nulle : m*(2i-(k-1)) → ex. k=3 : -2m, 0, +2m.
-        for (let j = 0; j < k; j++) {
-          const w = base + mult * (2 * j - (k - 1));
-          const e = entries[group[j]];
-          if (w < minEntryWeight || w > e.maxWeight || w > e.cap) {
-            ok = false;
+    const used = new Set(entries.map((e) => e.weight));
+    if (used.size === entries.length) return true;
+    for (let i = 0; i < entries.length; i++) {
+      if (!used.has(entries[i].weight)) continue;
+      let fixed = false;
+      for (let d = 1; d <= 200 && !fixed; d++) {
+        for (const cand of [entries[i].weight + d, entries[i].weight - d]) {
+          if (fixed) break;
+          if (used.has(cand)) continue;
+          if (cand < minEntryWeight || cand > upperOf(entries[i])) continue;
+          const delta = cand - entries[i].weight;
+          // Compenser le delta sur un autre producteur disposant de marge.
+          for (let j = 0; j < entries.length; j++) {
+            if (j === i) continue;
+            const wj = entries[j].weight - delta;
+            if (wj < minEntryWeight || wj > upperOf(entries[j])) continue;
+            if (used.has(wj) && wj !== entries[i].weight) continue;
+            used.delete(entries[i].weight);
+            used.delete(entries[j].weight);
+            entries[i].weight = cand;
+            entries[j].weight = wj;
+            used.add(cand);
+            used.add(wj);
+            fixed = true;
             break;
           }
-          e.weight = w;
         }
-        if (!ok) break;
       }
-      if (ok && new Set(entries.map((e) => e.weight)).size === entries.length) return true;
+      if (!fixed) return false;
     }
-    entries.forEach((e, i) => (e.weight = snapshot[i]));
-    return false;
+    return used.size === entries.length;
   };
   if (entries.length > 1 && !diversify()) return [];
 
