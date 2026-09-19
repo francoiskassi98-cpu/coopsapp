@@ -333,7 +333,29 @@ export function distributeShipment(
     }
     return counts.size === entries.length;
   };
-  if (entries.length > 1 && !diversify()) return [];
+  // Si la diversification est impossible (trop de producteurs au plafond de poids),
+  // élargir la distribution à un participant supplémentaire puis réessayer.
+  for (let guard = 0; entries.length > 1 && !diversify(); guard++) {
+    const next = pool.shift();
+    if (!next || guard > sorted.length + 16) return [];
+    const cap = Math.floor(next.remaining_potential);
+    const need = Math.min(cap, maxProducerWeight, minEntryWeight);
+    let collected = 0;
+    const donors = [...entries].sort((a, b) => b.weight - a.weight);
+    for (const d of donors) {
+      if (collected >= need) break;
+      const spare = d.weight - minEntryWeight;
+      if (spare <= 0) continue;
+      const take = Math.min(spare, need - collected);
+      d.weight -= take;
+      collected += take;
+    }
+    if (collected < need) {
+      if (collected > 0 && spread(collected) !== 0) return [];
+      return [];
+    }
+    entries.push({ producer: next, cap, maxWeight: Math.min(cap, maxProducerWeight), weight: collected });
+  }
 
   const weights = entries.map((e) => e.weight);
   const bags = splitBagsExactly(weights, totalBags, averageBagWeight);
