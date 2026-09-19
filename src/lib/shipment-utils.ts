@@ -274,15 +274,20 @@ export function distributeShipment(
   const minEntryWeight = Math.max(minBagWeight, MIN_ALLOCATION_KG);
   const upperOf = (e: (typeof entries)[number]) => Math.min(e.cap, e.maxWeight);
   const diversify = (): boolean => {
-    const used = new Set(entries.map((e) => e.weight));
-    if (used.size === entries.length) return true;
+    const counts = new Map<number, number>();
+    for (const e of entries) counts.set(e.weight, (counts.get(e.weight) ?? 0) + 1);
+    const bump = (w: number, d: number) => {
+      const c = (counts.get(w) ?? 0) + d;
+      if (c <= 0) counts.delete(w);
+      else counts.set(w, c);
+    };
     for (let i = 0; i < entries.length; i++) {
-      if (!used.has(entries[i].weight)) continue;
+      if ((counts.get(entries[i].weight) ?? 0) < 2) continue;
       let fixed = false;
       for (let d = 1; d <= 200 && !fixed; d++) {
         for (const cand of [entries[i].weight + d, entries[i].weight - d]) {
           if (fixed) break;
-          if (used.has(cand)) continue;
+          if (counts.has(cand)) continue;
           if (cand < minEntryWeight || cand > upperOf(entries[i])) continue;
           const delta = cand - entries[i].weight;
           // Compenser le delta sur un autre producteur disposant de marge.
@@ -290,13 +295,15 @@ export function distributeShipment(
             if (j === i) continue;
             const wj = entries[j].weight - delta;
             if (wj < minEntryWeight || wj > upperOf(entries[j])) continue;
-            if (used.has(wj) && wj !== entries[i].weight) continue;
-            used.delete(entries[i].weight);
-            used.delete(entries[j].weight);
+            const wjCount = counts.get(wj) ?? 0;
+            // wj ne doit pas créer un nouveau doublon (sauf s'il absorbe l'ancien poids de i).
+            if (wjCount > (wj === entries[i].weight ? 1 : 0)) continue;
+            bump(entries[i].weight, -1);
+            bump(entries[j].weight, -1);
             entries[i].weight = cand;
             entries[j].weight = wj;
-            used.add(cand);
-            used.add(wj);
+            bump(cand, 1);
+            bump(wj, 1);
             fixed = true;
             break;
           }
@@ -304,7 +311,7 @@ export function distributeShipment(
       }
       if (!fixed) return false;
     }
-    return used.size === entries.length;
+    return counts.size === entries.length;
   };
   if (entries.length > 1 && !diversify()) return [];
 
