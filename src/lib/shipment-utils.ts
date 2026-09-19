@@ -267,6 +267,45 @@ export function distributeShipment(
 
   if (entries.reduce((s, e) => s + e.weight, 0) !== totalWeight) return [];
 
+  // Phase 2 ter : diversification des poids — deux producteurs ne doivent jamais
+  // recevoir exactement le même poids (le nombre de sacs peut, lui, être identique).
+  // Les groupes de poids égaux sont éclatés par des offsets symétriques de somme nulle,
+  // ce qui conserve le total exact, le potentiel et la plage ±5 kg.
+  const minEntryWeight = Math.max(minBagWeight, MIN_ALLOCATION_KG);
+  const snapshot = entries.map((e) => e.weight);
+  const diversify = (): boolean => {
+    for (let mult = 1; mult <= 10; mult++) {
+      entries.forEach((e, i) => (e.weight = snapshot[i]));
+      let ok = true;
+      const seen = new Map<number, number[]>();
+      entries.forEach((e, i) => {
+        const idx = seen.get(e.weight) ?? [];
+        idx.push(i);
+        seen.set(e.weight, idx);
+      });
+      for (const group of seen.values()) {
+        if (group.length < 2) continue;
+        const base = entries[group[0]].weight;
+        const k = group.length;
+        // Offsets distincts de somme nulle : m*(2i-(k-1)) → ex. k=3 : -2m, 0, +2m.
+        for (let j = 0; j < k; j++) {
+          const w = base + mult * (2 * j - (k - 1));
+          const e = entries[group[j]];
+          if (w < minEntryWeight || w > e.maxWeight || w > e.cap) {
+            ok = false;
+            break;
+          }
+          e.weight = w;
+        }
+        if (!ok) break;
+      }
+      if (ok && new Set(entries.map((e) => e.weight)).size === entries.length) return true;
+    }
+    entries.forEach((e, i) => (e.weight = snapshot[i]));
+    return false;
+  };
+  if (entries.length > 1 && !diversify()) return [];
+
   const weights = entries.map((e) => e.weight);
   const bags = splitBagsExactly(weights, totalBags, averageBagWeight);
   if (!bags) return [];
