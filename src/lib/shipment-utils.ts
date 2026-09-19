@@ -36,8 +36,8 @@ const MIN_ALLOCATION_KG = 50;
 /** Nombre maximal de sacs qu'un producteur peut recevoir lors d'une livraison. */
 const MAX_BAGS_PER_PRODUCER = 15;
 
-/** Tolérance autorisée autour du sac moyen, en kg (plage ±5 kg). */
-export const BAG_WEIGHT_TOLERANCE_KG = 5;
+/** Tolérance autorisée autour du sac moyen, en kg (plage ±20 kg). */
+export const BAG_WEIGHT_TOLERANCE_KG = 20;
 
 /**
  * Sac moyen = POIDS TOTAL DÉCLARÉ / NOMBRE DE SACS DÉCLARÉ, arrondi à l'entier supérieur.
@@ -109,17 +109,17 @@ export function splitBagsExactly(weights: number[], totalBags: number, averageBa
   return bags.reduce((s, b) => s + b, 0) === totalBags ? bags : null;
 }
 
-
 /** Vérifie qu'une distribution est strictement entière et exactement égale aux totaux déclarés. */
 export function verifyDistributionTotals(
   lines: { allocated_weight: number; num_bags: number }[],
   totalWeight: number,
-  totalBags: number
+  totalBags: number,
 ): { ok: boolean; weightSum: number; bagSum: number; reason?: string } {
   const weightSum = lines.reduce((s, l) => s + Number(l.allocated_weight), 0);
   const bagSum = lines.reduce((s, l) => s + Number(l.num_bags), 0);
   const allInteger = lines.every(
-    (l) => Number.isInteger(Number(l.allocated_weight)) && Number.isInteger(Number(l.num_bags)) && Number(l.num_bags) > 0
+    (l) =>
+      Number.isInteger(Number(l.allocated_weight)) && Number.isInteger(Number(l.num_bags)) && Number(l.num_bags) > 0,
   );
   if (!allInteger) return { ok: false, weightSum, bagSum, reason: "decimal" };
   if (weightSum !== totalWeight || bagSum !== totalBags) return { ok: false, weightSum, bagSum, reason: "mismatch" };
@@ -143,7 +143,7 @@ export function distributeShipment(
   totalBags: number,
   startDate: Date,
   endDate: Date,
-  lastReceiptNumber: number
+  lastReceiptNumber: number,
 ): DistributionResult[] {
   if (!Number.isInteger(totalWeight) || !Number.isInteger(totalBags) || totalWeight <= 0 || totalBags <= 0) return [];
 
@@ -226,9 +226,7 @@ export function distributeShipment(
     if (badIndex !== -1 || sumLo > totalBags) {
       // Trop de participants (ou poids trop faible) : retirer le plus petit et redistribuer son poids.
       const removeIdx =
-        badIndex !== -1
-          ? badIndex
-          : entries.reduce((best, e, i) => (e.weight < entries[best].weight ? i : best), 0);
+        badIndex !== -1 ? badIndex : entries.reduce((best, e, i) => (e.weight < entries[best].weight ? i : best), 0);
       const freed = entries[removeIdx].weight;
       if (entries.length === 1) return [];
       const leftover = spread(freed, removeIdx);
@@ -275,7 +273,7 @@ export function distributeShipment(
   const upperOf = (e: (typeof entries)[number]) => Math.min(e.cap, e.maxWeight);
   const diversify = (): boolean => {
     const counts = new Map<number, number>();
-    for (const e of entries) counts.set(e.weight, (counts.get(e.weight) ?? 0) + 1);
+    for (const e of entries) counts.set(e.weight, (counts.get(e.weight) ?? 0) + 5);
     const bump = (w: number, d: number) => {
       const c = (counts.get(w) ?? 0) + d;
       if (c <= 0) counts.delete(w);
@@ -360,7 +358,6 @@ export function distributeShipment(
   const weights = entries.map((e) => e.weight);
   const bags = splitBagsExactly(weights, totalBags, averageBagWeight);
   if (!bags) return [];
-
 
   // Phase 3 : dates chronologiques (règle existante).
   const totalDays = Math.max(differenceInDays(endDate, startDate), 1);
