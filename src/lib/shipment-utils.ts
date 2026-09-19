@@ -2,15 +2,11 @@ import { format, addDays, differenceInDays } from "date-fns";
 
 export interface ProducerForDistribution {
   id: string;
-  /** Nom complet (affichage) : `NOM PRÉNOM`. */
   full_name: string;
-  /** Nom (patronyme), conservé séparément jusqu'au fichier Excel. */
   nom?: string | null;
-  /** Prénom(s), conservé séparément jusqu'au fichier Excel. */
   prenom?: string | null;
   section: string;
   plantation_code: string;
-  /** Carte CCC du producteur (texte brut, issue du registre de la campagne). */
   carte_ccc?: string | null;
   remaining_potential: number;
   delivery_potential: number;
@@ -30,113 +26,99 @@ export interface DistributionResult {
   receipt_number: string;
 }
 
-/** Poids minimal attribuable à un producteur (règle métier existante). */
 const MIN_ALLOCATION_KG = 50;
-
-/** Nombre maximal de sacs qu'un producteur peut recevoir lors d'une livraison. */
 const MAX_BAGS_PER_PRODUCER = 15;
-
-/** Tolérance autorisée autour du sac moyen, en kg (plage ±5 kg). */
 export const BAG_WEIGHT_TOLERANCE_KG = 5;
 
-/**
- * Sac moyen = POIDS TOTAL DÉCLARÉ / NOMBRE DE SACS DÉCLARÉ, arrondi à l'entier supérieur.
- * Aucune limite fixe (ni 10 kg, ni 35 kg, ni 90 kg) : la valeur est purement dynamique.
- */
-export function computeAverageBagWeight(totalWeight: number, totalBags: number): number {
+export function computeAverageBagWeight(
+  totalWeight: number,
+  totalBags: number
+): number {
   if (!(totalWeight > 0) || !(totalBags > 0)) return 0;
   return Math.ceil(totalWeight / totalBags);
 }
 
-/** Plage autorisée du poids par sac d'un producteur : sac moyen ±5 kg. */
-export function bagWeightRange(averageBagWeight: number): { min: number; max: number } {
+export function bagWeightRange(
+  averageBagWeight: number
+): { min: number; max: number } {
   return {
     min: Math.max(1, averageBagWeight - BAG_WEIGHT_TOLERANCE_KG),
     max: averageBagWeight + BAG_WEIGHT_TOLERANCE_KG,
   };
 }
 
-/** Vrai si le poids par sac du producteur respecte la plage sac moyen ±5 kg. */
-export function isBagWeightInRange(weight: number, bags: number, averageBagWeight: number): boolean {
-  if (!(bags > 0)) return false;
-  const { min, max } = bagWeightRange(averageBagWeight);
-  const perBag = weight / bags;
-  return perBag >= min && perBag <= max;
+function randomInt(min: number, max: number): number {
+  if (max <= min) return min;
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-/**
- * Répartit `totalBags` (entier) sur des poids entiers, de façon EXACTE :
- * la somme des sacs retournés est toujours égale à `totalBags`, et le poids par sac
- * de chaque producteur reste dans la plage sac moyen ±5 kg.
- * Retourne `null` si une répartition entière valide est impossible.
- */
-export function splitBagsExactly(weights: number[], totalBags: number, averageBagWeight: number): number[] | null {
-  const n = weights.length;
-  if (n === 0 || !Number.isInteger(totalBags) || totalBags < n) return null;
+export function isBagWeightInRange(
+  weight: number,
+  bags: number,
+  averageBagWeight: number
+): boolean {
+  if (!Number.isInteger(weight) || !Number.isInteger(bags) || bags <= 0) {
+    return false;
+  }
+
   const { min, max } = bagWeightRange(averageBagWeight);
+  const weightPerBag = weight / bags;
 
-  const lo: number[] = [];
-  const hi: number[] = [];
-  for (const w of weights) {
-    if (!Number.isInteger(w) || w <= 0) return null;
-    const l = Math.max(1, Math.ceil(w / max));
-    if (l > MAX_BAGS_PER_PRODUCER) return null; // impossible de tenir dans 15 sacs
-    const h = Math.min(Math.floor(w / min), MAX_BAGS_PER_PRODUCER);
-    if (h < l) return null; // poids incompatible avec la plage ±5 kg
-    lo.push(l);
-    hi.push(h);
-  }
-
-  const sumLo = lo.reduce((s, v) => s + v, 0);
-  const sumHi = hi.reduce((s, v) => s + v, 0);
-  if (totalBags < sumLo || totalBags > sumHi) return null;
-
-  const bags = [...lo];
-  let rest = totalBags - sumLo;
-  // Répartir les sacs restants sur les producteurs qui disposent encore de marge.
-  while (rest > 0) {
-    let moved = false;
-    for (let i = 0; i < n && rest > 0; i++) {
-      if (bags[i] < hi[i]) {
-        bags[i] += 1;
-        rest--;
-        moved = true;
-      }
-    }
-    if (!moved) return null;
-  }
-
-  return bags.reduce((s, b) => s + b, 0) === totalBags ? bags : null;
+  return weightPerBag >= min && weightPerBag <= max;
 }
 
-
-/** Vérifie qu'une distribution est strictement entière et exactement égale aux totaux déclarés. */
 export function verifyDistributionTotals(
   lines: { allocated_weight: number; num_bags: number }[],
   totalWeight: number,
   totalBags: number
-): { ok: boolean; weightSum: number; bagSum: number; reason?: string } {
-  const weightSum = lines.reduce((s, l) => s + Number(l.allocated_weight), 0);
-  const bagSum = lines.reduce((s, l) => s + Number(l.num_bags), 0);
-  const allInteger = lines.every(
-    (l) => Number.isInteger(Number(l.allocated_weight)) && Number.isInteger(Number(l.num_bags)) && Number(l.num_bags) > 0
+): {
+  ok: boolean;
+  weightSum: number;
+  bagSum: number;
+  reason?: string;
+} {
+  const weightSum = lines.reduce(
+    (sum, line) => sum + Number(line.allocated_weight),
+    0
   );
-  if (!allInteger) return { ok: false, weightSum, bagSum, reason: "decimal" };
-  if (weightSum !== totalWeight || bagSum !== totalBags) return { ok: false, weightSum, bagSum, reason: "mismatch" };
-  return { ok: true, weightSum, bagSum };
+
+  const bagSum = lines.reduce(
+    (sum, line) => sum + Number(line.num_bags),
+    0
+  );
+
+  const allInteger = lines.every(
+    (line) =>
+      Number.isInteger(Number(line.allocated_weight)) &&
+      Number.isInteger(Number(line.num_bags)) &&
+      Number(line.num_bags) > 0
+  );
+
+  if (!allInteger) {
+    return {
+      ok: false,
+      weightSum,
+      bagSum,
+      reason: "decimal",
+    };
+  }
+
+  if (weightSum !== totalWeight || bagSum !== totalBags) {
+    return {
+      ok: false,
+      weightSum,
+      bagSum,
+      reason: "mismatch",
+    };
+  }
+
+  return {
+    ok: true,
+    weightSum,
+    bagSum,
+  };
 }
 
-/**
- * Distribue le poids d'un chargement entre les producteurs.
- * Règles conservées : 20 % du potentiel de livraison, solde final si le potentiel restant
- * est inférieur à ce seuil, exclusion sous 50 kg, jamais plus que le potentiel restant,
- * maximum 15 sacs par producteur, tri par section A-Z, dates chronologiques, reçus séquentiels.
- *
- * Garanties strictes ajoutées :
- * - tous les poids et sacs sont des ENTIERS ;
- * - SUM(poids) === totalWeight et SUM(sacs) === totalBags, sans approximation ;
- * - retourne [] si une distribution exacte est impossible.
- */
 export function distributeShipment(
   producers: ProducerForDistribution[],
   totalWeight: number,
@@ -145,251 +127,353 @@ export function distributeShipment(
   endDate: Date,
   lastReceiptNumber: number
 ): DistributionResult[] {
-  if (!Number.isInteger(totalWeight) || !Number.isInteger(totalBags) || totalWeight <= 0 || totalBags <= 0) return [];
-
-  // Sac moyen dynamique (arrondi supérieur) et plage autorisée ±5 kg.
-  const averageBagWeight = computeAverageBagWeight(totalWeight, totalBags);
-  const { min: minBagWeight } = bagWeightRange(averageBagWeight);
-  // Poids maximal autorisé pour qu'un producteur puisse être servi en 15 sacs maximum.
-  const maxProducerWeight = Math.floor(MAX_BAGS_PER_PRODUCER * minBagWeight);
-
-  const sorted = [...producers]
-    .filter((p) => Math.floor(p.remaining_potential) >= MIN_ALLOCATION_KG)
-    .sort((a, b) => a.section.localeCompare(b.section));
-
-  // Phase 1 : allocations entières, jamais au-dessus du potentiel restant ni du nombre max de sacs.
-  const entries: { producer: ProducerForDistribution; cap: number; maxWeight: number; weight: number }[] = [];
-  let left = totalWeight;
-
-  for (const producer of sorted) {
-    if (left <= 0) break;
-    const cap = Math.floor(producer.remaining_potential);
-    const target = Math.floor(producer.delivery_potential * 0.2);
-    const desired = Math.min(cap, target, maxProducerWeight);
-    let take = Math.min(desired, left);
-    if (take < MIN_ALLOCATION_KG) continue;
-    // Éviter de laisser un reliquat non attribuable (< 50 kg) sur le dernier producteur (sans dépasser le plafond de sacs).
-    const rest = left - take;
-    if (rest > 0 && rest < MIN_ALLOCATION_KG && take + rest <= cap && take + rest <= maxProducerWeight) {
-      take += rest;
-    }
-    entries.push({ producer, cap, maxWeight: Math.min(cap, maxProducerWeight), weight: take });
-    left -= take;
+  if (
+    !Number.isInteger(totalWeight) ||
+    !Number.isInteger(totalBags) ||
+    totalWeight <= 0 ||
+    totalBags <= 0
+  ) {
+    return [];
   }
 
-  // Phase 2 : compléter le reliquat éventuel sur les producteurs déjà servis (dans les limites du potentiel et du max de sacs).
-  if (left > 0) {
-    for (const e of entries) {
-      if (left <= 0) break;
-      const room = Math.min(e.cap, e.maxWeight) - e.weight;
-      if (room <= 0) continue;
-      const add = Math.min(room, left);
-      e.weight += add;
-      left -= add;
-    }
-  }
+  const averageBagWeight = computeAverageBagWeight(
+    totalWeight,
+    totalBags
+  );
 
-  // Distribution exacte impossible : ni approximation, ni arrondi masquant l'écart.
-  if (left !== 0 || entries.length === 0) return [];
-  if (entries.length > totalBags) return [];
+  const { min: minBagWeight, max: maxBagWeight } =
+    bagWeightRange(averageBagWeight);
 
-  const used = new Set(entries.map((e) => e.producer.id));
-  const pool = sorted.filter((p) => !used.has(p.id));
+  const candidates = producers
+    .filter(
+      (producer) =>
+        Number(producer.remaining_potential) >= MIN_ALLOCATION_KG
+    )
+    .map((producer) => {
+      const potential = Number(producer.remaining_potential);
 
-  /** Ajoute `amount` kg sur les entrées disposant encore de marge (potentiel/max sacs). Retourne le reliquat. */
-  const spread = (amount: number, skip?: number): number => {
-    for (let i = 0; i < entries.length && amount > 0; i++) {
-      if (i === skip) continue;
-      const room = entries[i].maxWeight - entries[i].weight;
-      if (room <= 0) continue;
-      const add = Math.min(room, amount);
-      entries[i].weight += add;
-      amount -= add;
-    }
-    return amount;
-  };
+      // 20 % du potentiel réel, sans arrondi préalable
+      const twentyPercent = potential * 0.2;
 
-  // Phase 2 bis : ajustement du nombre de participants pour que la plage ±5 kg soit réalisable.
-  for (let guard = 0; guard < sorted.length * 4 + 16; guard++) {
-    if (entries.length === 0) return [];
-    const bagsRange = entries.map((e) => {
-      const { min, max } = bagWeightRange(averageBagWeight);
       return {
-        lo: Math.max(1, Math.ceil(e.weight / max)),
-        hi: Math.min(Math.floor(e.weight / min), MAX_BAGS_PER_PRODUCER),
+        producer,
+        potential,
+        maxDeliveryWeight: Math.min(
+          potential,
+          twentyPercent
+        ),
       };
-    });
-    const badIndex = bagsRange.findIndex((r, i) => r.hi < r.lo || entries[i].weight < minBagWeight);
-    const sumLo = bagsRange.reduce((s, r) => s + r.lo, 0);
-    const sumHi = bagsRange.reduce((s, r) => s + r.hi, 0);
+    })
+    .filter(
+      (candidate) =>
+        candidate.maxDeliveryWeight >= MIN_ALLOCATION_KG
+    )
+    .sort(() => Math.random() - 0.5);
 
-    if (badIndex !== -1 || sumLo > totalBags) {
-      // Trop de participants (ou poids trop faible) : retirer le plus petit et redistribuer son poids.
-      const removeIdx =
-        badIndex !== -1
-          ? badIndex
-          : entries.reduce((best, e, i) => (e.weight < entries[best].weight ? i : best), 0);
-      const freed = entries[removeIdx].weight;
-      if (entries.length === 1) return [];
-      const leftover = spread(freed, removeIdx);
-      if (leftover !== 0) return [];
-      entries.splice(removeIdx, 1);
-      continue;
+  if (candidates.length === 0) return [];
+
+  type Candidate = {
+    producer: ProducerForDistribution;
+    allocated_weight: number;
+    num_bags: number;
+    weight_per_bag: number;
+  };
+
+  const generateOptions = (
+    producer: ProducerForDistribution,
+    maxDeliveryWeight: number
+  ): Candidate[] => {
+    const options: Candidate[] = [];
+    const used = new Set<string>();
+
+    const maxWeight = Math.floor(maxDeliveryWeight);
+
+    for (
+      let bags = 1;
+      bags <= MAX_BAGS_PER_PRODUCER;
+      bags++
+    ) {
+      const maxPossibleWeightPerBag = Math.floor(
+        maxWeight / bags
+      );
+
+      if (maxPossibleWeightPerBag < minBagWeight) continue;
+
+      const upperWeightPerBag = Math.min(
+        maxBagWeight,
+        maxPossibleWeightPerBag
+      );
+
+      for (
+        let weightPerBag = minBagWeight;
+        weightPerBag <= upperWeightPerBag;
+        weightPerBag++
+      ) {
+        const weight = weightPerBag * bags;
+
+        if (weight < MIN_ALLOCATION_KG) continue;
+        if (weight > maxWeight) continue;
+        if (weight > producer.remaining_potential) continue;
+
+        const key = `${weight}-${bags}`;
+
+        if (used.has(key)) continue;
+
+        used.add(key);
+
+        options.push({
+          producer,
+          allocated_weight: weight,
+          num_bags: bags,
+          weight_per_bag: weightPerBag,
+        });
+      }
     }
 
-    if (sumHi < totalBags) {
-      // Pas assez de sacs possibles : ajouter un producteur en prélevant du poids sur les plus gros.
-      const next = pool.shift();
-      if (!next) return [];
-      const cap = Math.floor(next.remaining_potential);
-      const need = Math.min(cap, maxProducerWeight, Math.max(minBagWeight, MIN_ALLOCATION_KG));
-      let collected = 0;
-      const donors = [...entries].sort((a, b) => b.weight - a.weight);
-      for (const d of donors) {
-        if (collected >= need) break;
-        const spare = d.weight - Math.max(minBagWeight, MIN_ALLOCATION_KG);
-        if (spare <= 0) continue;
-        const take = Math.min(spare, need - collected);
-        d.weight -= take;
-        collected += take;
-      }
-      if (collected < need) {
-        // Impossible de financer un participant supplémentaire : remettre le poids prélevé.
-        if (collected > 0 && spread(collected) !== 0) return [];
-        return [];
-      }
-      entries.push({ producer: next, cap, maxWeight: Math.min(cap, maxProducerWeight), weight: collected });
-      continue;
+    // Ordre aléatoire pour éviter une distribution toujours identique
+    return options.sort(() => Math.random() - 0.5);
+  };
+
+  const searchExact = (
+    index: number,
+    selected: Candidate[],
+    currentWeight: number,
+    currentBags: number
+  ): Candidate[] | null => {
+    if (
+      currentWeight === totalWeight &&
+      currentBags === totalBags
+    ) {
+      return selected;
     }
 
-    break;
+    if (currentWeight > totalWeight) return null;
+    if (currentBags > totalBags) return null;
+    if (index >= candidates.length) return null;
+
+    const remainingWeight = totalWeight - currentWeight;
+    const remainingBags = totalBags - currentBags;
+
+    if (remainingBags <= 0) return null;
+
+    const candidate = candidates[index];
+
+    const options = generateOptions(
+      candidate.producer,
+      candidate.maxDeliveryWeight
+    );
+
+    /*
+     * Priorité aux poids/sacs aléatoires.
+     * Aucun +1/-1 artificiel.
+     */
+    const randomizedOptions = options.sort(
+      () => Math.random() - 0.5
+    );
+
+    for (const option of randomizedOptions) {
+      if (option.num_bags > remainingBags) continue;
+      if (option.allocated_weight > remainingWeight) continue;
+
+      if (
+        option.allocated_weight >
+        candidate.maxDeliveryWeight
+      ) {
+        continue;
+      }
+
+      if (
+        !isBagWeightInRange(
+          option.allocated_weight,
+          option.num_bags,
+          averageBagWeight
+        )
+      ) {
+        continue;
+      }
+
+      const result = searchExact(
+        index + 1,
+        [...selected, option],
+        currentWeight + option.allocated_weight,
+        currentBags + option.num_bags
+      );
+
+      if (result) return result;
+    }
+
+    // Producteur non utilisé
+    return searchExact(
+      index + 1,
+      selected,
+      currentWeight,
+      currentBags
+    );
+  };
+
+  let solution: Candidate[] | null = null;
+
+  /*
+   * Plusieurs tentatives afin de conserver une vraie
+   * variabilité aléatoire entre les chargements.
+   */
+  for (let attempt = 0; attempt < 30; attempt++) {
+    candidates.sort(() => Math.random() - 0.5);
+
+    solution = searchExact(
+      0,
+      [],
+      0,
+      0
+    );
+
+    if (solution) break;
   }
 
-  if (entries.reduce((s, e) => s + e.weight, 0) !== totalWeight) return [];
+  if (!solution || solution.length === 0) {
+    return [];
+  }
 
-  // Phase 2 ter : diversification des poids — deux producteurs ne doivent jamais
-  // recevoir exactement le même poids (le nombre de sacs peut, lui, être identique).
-  // Les groupes de poids égaux sont éclatés par des offsets symétriques de somme nulle,
-  // ce qui conserve le total exact, le potentiel et la plage ±5 kg.
-  const minEntryWeight = Math.max(minBagWeight, MIN_ALLOCATION_KG);
-  const upperOf = (e: (typeof entries)[number]) => Math.min(e.cap, e.maxWeight);
-  const diversify = (): boolean => {
-    const counts = new Map<number, number>();
-    for (const e of entries) counts.set(e.weight, (counts.get(e.weight) ?? 0) + 1);
-    const bump = (w: number, d: number) => {
-      const c = (counts.get(w) ?? 0) + d;
-      if (c <= 0) counts.delete(w);
-      else counts.set(w, c);
-    };
-    /** Répartit `-delta` kg sur les autres producteurs (delta>0 : ils perdent, sinon ils gagnent). */
-    const compensate = (delta: number, skip: number): boolean => {
-      const snap = entries.map((e) => e.weight);
-      const snapCounts = new Map(counts);
-      let remaining = Math.abs(delta);
-      const sign = Math.sign(delta);
-      for (let j = 0; j < entries.length && remaining > 0; j++) {
-        if (j === skip) continue;
-        const room = sign > 0 ? entries[j].weight - minEntryWeight : upperOf(entries[j]) - entries[j].weight;
-        if (room <= 0) continue;
-        for (let take = Math.min(room, remaining); take >= 1; take--) {
-          const nw = entries[j].weight - sign * take;
-          if (counts.has(nw)) continue; // ne pas créer de nouveau doublon
-          bump(entries[j].weight, -1);
-          entries[j].weight = nw;
-          bump(nw, 1);
-          remaining -= take;
-          break;
-        }
-      }
-      if (remaining !== 0) {
-        entries.forEach((e, k) => (e.weight = snap[k]));
-        counts.clear();
-        for (const [k, v] of snapCounts) counts.set(k, v);
-        return false;
-      }
-      return true;
-    };
-    for (let i = 0; i < entries.length; i++) {
-      if ((counts.get(entries[i].weight) ?? 0) < 2) continue;
-      let fixed = false;
-      for (let d = 1; d <= 500 && !fixed; d++) {
-        for (const cand of [entries[i].weight + d, entries[i].weight - d]) {
-          if (fixed) break;
-          if (counts.has(cand)) continue;
-          if (cand < minEntryWeight || cand > upperOf(entries[i])) continue;
-          const delta = cand - entries[i].weight;
-          bump(entries[i].weight, -1);
-          entries[i].weight = cand;
-          bump(cand, 1);
-          if (compensate(delta, i)) fixed = true;
-          else {
-            bump(cand, -1);
-            entries[i].weight = cand - delta;
-            bump(cand - delta, 1);
-          }
-        }
-      }
-      if (!fixed) return false;
-    }
-    return counts.size === entries.length;
-  };
-  // Si la diversification est impossible (trop de producteurs au plafond de poids),
-  // élargir la distribution à un participant supplémentaire puis réessayer.
-  for (let guard = 0; entries.length > 1 && !diversify(); guard++) {
-    const next = pool.shift();
-    if (!next || guard > sorted.length + 16) return [];
-    const cap = Math.floor(next.remaining_potential);
-    const need = Math.min(cap, maxProducerWeight, minEntryWeight);
-    let collected = 0;
-    const donors = [...entries].sort((a, b) => b.weight - a.weight);
-    for (const d of donors) {
-      if (collected >= need) break;
-      const spare = d.weight - minEntryWeight;
-      if (spare <= 0) continue;
-      const take = Math.min(spare, need - collected);
-      d.weight -= take;
-      collected += take;
-    }
-    if (collected < need) {
-      if (collected > 0 && spread(collected) !== 0) return [];
+  /*
+   * Vérification stricte du potentiel individuel.
+   */
+  for (const item of solution) {
+    const potential = Number(
+      item.producer.remaining_potential
+    );
+
+    const maxAllowed = potential * 0.2;
+
+    if (item.allocated_weight > maxAllowed) {
       return [];
     }
-    entries.push({ producer: next, cap, maxWeight: Math.min(cap, maxProducerWeight), weight: collected });
+
+    if (item.allocated_weight > potential) {
+      return [];
+    }
+
+    if (
+      item.num_bags < 1 ||
+      item.num_bags > MAX_BAGS_PER_PRODUCER
+    ) {
+      return [];
+    }
+
+    if (
+      !isBagWeightInRange(
+        item.allocated_weight,
+        item.num_bags,
+        averageBagWeight
+      )
+    ) {
+      return [];
+    }
   }
 
-  const weights = entries.map((e) => e.weight);
-  const bags = splitBagsExactly(weights, totalBags, averageBagWeight);
-  if (!bags) return [];
+  /*
+   * Contrôle des totaux.
+   */
+  const weightSum = solution.reduce(
+    (sum, item) =>
+      sum + item.allocated_weight,
+    0
+  );
 
+  const bagSum = solution.reduce(
+    (sum, item) =>
+      sum + item.num_bags,
+    0
+  );
 
-  // Phase 3 : dates chronologiques (règle existante).
-  const totalDays = Math.max(differenceInDays(endDate, startDate), 1);
-  const dateStep = totalDays / Math.max(entries.length - 1, 1);
+  if (weightSum !== totalWeight) return [];
+  if (bagSum !== totalBags) return [];
+
+  /*
+   * Mélange final.
+   */
+  solution.sort(() => Math.random() - 0.5);
+
+  /*
+   * Dates chronologiques.
+   */
+  const totalDays = Math.max(
+    differenceInDays(endDate, startDate),
+    1
+  );
+
+  const dateStep =
+    totalDays /
+    Math.max(solution.length - 1, 1);
 
   let receiptCounter = lastReceiptNumber;
-  const results: DistributionResult[] = entries.map((e, i) => {
-    receiptCounter++;
-    return {
-      producer_id: e.producer.id,
-      full_name: e.producer.full_name,
-      nom: e.producer.nom ?? null,
-      prenom: e.producer.prenom ?? null,
-      section: e.producer.section,
-      plantation_code: e.producer.plantation_code,
-      carte_ccc: e.producer.carte_ccc ?? null,
-      allocated_weight: weights[i],
-      num_bags: bags[i],
-      delivery_date: format(addDays(startDate, Math.round(i * dateStep)), "yyyy-MM-dd"),
-      receipt_number: String(receiptCounter).padStart(6, "0"),
-    };
-  });
 
-  const check = verifyDistributionTotals(results, totalWeight, totalBags);
-  if (!check.ok) return [];
-  // Contrôle final de la plage ±5 kg autour du sac moyen.
-  const inRange = results.every((r) => isBagWeightInRange(r.allocated_weight, r.num_bags, averageBagWeight));
-  return inRange ? results : [];
+  const results: DistributionResult[] =
+    solution.map((item, index) => {
+      receiptCounter++;
+
+      return {
+        producer_id: item.producer.id,
+        full_name: item.producer.full_name,
+        nom: item.producer.nom ?? null,
+        prenom: item.producer.prenom ?? null,
+        section: item.producer.section,
+        plantation_code:
+          item.producer.plantation_code,
+        carte_ccc:
+          item.producer.carte_ccc ?? null,
+        allocated_weight:
+          item.allocated_weight,
+        num_bags: item.num_bags,
+        delivery_date: format(
+          addDays(
+            startDate,
+            Math.round(index * dateStep)
+          ),
+          "yyyy-MM-dd"
+        ),
+        receipt_number: String(
+          receiptCounter
+        ).padStart(6, "0"),
+      };
+    });
+
+  /*
+   * Vérification finale absolue.
+   */
+  const check = verifyDistributionTotals(
+    results,
+    totalWeight,
+    totalBags
+  );
+
+  if (!check.ok) {
+    return [];
+  }
+
+  /*
+   * Vérification finale du poids/sac.
+   */
+  const validBagWeights = results.every(
+    (result) =>
+      isBagWeightInRange(
+        result.allocated_weight,
+        result.num_bags,
+        averageBagWeight
+      )
+  );
+
+  if (!validBagWeights) {
+    return [];
+  }
+
+  return results;
 }
 
-// Campagne : source unique de vérité dans `@/lib/campaign`.
-export { normalizeCampaign, currentCampaign as getCurrentCampaign, isCampaignStart } from "@/lib/campaign";
+export {
+  normalizeCampaign,
+  currentCampaign as getCurrentCampaign,
+  isCampaignStart,
+} from "@/lib/campaign";
+```
+
+Ce code est basé sur le fichier `shipment` que tu as fourni. 
