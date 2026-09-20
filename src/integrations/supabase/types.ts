@@ -1258,6 +1258,8 @@ export type Database = {
             }
             Returns: string
           }
+      delete_registre: { Args: { _registre_id: string }; Returns: undefined }
+      delete_shipment: { Args: { _shipment_id: string }; Returns: undefined }
       get_dashboard_stats_by_registre: {
         Args: { p_campaign_label?: string; p_registre_id: string }
         Returns: {
@@ -1309,6 +1311,14 @@ export type Database = {
       log_login_event: { Args: { p_user_agent?: string }; Returns: undefined }
       my_cooperative_ids: { Args: never; Returns: string[] }
       my_registre_ids: { Args: never; Returns: string[] }
+      recompute_potentials: {
+        Args: { _campaign_label?: string; _registre_id?: string }
+        Returns: number
+      }
+      recompute_producer_potential: {
+        Args: { _producer_id: string }
+        Returns: undefined
+      }
       shares_my_cooperative: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
