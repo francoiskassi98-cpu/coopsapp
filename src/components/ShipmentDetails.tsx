@@ -71,6 +71,13 @@ interface ShipmentWithDetails {
   lot_number: string | null;
 }
 
+const formatDate = (value: string | null | undefined) => {
+  if (!value) return "Non renseigné";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("fr-FR");
+};
+
 interface ProducerInDelivery {
   nom: string | null;
   prenom: string | null;
