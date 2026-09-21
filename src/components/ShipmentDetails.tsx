@@ -38,6 +38,7 @@ interface ShipmentRow {
   truck_number: string | null;
   trailer_number: string | null;
   departure_date: string | null;
+  lot_number: string | null;
   registres?: { id: string; name: string; cooperative_id: string; cooperatives?: { name: string } | null } | null;
 }
 
