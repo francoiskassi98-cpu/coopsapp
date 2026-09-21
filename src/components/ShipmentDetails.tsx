@@ -401,6 +401,15 @@ export default function ShipmentDetails() {
                           <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Supprimer le chargement"
+                            onClick={() => setDeleteTarget(s)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+
                         </div>
                       </TableCell>
                     </TableRow>
