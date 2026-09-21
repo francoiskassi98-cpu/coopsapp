@@ -278,14 +278,9 @@ export default function ImportShipments() {
           totalDeliveries += deliveries.length;
         }
 
-        for (const r of group) {
-          const producer = producerMap.get(r.code_plantation);
-          if (producer) {
-            const newPotential = Math.max(0, Number(producer.remaining_potential) - r.poids_net);
-            await supabase.from("producers").update({ remaining_potential: newPotential }).eq("id", producer.id as string);
-            producer.remaining_potential = newPotential;
-          }
-        }
+        // Le potentiel restant est recalculé automatiquement en base à partir
+        // des livraisons réellement enregistrées.
+
       }
 
       toast({ title: "Importation réussie", description: `${totalShipments} chargement(s) et ${totalDeliveries} livraison(s) importé(s).` });

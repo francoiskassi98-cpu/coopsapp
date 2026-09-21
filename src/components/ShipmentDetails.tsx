@@ -6,10 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Package, Users, Weight, Truck, FileSpreadsheet, Loader2 } from "lucide-react";
+import { Pencil, Package, Users, Weight, Truck, FileSpreadsheet, Loader2, Trash2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCampaignLabels } from "@/hooks/useCampaign";
 import { useRegistres } from "@/hooks/useRegistres";
 import { usePartners } from "@/hooks/usePartners";
@@ -79,6 +84,35 @@ export default function ShipmentDetails() {
   const { labels, activeCampaign } = useCampaignLabels();
   const [campaignFilter, setCampaignFilter] = useState(activeCampaign);
   const [registreFilter, setRegistreFilter] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState<ShipmentWithDetails | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const queryClient = useQueryClient();
+
+  /**
+   * Suppression atomique d'un chargement : la fonction serveur supprime le
+   * chargement et toutes ses livraisons, puis le potentiel restant des
+   * producteurs est recalculé automatiquement à partir des données réelles.
+   */
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.rpc("delete_shipment", { _shipment_id: deleteTarget.id });
+      if (error) throw error;
+      toast({ title: "Chargement supprimé", description: "Le potentiel des producteurs a été restauré." });
+      setDeleteTarget(null);
+      await fetchAll();
+      await queryClient.invalidateQueries();
+      window.dispatchEvent(new CustomEvent("shipment:saved"));
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+
 
   const handleGenerateFiche = async (id: string) => {
     setGeneratingId(id);
@@ -367,6 +401,15 @@ export default function ShipmentDetails() {
                           <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Supprimer le chargement"
+                            onClick={() => setDeleteTarget(s)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+
                         </div>
                       </TableCell>
                     </TableRow>
@@ -480,6 +523,26 @@ export default function ShipmentDetails() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce chargement ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le chargement {deleteTarget?.connaissement || ""} et toutes ses livraisons
+              (poids, sacs, dates, reçus) seront définitivement supprimés. Le potentiel
+              restant des producteurs concernés sera automatiquement restauré.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); void handleDelete(); }} disabled={deleting}>
+              {deleting ? "Suppression..." : "Supprimer définitivement"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }
