@@ -84,6 +84,35 @@ export default function ShipmentDetails() {
   const { labels, activeCampaign } = useCampaignLabels();
   const [campaignFilter, setCampaignFilter] = useState(activeCampaign);
   const [registreFilter, setRegistreFilter] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState<ShipmentWithDetails | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const queryClient = useQueryClient();
+
+  /**
+   * Suppression atomique d'un chargement : la fonction serveur supprime le
+   * chargement et toutes ses livraisons, puis le potentiel restant des
+   * producteurs est recalculé automatiquement à partir des données réelles.
+   */
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.rpc("delete_shipment", { _shipment_id: deleteTarget.id });
+      if (error) throw error;
+      toast({ title: "Chargement supprimé", description: "Le potentiel des producteurs a été restauré." });
+      setDeleteTarget(null);
+      await fetchAll();
+      await queryClient.invalidateQueries();
+      window.dispatchEvent(new CustomEvent("shipment:saved"));
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+
 
   const handleGenerateFiche = async (id: string) => {
     setGeneratingId(id);
