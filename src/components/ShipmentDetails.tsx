@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Package, Users, Weight, Truck, FileSpreadsheet, Loader2, Trash2 } from "lucide-react";
+import { Pencil, Package, Users, Weight, Truck, FileSpreadsheet, Loader2, Trash2, Eye } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCampaignLabels } from "@/hooks/useCampaign";
 import { useRegistres } from "@/hooks/useRegistres";
