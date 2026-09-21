@@ -150,6 +150,29 @@ export default function ShipmentDetails() {
     }
   };
 
+  const openPreview = async (s: ShipmentWithDetails) => {
+    setPreviewShipment(s);
+    setPreviewLoading(true);
+    setPreviewDeliveries([]);
+    try {
+      const { data: deliveries, error } = await supabase
+        .from("deliveries")
+        .select(
+          "producer_id, net_weight, num_bags, delivery_date, receipt_number, producers(nom, prenom, full_name, section, plantation_code, delivery_potential, carte_ccc)"
+        )
+        .eq("shipment_id", s.id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      setPreviewDeliveries((deliveries as unknown as PreviewDeliveryRow[]) || []);
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erreur", description: "Impossible de charger l'aperçu.", variant: "destructive" });
+      setPreviewShipment(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   // Edit form state
   const [editCoopId, setEditCoopId] = useState("");
   const [editProject, setEditProject] = useState("");
