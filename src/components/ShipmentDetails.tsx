@@ -69,6 +69,25 @@ interface ShipmentWithDetails {
   departure_date: string | null;
 }
 
+interface ProducerInDelivery {
+  nom: string | null;
+  prenom: string | null;
+  full_name: string | null;
+  section: string;
+  plantation_code: string;
+  delivery_potential: number | string;
+  carte_ccc: string | null;
+}
+
+interface PreviewDeliveryRow {
+  producer_id: string;
+  net_weight: number;
+  num_bags: number;
+  delivery_date: string;
+  receipt_number: string | null;
+  producers: ProducerInDelivery | null;
+}
+
 export default function ShipmentDetails() {
   const [shipments, setShipments] = useState<ShipmentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
