@@ -523,6 +523,26 @@ export default function ShipmentDetails() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce chargement ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le chargement {deleteTarget?.connaissement || ""} et toutes ses livraisons
+              (poids, sacs, dates, reçus) seront définitivement supprimés. Le potentiel
+              restant des producteurs concernés sera automatiquement restauré.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); void handleDelete(); }} disabled={deleting}>
+              {deleting ? "Suppression..." : "Supprimer définitivement"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }
