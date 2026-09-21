@@ -433,6 +433,14 @@ export default function ShipmentDetails() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            title="Aperçu du chargement"
+                            onClick={() => openPreview(s)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             title="Télécharger la fiche d'accompagnement"
                             disabled={generatingId === s.id}
                             onClick={() => handleGenerateFiche(s.id)}
