@@ -605,6 +605,145 @@ export default function ShipmentDetails() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={!!previewShipment} onOpenChange={(open) => !open && setPreviewShipment(null)}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Aperçu du chargement {previewShipment?.connaissement || ""}
+            </DialogTitle>
+          </DialogHeader>
+
+          {previewLoading ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">Chargement de l'aperçu...</div>
+          ) : !previewShipment ? null : (
+            <div className="space-y-6 overflow-y-auto pr-1">
+              {/* Informations générales */}
+              <div>
+                <h3 className="text-sm font-semibold uppercase text-muted-foreground mb-3">Informations générales</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Numéro de lot</p>
+                    <p className="text-sm font-medium">{previewShipment.lot_number || "Non renseigné"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Date du chargement</p>
+                    <p className="text-sm font-medium">{formatDate(previewShipment.departure_date)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Date de livraison début / fin</p>
+                    <p className="text-sm font-medium">
+                      {formatDate(previewShipment.delivery_start)} — {formatDate(previewShipment.delivery_end)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Campagne</p>
+                    <p className="text-sm font-medium">{previewShipment.campaign || "Non renseigné"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Registre</p>
+                    <p className="text-sm font-medium">{previewShipment.cooperative_name || "Non renseigné"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Partenaire</p>
+                    <p className="text-sm font-medium">{partnerNameById.get(previewShipment.partner_id || "") || "Non renseigné"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Projet</p>
+                    <p className="text-sm font-medium">{previewShipment.project || "Non renseigné"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Résumé */}
+              <div>
+                <h3 className="text-sm font-semibold uppercase text-muted-foreground mb-3">Résumé</h3>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="rounded-lg border p-3 space-y-1">
+                    <p className="text-xs text-muted-foreground">Poids total</p>
+                    <p className="text-base font-semibold">{previewShipment.total_weight.toLocaleString("fr-FR")} kg</p>
+                  </div>
+                  <div className="rounded-lg border p-3 space-y-1">
+                    <p className="text-xs text-muted-foreground">Total de sacs</p>
+                    <p className="text-base font-semibold">{previewShipment.total_bags.toLocaleString("fr-FR")}</p>
+                  </div>
+                  <div className="rounded-lg border p-3 space-y-1">
+                    <p className="text-xs text-muted-foreground">Poids moyen / sac</p>
+                    <p className="text-base font-semibold">
+                      {previewShipment.total_bags > 0
+                        ? (previewShipment.total_weight / previewShipment.total_bags).toLocaleString("fr-FR", { maximumFractionDigits: 2 })
+                        : "—"} kg
+                    </p>
+                  </div>
+                  <div className="rounded-lg border p-3 space-y-1">
+                    <p className="text-xs text-muted-foreground">Producteurs</p>
+                    <p className="text-base font-semibold">{previewDeliveries.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Détail des producteurs */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold uppercase text-muted-foreground">Détail des producteurs</h3>
+                {previewDeliveries.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Aucun producteur lié à ce chargement.</p>
+                ) : (
+                  <div className="overflow-auto max-h-[320px] rounded-md border">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background z-10">
+                        <TableRow>
+                          <TableHead className="min-w-[160px]">Nom et prénom</TableHead>
+                          <TableHead>Carte CCC</TableHead>
+                          <TableHead>Section</TableHead>
+                          <TableHead>Code plantation</TableHead>
+                          <TableHead className="text-right">Potentiel (kg)</TableHead>
+                          <TableHead className="text-right">Poids livré (kg)</TableHead>
+                          <TableHead className="text-right">Sacs</TableHead>
+                          <TableHead>Date livraison</TableHead>
+                          <TableHead>N° reçu</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {previewDeliveries.map((d) => {
+                          const p = d.producers;
+                          const name = p
+                            ? `${p.prenom || ""} ${p.nom || ""}`.trim() || p.full_name || "Non renseigné"
+                            : "Non renseigné";
+                          return (
+                            <TableRow key={d.producer_id}>
+                              <TableCell className="font-medium">{name}</TableCell>
+                              <TableCell>{p?.carte_ccc || "Non renseigné"}</TableCell>
+                              <TableCell>{p?.section || "Non renseigné"}</TableCell>
+                              <TableCell className="font-mono text-xs">{p?.plantation_code || "Non renseigné"}</TableCell>
+                              <TableCell className="text-right">
+                                {p ? Number(p.delivery_potential).toLocaleString("fr-FR") : "Non renseigné"}
+                              </TableCell>
+                              <TableCell className="text-right font-semibold">
+                                {Number(d.net_weight).toLocaleString("fr-FR")}
+                              </TableCell>
+                              <TableCell className="text-right">{d.num_bags}</TableCell>
+                              <TableCell>{formatDate(d.delivery_date)}</TableCell>
+                              <TableCell className="font-mono text-xs">{d.receipt_number || "Non renseigné"}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="pt-2 flex justify-end">
+            <Button variant="outline" onClick={() => setPreviewShipment(null)}>
+              Fermer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
 
   );
