@@ -253,6 +253,7 @@ export default function ShipmentDetails() {
         truck_number: s.truck_number,
         trailer_number: s.trailer_number,
         departure_date: s.departure_date,
+        lot_number: s.lot_number,
       }));
 
       setShipments(enriched);
