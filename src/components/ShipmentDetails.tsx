@@ -105,6 +105,9 @@ export default function ShipmentDetails() {
   const [registreFilter, setRegistreFilter] = useState("all");
   const [deleteTarget, setDeleteTarget] = useState<ShipmentWithDetails | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [previewShipment, setPreviewShipment] = useState<ShipmentWithDetails | null>(null);
+  const [previewDeliveries, setPreviewDeliveries] = useState<PreviewDeliveryRow[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const queryClient = useQueryClient();
 
   /**
