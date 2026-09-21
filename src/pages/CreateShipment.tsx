@@ -550,44 +550,9 @@ export default function CreateShipment() {
 
 
 
-    // Mise à jour du potentiel restant : 1 lecture groupée + écritures parallélisées (plus de N+1).
-    const producerIds = Array.from(new Set(preview.map((d) => d.producer_id)));
-    const { data: producerRows, error: readErr } = await supabase
-      .from("producers")
-      .select("id, remaining_potential")
-      .in("id", producerIds);
-    if (readErr) {
-      const message = formatTechnicalError(readErr, "Échec lecture du potentiel des producteurs");
-      console.error("[CreateShipment] producers read failed", { error: readErr, count: producerIds.length });
-      setSaveDiagnostic(message);
-      throw readErr;
-    }
+    // Le potentiel restant est recalculé automatiquement en base à partir des
+    // livraisons réellement enregistrées (aucune décrémentation manuelle ici).
 
-    const currentById = new Map<string, number>((producerRows || []).map((p) => [p.id, Number(p.remaining_potential) || 0]));
-    const allocatedById = new Map<string, number>();
-    preview.forEach((d) => {
-      allocatedById.set(d.producer_id, (allocatedById.get(d.producer_id) || 0) + Number(d.allocated_weight));
-    });
-
-    const updates = Array.from(allocatedById.entries())
-      .filter(([id]) => currentById.has(id))
-      .map(([id, allocated]) => ({ id, remaining: Math.max(0, (currentById.get(id) ?? 0) - allocated) }));
-
-    const CHUNK = 20;
-    for (let i = 0; i < updates.length; i += CHUNK) {
-      const results = await Promise.all(
-        updates.slice(i, i + CHUNK).map((u) =>
-          supabase.from("producers").update({ remaining_potential: u.remaining }).eq("id", u.id)
-        )
-      );
-      const failed = results.find((r) => r.error);
-      if (failed?.error) {
-        const message = formatTechnicalError(failed.error, "Échec mise à jour du potentiel des producteurs");
-        console.error("[CreateShipment] producers update failed", failed.error);
-        setSaveDiagnostic(message);
-        throw failed.error;
-      }
-    }
 
 
     return shipment.id as string;
