@@ -168,11 +168,19 @@ export default function CreateCooperative() {
 
       if (error || data?.error) {
         const parsed = await readFunctionError(error);
-        const description = (data?.error as string) || parsed;
+        const code = (data?.code as string) || parsed.code;
+        const description = (data?.error as string) || parsed.message;
         console.error("[create-cooperative]", error || data?.error);
+        if (code === "PASSWORD_REJECTED" || code === "PASSWORD_TOO_SHORT" || code === "ADMIN_EMAIL_TAKEN") {
+          setStep(2);
+          if (code !== "ADMIN_EMAIL_TAKEN") {
+            setAdmin((a) => ({ ...a, password: "", password_confirm: "" }));
+          }
+        }
         toast({ title: "Création impossible", description, variant: "destructive" });
         return;
       }
+
 
       const emailSent = Boolean(data?.email_sent);
       toast({
