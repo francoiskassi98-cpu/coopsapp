@@ -110,6 +110,8 @@ export default function CreateCooperative() {
   const prev = () => setStep((s) => (s - 1) as 1 | 2 | 3);
 
   const submit = async () => {
+    if (submittingRef.current) return; // anti double-clic strict
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       let logoBase64: string | undefined;
@@ -142,20 +144,45 @@ export default function CreateCooperative() {
           },
         },
       });
+
       if (error || data?.error) {
+        const parsed = await readFunctionError(error);
+        const description = (data?.error as string) || parsed;
         console.error("[create-cooperative]", error || data?.error);
-        toast({ title: "Erreur", description: (data?.error as string) || "Une erreur est survenue.", variant: "destructive" });
+        toast({ title: "Création impossible", description, variant: "destructive" });
         return;
       }
-      toast({ title: "Coopérative créée", description: `${coop.name} et son administrateur ont été enregistrés. L'abonnement pilote est actif.` });
+
+      const emailSent = Boolean(data?.email_sent);
+      toast({
+        title: emailSent ? "Coopérative créée avec succès" : "Coopérative créée, notification non envoyée",
+        description:
+          `${data?.cooperative_name || coop.name}\n` +
+          `Administrateur : ${data?.admin_email || admin.email}\n` +
+          `Notification : ${emailSent ? "envoyée" : "échec de l'envoi — communiquez les accès manuellement"}`,
+        variant: emailSent ? "default" : "destructive",
+      });
+
+      // Réinitialisation du formulaire après succès
+      setCoop(initialCoop);
+      setAdmin(initialAdmin);
+      setLogoFile(null);
+      setLogoPreview(null);
+      setStep(1);
       navigate("/gestion");
     } catch (e) {
       console.error(e);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+      toast({
+        title: "Création impossible",
+        description: "Impossible de contacter le serveur. Vérifiez votre connexion puis réessayez.",
+        variant: "destructive",
+      });
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
+
 
   const StepIndicator = () => (
     <div className="flex items-center justify-center gap-2 sm:gap-4 mb-8">
