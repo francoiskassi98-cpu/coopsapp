@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -49,6 +49,24 @@ function defaultPilotDates() {
   return { start, end };
 }
 
+/** Lit le message métier renvoyé par l'Edge Function et le traduit par catégorie. */
+async function readFunctionError(error: unknown): Promise<string> {
+  const ctx = (error as { context?: Response } | null)?.context;
+  if (ctx && typeof ctx.json === "function") {
+    try {
+      const payload = await ctx.clone().json();
+      if (payload?.error) return String(payload.error);
+    } catch {
+      /* corps non JSON */
+    }
+    if (ctx.status === 401 || ctx.status === 403) return "Votre session a expiré. Veuillez vous reconnecter.";
+    if (ctx.status >= 500) return "Le serveur n'a pas pu terminer la création de la coopérative. Réessayez dans un instant.";
+    return "Impossible de créer la coopérative : certaines informations sont invalides ou déjà utilisées.";
+  }
+  return "Impossible de contacter le serveur. Vérifiez votre connexion puis réessayez.";
+}
+
+
 export default function CreateCooperative() {
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -58,6 +76,8 @@ export default function CreateCooperative() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+
   const _def = defaultPilotDates();
   const [subStart, setSubStart] = useState<string>(_def.start);
   const [subEnd, setSubEnd] = useState<string>(_def.end);
@@ -110,6 +130,8 @@ export default function CreateCooperative() {
   const prev = () => setStep((s) => (s - 1) as 1 | 2 | 3);
 
   const submit = async () => {
+    if (submittingRef.current) return; // anti double-clic strict
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       let logoBase64: string | undefined;
@@ -142,20 +164,45 @@ export default function CreateCooperative() {
           },
         },
       });
+
       if (error || data?.error) {
+        const parsed = await readFunctionError(error);
+        const description = (data?.error as string) || parsed;
         console.error("[create-cooperative]", error || data?.error);
-        toast({ title: "Erreur", description: (data?.error as string) || "Une erreur est survenue.", variant: "destructive" });
+        toast({ title: "Création impossible", description, variant: "destructive" });
         return;
       }
-      toast({ title: "Coopérative créée", description: `${coop.name} et son administrateur ont été enregistrés. L'abonnement pilote est actif.` });
+
+      const emailSent = Boolean(data?.email_sent);
+      toast({
+        title: emailSent ? "Coopérative créée avec succès" : "Coopérative créée, notification non envoyée",
+        description:
+          `${data?.cooperative_name || coop.name}\n` +
+          `Administrateur : ${data?.admin_email || admin.email}\n` +
+          `Notification : ${emailSent ? "envoyée" : "échec de l'envoi — communiquez les accès manuellement"}`,
+        variant: emailSent ? "default" : "destructive",
+      });
+
+      // Réinitialisation du formulaire après succès
+      setCoop(initialCoop);
+      setAdmin(initialAdmin);
+      setLogoFile(null);
+      setLogoPreview(null);
+      setStep(1);
       navigate("/gestion");
     } catch (e) {
       console.error(e);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+      toast({
+        title: "Création impossible",
+        description: "Impossible de contacter le serveur. Vérifiez votre connexion puis réessayez.",
+        variant: "destructive",
+      });
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
+
 
   const StepIndicator = () => (
     <div className="flex items-center justify-center gap-2 sm:gap-4 mb-8">
