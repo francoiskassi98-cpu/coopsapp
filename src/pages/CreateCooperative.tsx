@@ -50,21 +50,22 @@ function defaultPilotDates() {
 }
 
 /** Lit le message métier renvoyé par l'Edge Function et le traduit par catégorie. */
-async function readFunctionError(error: unknown): Promise<string> {
+async function readFunctionError(error: unknown): Promise<{ message: string; code?: string }> {
   const ctx = (error as { context?: Response } | null)?.context;
   if (ctx && typeof ctx.json === "function") {
     try {
       const payload = await ctx.clone().json();
-      if (payload?.error) return String(payload.error);
+      if (payload?.error) return { message: String(payload.error), code: payload?.code ? String(payload.code) : undefined };
     } catch {
       /* corps non JSON */
     }
-    if (ctx.status === 401 || ctx.status === 403) return "Votre session a expiré. Veuillez vous reconnecter.";
-    if (ctx.status >= 500) return "Le serveur n'a pas pu terminer la création de la coopérative. Réessayez dans un instant.";
-    return "Impossible de créer la coopérative : certaines informations sont invalides ou déjà utilisées.";
+    if (ctx.status === 401 || ctx.status === 403) return { message: "Votre session a expiré. Veuillez vous reconnecter." };
+    if (ctx.status >= 500) return { message: "Le serveur n'a pas pu terminer la création de la coopérative. Réessayez dans un instant." };
+    return { message: "Impossible de créer la coopérative : certaines informations sont invalides ou déjà utilisées." };
   }
-  return "Impossible de contacter le serveur. Vérifiez votre connexion puis réessayez.";
+  return { message: "Impossible de contacter le serveur. Vérifiez votre connexion puis réessayez." };
 }
+
 
 
 export default function CreateCooperative() {
@@ -167,11 +168,19 @@ export default function CreateCooperative() {
 
       if (error || data?.error) {
         const parsed = await readFunctionError(error);
-        const description = (data?.error as string) || parsed;
+        const code = (data?.code as string) || parsed.code;
+        const description = (data?.error as string) || parsed.message;
         console.error("[create-cooperative]", error || data?.error);
+        if (code === "PASSWORD_REJECTED" || code === "PASSWORD_TOO_SHORT" || code === "ADMIN_EMAIL_TAKEN") {
+          setStep(2);
+          if (code !== "ADMIN_EMAIL_TAKEN") {
+            setAdmin((a) => ({ ...a, password: "", password_confirm: "" }));
+          }
+        }
         toast({ title: "Création impossible", description, variant: "destructive" });
         return;
       }
+
 
       const emailSent = Boolean(data?.email_sent);
       toast({
