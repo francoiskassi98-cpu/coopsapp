@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -48,6 +48,24 @@ function defaultPilotDates() {
   const end = `${y}-11-30`;
   return { start, end };
 }
+
+/** Lit le message métier renvoyé par l'Edge Function et le traduit par catégorie. */
+async function readFunctionError(error: unknown): Promise<string> {
+  const ctx = (error as { context?: Response } | null)?.context;
+  if (ctx && typeof ctx.json === "function") {
+    try {
+      const payload = await ctx.clone().json();
+      if (payload?.error) return String(payload.error);
+    } catch {
+      /* corps non JSON */
+    }
+    if (ctx.status === 401 || ctx.status === 403) return "Votre session a expiré. Veuillez vous reconnecter.";
+    if (ctx.status >= 500) return "Le serveur n'a pas pu terminer la création de la coopérative. Réessayez dans un instant.";
+    return "Impossible de créer la coopérative : certaines informations sont invalides ou déjà utilisées.";
+  }
+  return "Impossible de contacter le serveur. Vérifiez votre connexion puis réessayez.";
+}
+
 
 export default function CreateCooperative() {
   const navigate = useNavigate();
