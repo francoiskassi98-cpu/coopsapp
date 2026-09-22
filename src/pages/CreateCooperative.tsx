@@ -76,6 +76,8 @@ export default function CreateCooperative() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+
   const _def = defaultPilotDates();
   const [subStart, setSubStart] = useState<string>(_def.start);
   const [subEnd, setSubEnd] = useState<string>(_def.end);
