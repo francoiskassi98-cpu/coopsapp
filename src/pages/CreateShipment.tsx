@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { distributeShipment, getCurrentCampaign, normalizeCampaign, verifyDistributionTotals, splitBagsExactly, computeAverageBagWeight, bagWeightRange, isBagWeightInRange, type DistributionResult } from "@/lib/shipment-utils";
+import { distributeShipment, getCurrentCampaign, normalizeCampaign, verifyDistributionTotals, splitBagsExactly, computeAverageBagWeight, bagWeightRange, isBagWeightInRange, MAX_BAGS_PER_PRODUCER, type DistributionResult } from "@/lib/shipment-utils";
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { Truck, Plus, Download, Pencil, Check, X, FileSpreadsheet, FolderPlus, Maximize2, Minimize2 } from "lucide-react";
@@ -401,6 +401,11 @@ export default function CreateShipment() {
       throw new Error(`Distribution invalide pour ${invalidDelivery.full_name || "un producteur"}. Vérifiez le poids, le nombre de sacs, la date et le numéro de reçu.`);
     }
 
+    const overBags = preview.find((d) => Number(d.num_bags) > MAX_BAGS_PER_PRODUCER);
+    if (overBags) {
+      throw new Error(`${overBags.full_name || "Un producteur"} a ${overBags.num_bags} sacs : maximum ${MAX_BAGS_PER_PRODUCER} sacs par producteur. Recalculez la distribution.`);
+    }
+
     // Contrôle strict avant enregistrement : écart poids = 0, écart sacs = 0, valeurs entières.
     const totals = verifyDistributionTotals(preview, Number(totalWeight), Number(totalBags));
     if (!totals.ok) {
@@ -703,6 +708,10 @@ export default function CreateShipment() {
     const newBags = Number(editBags);
     if (!Number.isInteger(newWeight) || newWeight <= 0 || !Number.isInteger(newBags) || newBags <= 0) {
       toast({ title: "Valeurs invalides", description: "Le poids et le nombre de sacs doivent être des nombres entiers positifs.", variant: "destructive" });
+      return;
+    }
+    if (newBags > MAX_BAGS_PER_PRODUCER) {
+      toast({ title: "Nombre de sacs trop élevé", description: `Un producteur ne peut jamais dépasser ${MAX_BAGS_PER_PRODUCER} sacs.`, variant: "destructive" });
       return;
     }
     const declaredWeight = Number(totalWeight);

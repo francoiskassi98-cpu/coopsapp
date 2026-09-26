@@ -226,6 +226,8 @@ export async function parseShipmentExcel(data: ArrayBuffer): Promise<{ rows: Shi
       rowErrors.push(`Nombre de sacs « ${String(row.nombre_sacs)} » invalide (nombre entier attendu)`);
     } else if (sacs < 1) {
       rowErrors.push("Nombre de sacs doit être supérieur ou égal à 1");
+    } else if (sacs > 15) {
+      rowErrors.push(`Nombre de sacs (${sacs}) supérieur au maximum autorisé de 15 sacs par producteur`);
     }
 
     // Poids par sac : contrainte deliveries_bag_weight_check (<= 110 kg)
@@ -282,7 +284,7 @@ export async function downloadShipmentTemplate() {
   [
     "Toutes les colonnes obligatoires doivent être renseignées : Projet, Zone, Destination, Nom du producteur, Code plantation, Poids net, Nombre de sacs, Date de livraison, N° Reçu.",
     "Poids net (kg) : nombre ENTIER strictement supérieur à 0 (aucune décimale).",
-    "Nombre de sacs : nombre ENTIER supérieur ou égal à 1.",
+    "Nombre de sacs : nombre ENTIER entre 1 et 15 (maximum 15 sacs par producteur).",
     `Poids par sac (poids net / nombre de sacs) : maximum ${MAX_BAG_WEIGHT_KG} kg.`,
     "Date de livraison : format JJ/MM/AAAA, jamais dans le futur.",
     `Destination : exactement « ${VALID_DESTINATIONS.join(" » ou « ")} ».`,
