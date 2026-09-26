@@ -1,0 +1,1 @@
+ALTER TABLE public.deliveries ADD CONSTRAINT deliveries_max_15_bags CHECK (num_bags <= 15) NOT VALID;
