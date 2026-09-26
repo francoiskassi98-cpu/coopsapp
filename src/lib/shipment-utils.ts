@@ -141,8 +141,24 @@ function shuffledIndexes(n: number): number[] {
   return idx;
 }
 
-/** Répartit `totalBags` sur `n` producteurs : sacs entiers, 1..15, somme exacte. */
-function allocateBags(totalBags: number, n: number): number[] | null {
+/**
+ * Répartit `totalBags` sur `n` producteurs : sacs entiers, 1..15, somme exacte.
+ * Règle stricte : tous les producteurs d'un même chargement reçoivent le MÊME
+ * nombre de sacs. Retourne `null` si `totalBags` n'est pas divisible par `n`
+ * ou si la valeur uniforme dépasse 15 sacs.
+ */
+function allocateBagsUniform(totalBags: number, n: number): number[] | null {
+  if (n <= 0 || totalBags < n || totalBags % n !== 0) return null;
+  const per = totalBags / n;
+  if (per < 1 || per > MAX_BAGS_PER_PRODUCER) return null;
+  return Array.from({ length: n }, () => per);
+}
+
+/**
+ * Repli quasi uniforme (différence maximale de 1 sac) utilisé uniquement
+ * lorsqu'aucune répartition strictement uniforme n'est mathématiquement possible.
+ */
+function allocateBagsNearUniform(totalBags: number, n: number): number[] | null {
   if (n <= 0 || totalBags < n || totalBags > n * MAX_BAGS_PER_PRODUCER) return null;
   const base = Math.floor(totalBags / n);
   let rest = totalBags - base * n;
