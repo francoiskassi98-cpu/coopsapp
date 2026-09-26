@@ -249,11 +249,11 @@ export function distributeShipment(
     const bags = allocateBagsUniform(totalBags, n);
     if (bags) candidates.push({ n, bags });
   }
-  if (candidates.length === 0) {
-    for (let n = nMin; n <= nMax; n++) {
-      const bags = allocateBagsNearUniform(totalBags, n);
-      if (bags) candidates.push({ n, bags });
-    }
+  // Repli quasi uniforme essayé après les candidats uniformes : un candidat
+  // uniforme peut être infaisable en poids (plage ±5 kg / potentiel 20 %).
+  for (let n = nMin; n <= nMax; n++) {
+    const bags = allocateBagsNearUniform(totalBags, n);
+    if (bags) candidates.push({ n, bags });
   }
 
   for (const { n, bags } of candidates) {
