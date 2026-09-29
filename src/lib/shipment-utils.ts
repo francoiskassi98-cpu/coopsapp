@@ -285,10 +285,18 @@ export function distributeShipment(
 
   // Sacs répartis proportionnellement à la capacité de chaque producteur :
   // fort potentiel = plus de sacs (jusqu'à 15), potentiel modeste = moins de sacs.
-  for (let n = nMin; n <= nMax; n++) {
+  // On vise en priorité un nombre de participants laissant de la marge autour de
+  // ~9 sacs/producteur : avec le minimum de participants, tout le monde serait à 15.
+  const nPreferred = Math.min(nMax, Math.max(nMin, Math.ceil(totalBags / 9)));
+  const nOrder = Array.from({ length: Math.max(0, nMax - nMin + 1) }, (_, k) => nMin + k).sort(
+    (a, b) => Math.abs(a - nPreferred) - Math.abs(b - nPreferred) || a - b
+  );
+
+  for (const n of nOrder) {
     const chosen = byCapacity.slice(0, n);
     const bags = allocateBagsByCapacity(totalBags, chosen.map((c) => c.cap), minBagWeight);
     if (!bags) continue;
+
 
 
     const lo = bags.map((b) => b * minBagWeight);
