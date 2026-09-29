@@ -209,8 +209,59 @@ function allocateBagsByCapacity(totalBags: number, caps: number[], minBagWeight:
     }
   }
 
+  if (bags.reduce((s, v) => s + v, 0) !== totalBags) return null;
+
+  breakUniformBagRuns(bags, ub);
+
   return bags.reduce((s, v) => s + v, 0) === totalBags ? bags : null;
 }
+
+/**
+ * Casse les répétitions de sacs : lorsque plusieurs producteurs se retrouvent
+ * avec exactement le même nombre de sacs (potentiels identiques ou très proches),
+ * on effectue des transferts 1 pour 1 (+1 ici, -1 là) sous les bornes de chacun.
+ *
+ * La somme des sacs reste strictement inchangée, chaque valeur reste entière,
+ * comprise entre 1 et min(15, capacité disponible).
+ */
+function breakUniformBagRuns(bags: number[], ub: number[]): void {
+  const n = bags.length;
+  if (n < 3) return;
+
+  const groupsOf = () => {
+    const map = new Map<number, number[]>();
+    bags.forEach((v, i) => {
+      const list = map.get(v);
+      if (list) list.push(i);
+      else map.set(v, [i]);
+    });
+    return map;
+  };
+
+  for (let pass = 0; pass < 6; pass++) {
+    let changed = false;
+    for (const [, idx] of groupsOf()) {
+      if (idx.length < 3) continue;
+      const shuffled = shuffledIndexes(idx.length).map((k) => idx[k]);
+      // Transferts par paires : un producteur monte d'un sac, l'autre en cède un.
+      for (let k = 0; k + 1 < shuffled.length; k += 2) {
+        const up = shuffled[k];
+        const down = shuffled[k + 1];
+        if (bags[up] + 1 <= ub[up] && bags[down] - 1 >= 1) {
+          bags[up] += 1;
+          bags[down] -= 1;
+          changed = true;
+        } else if (bags[down] + 1 <= ub[down] && bags[up] - 1 >= 1) {
+          bags[down] += 1;
+          bags[up] -= 1;
+          changed = true;
+        }
+      }
+    }
+    if (!changed) break;
+  }
+}
+
 
 
 /**
