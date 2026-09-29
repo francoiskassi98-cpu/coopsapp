@@ -142,35 +142,76 @@ function shuffledIndexes(n: number): number[] {
 }
 
 /**
- * Répartit `totalBags` sur `n` producteurs : sacs entiers, 1..15, somme exacte.
- * Règle stricte : tous les producteurs d'un même chargement reçoivent le MÊME
- * nombre de sacs. Retourne `null` si `totalBags` n'est pas divisible par `n`
- * ou si la valeur uniforme dépasse 15 sacs.
+ * Répartit `totalBags` sur les producteurs choisis PROPORTIONNELLEMENT à leur
+ * capacité (20 % du potentiel, plafonnée par le potentiel restant).
+ *
+ * - un producteur à forte capacité reçoit naturellement plus de sacs (jusqu'à 15) ;
+ * - un producteur à capacité modeste en reçoit moins (4, 6, 8...) ;
+ * - sacs entiers, 1..15, somme strictement égale à `totalBags`.
+ *
+ * Retourne `null` si aucune répartition entière valide n'existe.
  */
-function allocateBagsUniform(totalBags: number, n: number): number[] | null {
-  if (n <= 0 || totalBags < n || totalBags % n !== 0) return null;
-  const per = totalBags / n;
-  if (per < 1 || per > MAX_BAGS_PER_PRODUCER) return null;
-  return Array.from({ length: n }, () => per);
-}
+function allocateBagsByCapacity(totalBags: number, caps: number[], minBagWeight: number): number[] | null {
+  const n = caps.length;
+  if (n <= 0 || totalBags < n) return null;
 
-/**
- * Repli quasi uniforme (différence maximale de 1 sac) utilisé uniquement
- * lorsqu'aucune répartition strictement uniforme n'est mathématiquement possible.
- */
-function allocateBagsNearUniform(totalBags: number, n: number): number[] | null {
-  if (n <= 0 || totalBags < n || totalBags > n * MAX_BAGS_PER_PRODUCER) return null;
-  const base = Math.floor(totalBags / n);
-  let rest = totalBags - base * n;
-  const bags = Array.from({ length: n }, () => base);
-  for (let i = 0; i < n && rest > 0; i++) {
-    if (bags[i] < MAX_BAGS_PER_PRODUCER) {
-      bags[i] += 1;
-      rest--;
+  // Borne haute par producteur : 15 sacs, et jamais plus de sacs que sa capacité
+  // ne peut en remplir au poids minimal de la plage ±5 kg.
+  const ub = caps.map((c) => Math.min(MAX_BAGS_PER_PRODUCER, Math.floor(c / minBagWeight)));
+  if (ub.some((u) => u < 1)) return null;
+
+  const sumUb = ub.reduce((s, v) => s + v, 0);
+  if (totalBags > sumUb) return null;
+
+  const sumCap = caps.reduce((s, v) => s + v, 0);
+  const bags = caps.map((c, i) => {
+    const target = Math.round((totalBags * c) / sumCap);
+    return Math.min(ub[i], Math.max(1, target));
+  });
+
+  let diff = bags.reduce((s, v) => s + v, 0) - totalBags;
+
+  // Trop de sacs : retirer d'abord aux plus petites capacités.
+  if (diff > 0) {
+    const order = caps.map((c, i) => i).sort((a, b) => caps[a] - caps[b]);
+    let guard = 0;
+    while (diff > 0) {
+      if (guard++ > n * MAX_BAGS_PER_PRODUCER + 16) return null;
+      let moved = false;
+      for (const i of order) {
+        if (diff <= 0) break;
+        if (bags[i] > 1) {
+          bags[i] -= 1;
+          diff--;
+          moved = true;
+        }
+      }
+      if (!moved) return null;
     }
   }
-  return rest === 0 ? bags : null;
+
+  // Pas assez de sacs : ajouter d'abord aux plus grandes capacités.
+  if (diff < 0) {
+    const order = caps.map((c, i) => i).sort((a, b) => caps[b] - caps[a]);
+    let guard = 0;
+    while (diff < 0) {
+      if (guard++ > n * MAX_BAGS_PER_PRODUCER + 16) return null;
+      let moved = false;
+      for (const i of order) {
+        if (diff >= 0) break;
+        if (bags[i] < ub[i]) {
+          bags[i] += 1;
+          diff++;
+          moved = true;
+        }
+      }
+      if (!moved) return null;
+    }
+  }
+
+  return bags.reduce((s, v) => s + v, 0) === totalBags ? bags : null;
 }
+
 
 /**
  * Remplit aléatoirement les poids entre les bornes `lo` et `hi` pour atteindre
