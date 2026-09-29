@@ -283,22 +283,13 @@ export function distributeShipment(
   const nMin = Math.max(1, Math.ceil(totalBags / MAX_BAGS_PER_PRODUCER));
   const nMax = Math.min(byCapacity.length, totalBags, Math.floor(totalWeight / minEntryWeight));
 
-  // Passe 1 : répartition strictement uniforme (même nombre de sacs pour tous).
-  // Passe 2 : repli quasi uniforme (écart max de 1 sac) si aucune solution uniforme.
-  const candidates: { n: number; bags: number[] }[] = [];
+  // Sacs répartis proportionnellement à la capacité de chaque producteur :
+  // fort potentiel = plus de sacs (jusqu'à 15), potentiel modeste = moins de sacs.
   for (let n = nMin; n <= nMax; n++) {
-    const bags = allocateBagsUniform(totalBags, n);
-    if (bags) candidates.push({ n, bags });
-  }
-  // Repli quasi uniforme essayé après les candidats uniformes : un candidat
-  // uniforme peut être infaisable en poids (plage ±5 kg / potentiel 20 %).
-  for (let n = nMin; n <= nMax; n++) {
-    const bags = allocateBagsNearUniform(totalBags, n);
-    if (bags) candidates.push({ n, bags });
-  }
-
-  for (const { n, bags } of candidates) {
     const chosen = byCapacity.slice(0, n);
+    const bags = allocateBagsByCapacity(totalBags, chosen.map((c) => c.cap), minBagWeight);
+    if (!bags) continue;
+
 
     const lo = bags.map((b) => b * minBagWeight);
     const hi = bags.map((b, i) => Math.min(b * maxBagWeight, chosen[i].cap));
