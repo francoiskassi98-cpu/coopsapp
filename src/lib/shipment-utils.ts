@@ -363,10 +363,14 @@ export function distributeShipment(
     }
     if (!weights) continue;
 
-    // Tri final par section A-Z (règle d'affichage conservée).
-    const order = chosen
-      .map((e, i) => ({ e, weight: weights![i], bags: bags[i] }))
-      .sort((a, b) => a.e.producer.section.localeCompare(b.e.producer.section));
+    // Tri final par section A-Z (règle d'affichage conservée), puis entrelacement
+    // à l'intérieur de chaque section pour éviter les blocs de sacs identiques.
+    const order = interleaveBagsWithinSections(
+      chosen
+        .map((e, i) => ({ e, weight: weights![i], bags: bags[i] }))
+        .sort((a, b) => a.e.producer.section.localeCompare(b.e.producer.section))
+    );
+
 
     const totalDays = Math.max(differenceInDays(endDate, startDate), 1);
     const dateStep = totalDays / Math.max(order.length - 1, 1);
