@@ -291,6 +291,64 @@ function randomFill(lo: number[], hi: number[], total: number): number[] | null 
 }
 
 /**
+ * Entrelace, à l'intérieur de chaque section, les producteurs pour éviter des
+ * blocs consécutifs de sacs identiques. L'ordre alphabétique des sections est
+ * préservé ; seul l'ordre intra-section change.
+ *
+ * Stratégie : à chaque étape, prendre le producteur du groupe (par nombre de
+ * sacs) le plus fréquent parmi les groupes différents du précédent placé.
+ * Si un seul groupe reste, on l'utilise (répétitions inévitables uniquement
+ * lorsqu'une seule valeur de sacs subsiste dans la section).
+ */
+function interleaveBagsWithinSections<T extends { bags: number; e: { producer: { section: string } } }>(
+  rows: T[]
+): T[] {
+  const out: T[] = [];
+  let i = 0;
+  while (i < rows.length) {
+    let j = i;
+    while (j < rows.length && rows[j].e.producer.section === rows[i].e.producer.section) j++;
+    const groups = new Map<number, T[]>();
+    for (let k = i; k < j; k++) {
+      const r = rows[k];
+      const list = groups.get(r.bags);
+      if (list) list.push(r);
+      else groups.set(r.bags, [r]);
+    }
+    let prevBags: number | null = null;
+    let remaining = j - i;
+    while (remaining > 0) {
+      let bestKey: number | null = null;
+      let bestSize = -1;
+      for (const [key, list] of groups) {
+        if (list.length === 0) continue;
+        if (key === prevBags) continue;
+        if (list.length > bestSize) {
+          bestSize = list.length;
+          bestKey = key;
+        }
+      }
+      if (bestKey === null) {
+        for (const [key, list] of groups) {
+          if (list.length > 0) { bestKey = key; break; }
+        }
+      }
+      const list = groups.get(bestKey!)!;
+      out.push(list.shift()!);
+      prevBags = bestKey;
+      remaining--;
+    }
+    i = j;
+  }
+  return out;
+}
+
+
+
+
+
+/**
+
  * Distribue le poids d'un chargement entre les producteurs.
  *
  * Règles conservées : 20 % du potentiel de livraison (sans arrondi réducteur),
@@ -363,10 +421,14 @@ export function distributeShipment(
     }
     if (!weights) continue;
 
-    // Tri final par section A-Z (règle d'affichage conservée).
-    const order = chosen
-      .map((e, i) => ({ e, weight: weights![i], bags: bags[i] }))
-      .sort((a, b) => a.e.producer.section.localeCompare(b.e.producer.section));
+    // Tri final par section A-Z (règle d'affichage conservée), puis entrelacement
+    // à l'intérieur de chaque section pour éviter les blocs de sacs identiques.
+    const order = interleaveBagsWithinSections(
+      chosen
+        .map((e, i) => ({ e, weight: weights![i], bags: bags[i] }))
+        .sort((a, b) => a.e.producer.section.localeCompare(b.e.producer.section))
+    );
+
 
     const totalDays = Math.max(differenceInDays(endDate, startDate), 1);
     const dateStep = totalDays / Math.max(order.length - 1, 1);
