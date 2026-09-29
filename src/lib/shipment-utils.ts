@@ -295,9 +295,10 @@ function randomFill(lo: number[], hi: number[], total: number): number[] | null 
  * blocs consécutifs de sacs identiques. L'ordre alphabétique des sections est
  * préservé ; seul l'ordre intra-section change.
  *
- * Stratégie : à chaque étape, choisir parmi les producteurs restants celui
- * dont le groupe (par nombre de sacs) est le plus fréquent, en évitant si
- * possible de reprendre la même valeur que le producteur précédent.
+ * Stratégie : à chaque étape, prendre le producteur du groupe (par nombre de
+ * sacs) le plus fréquent parmi les groupes différents du précédent placé.
+ * Si un seul groupe reste, on l'utilise (répétitions inévitables uniquement
+ * lorsqu'une seule valeur de sacs subsiste dans la section).
  */
 function interleaveBagsWithinSections<T extends { bags: number; e: { producer: { section: string } } }>(
   rows: T[]
@@ -307,51 +308,42 @@ function interleaveBagsWithinSections<T extends { bags: number; e: { producer: {
   while (i < rows.length) {
     let j = i;
     while (j < rows.length && rows[j].e.producer.section === rows[i].e.producer.section) j++;
-    const bucket = rows.slice(i, j);
     const groups = new Map<number, T[]>();
-    for (const r of bucket) {
+    for (let k = i; k < j; k++) {
+      const r = rows[k];
       const list = groups.get(r.bags);
       if (list) list.push(r);
       else groups.set(r.bags, [r]);
     }
     let prevBags: number | null = null;
-    while (bucket.length > out.length + (bucket.length - out.length - (i - out.length + bucket.length))) break;
-    const arranged: T[] = [];
-    let remaining = bucket.length;
+    let remaining = j - i;
     while (remaining > 0) {
       let bestKey: number | null = null;
       let bestSize = -1;
       for (const [key, list] of groups) {
         if (list.length === 0) continue;
-        if (list.length > bestSize || (list.length === bestSize && key !== prevBags && bestKey === prevBags)) {
-          if (key === prevBags && groups.size > 1 && hasAlternative(groups, key)) continue;
+        if (key === prevBags) continue;
+        if (list.length > bestSize) {
           bestSize = list.length;
           bestKey = key;
         }
       }
       if (bestKey === null) {
-        // Only prevBags group left: forced to repeat.
         for (const [key, list] of groups) {
           if (list.length > 0) { bestKey = key; break; }
         }
       }
       const list = groups.get(bestKey!)!;
-      arranged.push(list.shift()!);
+      out.push(list.shift()!);
       prevBags = bestKey;
       remaining--;
     }
-    out.push(...arranged);
     i = j;
   }
   return out;
 }
 
-function hasAlternative(groups: Map<number, unknown[]>, excludeKey: number): boolean {
-  for (const [k, l] of groups) {
-    if (k !== excludeKey && l.length > 0) return true;
-  }
-  return false;
-}
+
 
 
 
