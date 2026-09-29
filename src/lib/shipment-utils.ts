@@ -291,6 +291,49 @@ function randomFill(lo: number[], hi: number[], total: number): number[] | null 
 }
 
 /**
+ * Entrelace, à l'intérieur de chaque section, les producteurs pour maximiser
+ * la distance entre deux voisins ayant le même nombre de sacs. L'ordre
+ * alphabétique des sections est préservé ; seul l'ordre intra-section change.
+ *
+ * Stratégie : à chaque étape, choisir parmi les producteurs restants de la
+ * section celui dont le nombre de sacs diffère le plus du précédent placé.
+ * En cas d'égalité, préférer la valeur non encore utilisée récemment.
+ */
+function interleaveBagsWithinSections<T extends { bags: number; e: { producer: { section: string } } }>(
+  rows: T[]
+): T[] {
+  const out: T[] = [];
+  let i = 0;
+  while (i < rows.length) {
+    let j = i;
+    while (j < rows.length && rows[j].e.producer.section === rows[i].e.producer.section) j++;
+    const bucket = rows.slice(i, j);
+    const arranged: T[] = [];
+    const remaining = [...bucket];
+    let prevBags: number | null = null;
+    while (remaining.length > 0) {
+      let bestIdx = 0;
+      let bestScore = -1;
+      for (let k = 0; k < remaining.length; k++) {
+        const b = remaining[k].bags;
+        const score = prevBags === null ? Math.abs(b) : Math.abs(b - prevBags);
+        if (score > bestScore) {
+          bestScore = score;
+          bestIdx = k;
+        }
+      }
+      const picked = remaining.splice(bestIdx, 1)[0];
+      arranged.push(picked);
+      prevBags = picked.bags;
+    }
+    out.push(...arranged);
+    i = j;
+  }
+  return out;
+}
+
+/**
+
  * Distribue le poids d'un chargement entre les producteurs.
  *
  * Règles conservées : 20 % du potentiel de livraison (sans arrondi réducteur),
