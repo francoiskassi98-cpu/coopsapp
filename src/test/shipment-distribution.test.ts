@@ -98,6 +98,16 @@ describe("distributeShipment — exactitude stricte et plage ±5 kg", () => {
     expect(new Set(perBag).size).toBeGreaterThan(1);
   });
 
+  it("priorise les producteurs sans livraison, puis la plus ancienne", () => {
+    const list = producers(40, 3000).map((p, i) => ({
+      ...p,
+      last_delivery_date: i < 20 ? "2026-01-0" + ((i % 9) + 1) : null,
+    }));
+    const r = distributeShipment(list, 5000, 100, start, end, 0);
+    expect(r.length).toBeGreaterThan(0);
+    const ids = new Set(r.map((d) => d.producer_id));
+    for (let i = 0; i < 20; i++) expect(ids.has(`p${i}`)).toBe(false);
+  });
 
   it("refuse les totaux non entiers", () => {
     expect(distributeShipment(producers(10), 10000.5, 200, start, end, 0)).toEqual([]);

@@ -14,6 +14,8 @@ export interface ProducerForDistribution {
   carte_ccc?: string | null;
   remaining_potential: number;
   delivery_potential: number;
+  /** Dernière livraison dans la campagne (yyyy-MM-dd), null si aucune. Sert à la rotation. */
+  last_delivery_date?: string | null;
 }
 
 export interface DistributionResult {
@@ -386,8 +388,20 @@ export function distributeShipment(
 
   if (eligible.length === 0) return [];
 
-  // Sélection : les producteurs disposant de la plus grande capacité en premier.
-  const byCapacity = [...eligible].sort((a, b) => b.cap - a.cap);
+  // Sélection par priorité de rotation :
+  // 1) producteurs sans aucune livraison dans la campagne ;
+  // 2) puis dernière livraison la plus ancienne ;
+  // à priorité égale, la plus grande capacité en premier.
+  const byCapacity = [...eligible].sort((a, b) => {
+    const la = a.producer.last_delivery_date || "";
+    const lb = b.producer.last_delivery_date || "";
+    if (la !== lb) {
+      if (!la) return -1;
+      if (!lb) return 1;
+      return la < lb ? -1 : 1;
+    }
+    return b.cap - a.cap;
+  });
 
   const nMin = Math.max(1, Math.ceil(totalBags / MAX_BAGS_PER_PRODUCER));
   const nMax = Math.min(byCapacity.length, totalBags, Math.floor(totalWeight / minEntryWeight));
