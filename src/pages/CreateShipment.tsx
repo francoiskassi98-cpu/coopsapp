@@ -337,6 +337,7 @@ export default function CreateShipment() {
         carte_ccc: p.carte_ccc,
         remaining_potential: p.remaining_potential,
         delivery_potential: p.delivery_potential,
+        last_delivery_date: p.last_delivery_date,
       })),
       Number(totalWeight),
       Number(totalBags),
