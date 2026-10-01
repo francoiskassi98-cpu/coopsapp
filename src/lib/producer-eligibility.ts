@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeCampaign, getCurrentCampaign } from "@/lib/shipment-utils";
+import { GRANDE_TRAITE_RATIO, grandeTraiteBounds, isGrandeTraite } from "@/lib/campaign";
 import type { Tables } from "@/integrations/supabase/types";
 
 /** Colonnes producteurs nécessaires au calcul d'éligibilité. */
