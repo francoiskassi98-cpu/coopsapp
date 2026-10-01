@@ -31,6 +31,12 @@ export interface EligibleProducer {
   /** Potentiel − total livré sur la campagne active */
   remaining_potential: number;
   last_delivery_date: string | null;
+  /**
+   * Solde maximum livrable pour la saison en cours à la date de référence :
+   *  - Grande traite (sept→fév) : plafond = 70 % du potentiel − déjà livré en grande traite.
+   *  - Petite traite (mars→août) : plafond = potentiel restant (le solde des 30 % est libéré).
+   */
+  season_cap_remaining: number;
 }
 
 export type ExclusionReason =
