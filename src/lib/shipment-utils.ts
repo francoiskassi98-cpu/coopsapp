@@ -385,10 +385,16 @@ export function distributeShipment(
   // toujours plafonnée par le potentiel restant du producteur.
   const eligible = producers
     .filter((p) => Math.floor(p.remaining_potential) >= MIN_ALLOCATION_KG)
-    .map((p) => ({
-      producer: p,
-      cap: Math.min(Math.floor(p.remaining_potential), Math.ceil(p.delivery_potential * 0.2)),
-    }))
+    .map((p) => {
+      const seasonCap = p.season_cap_remaining !== undefined && p.season_cap_remaining !== null
+        ? Math.floor(p.season_cap_remaining)
+        : Number.POSITIVE_INFINITY;
+      return {
+        producer: p,
+        // Plafonds cumulés : potentiel restant, 20 % du potentiel initial, solde saisonnier (grande traite 70 %).
+        cap: Math.min(Math.floor(p.remaining_potential), Math.ceil(p.delivery_potential * 0.2), seasonCap),
+      };
+    })
     .filter((e) => e.cap >= minEntryWeight);
 
   if (eligible.length === 0) return [];
