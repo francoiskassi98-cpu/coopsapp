@@ -314,6 +314,18 @@ export async function validateDistributionBeforeSave(
       anomalies.push(`Le producteur ${name} dépasserait son potentiel pour la campagne active (potentiel ${potential} kg, déjà livré ${delivered} kg, volume proposé ${line.allocated_weight} kg).`);
       continue;
     }
+    // Plafond de 70 % pendant la grande traite (sept→fév).
+    const lineDate = line.delivery_date || new Date().toISOString().slice(0, 10);
+    if (lineDate >= gtStartIso && lineDate < gtEndExclusiveIso) {
+      const grandeTraiteCap = Math.floor(potential * GRANDE_TRAITE_RATIO);
+      const gtDelivered = grandeTraiteByProducer[line.producer_id] || 0;
+      if (gtDelivered + Number(line.allocated_weight) > grandeTraiteCap) {
+        anomalies.push(
+          `Le producteur ${name} dépasserait le plafond de ${Math.round(GRANDE_TRAITE_RATIO * 100)} % autorisé pour la grande traite (plafond ${grandeTraiteCap} kg, déjà livré ${gtDelivered} kg, volume proposé ${line.allocated_weight} kg). Le solde sera livrable à partir du 1er mars.`
+        );
+        continue;
+      }
+    }
     const last = lastDeliveryByProducer[line.producer_id];
     if (last) {
       const eligibleFrom = addDaysIso(last, MIN_DAYS_BETWEEN_DELIVERIES);
