@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeCampaign, getCurrentCampaign } from "@/lib/shipment-utils";
+import { GRANDE_TRAITE_RATIO, grandeTraiteBounds, isGrandeTraite } from "@/lib/campaign";
 import type { Tables } from "@/integrations/supabase/types";
 
 /** Colonnes producteurs nécessaires au calcul d'éligibilité. */
@@ -30,6 +31,12 @@ export interface EligibleProducer {
   /** Potentiel − total livré sur la campagne active */
   remaining_potential: number;
   last_delivery_date: string | null;
+  /**
+   * Solde maximum livrable pour la saison en cours à la date de référence :
+   *  - Grande traite (sept→fév) : plafond = 70 % du potentiel − déjà livré en grande traite.
+   *  - Petite traite (mars→août) : plafond = potentiel restant (le solde des 30 % est libéré).
+   */
+  season_cap_remaining: number;
 }
 
 export type ExclusionReason =
@@ -37,7 +44,8 @@ export type ExclusionReason =
   | "remaining_below_min"
   | "delay_not_elapsed"
   | "no_potential"
-  | "section_disabled";
+  | "section_disabled"
+  | "grande_traite_cap_reached";
 
 export interface ExcludedProducer {
   id: string;
@@ -130,11 +138,17 @@ export async function buildEligibleProducers(
   }
 
   const deliveredByProducer: Record<string, number> = {};
+  const grandeTraiteByProducer: Record<string, number> = {};
   const lastDeliveryByProducer: Record<string, string> = {};
+  const { startIso: gtStartIso, endExclusiveIso: gtEndExclusiveIso } = grandeTraiteBounds(campaignLabel);
   for (const d of deliveries) {
     const pid = d.producer_id;
     if (!pid) continue;
-    deliveredByProducer[pid] = (deliveredByProducer[pid] || 0) + Number(d.net_weight || 0);
+    const w = Number(d.net_weight || 0);
+    deliveredByProducer[pid] = (deliveredByProducer[pid] || 0) + w;
+    if (d.delivery_date && d.delivery_date >= gtStartIso && d.delivery_date < gtEndExclusiveIso) {
+      grandeTraiteByProducer[pid] = (grandeTraiteByProducer[pid] || 0) + w;
+    }
     if (d.delivery_date && (!lastDeliveryByProducer[pid] || d.delivery_date > lastDeliveryByProducer[pid])) {
       lastDeliveryByProducer[pid] = d.delivery_date;
     }
@@ -143,6 +157,7 @@ export async function buildEligibleProducers(
   const eligible: EligibleProducer[] = [];
   const excluded: ExcludedProducer[] = [];
   const refIso = referenceDate.toISOString().slice(0, 10);
+  const inGrandeTraite = isGrandeTraite(referenceDate);
 
   for (const p of producers) {
     const name = p.full_name || "Producteur";
@@ -185,6 +200,22 @@ export async function buildEligibleProducers(
       }
     }
 
+    // Règle de saisonnalité 70 % (grande traite sept→fév) / 30 % (petite traite mars→août).
+    const grandeTraiteCap = Math.floor(potential * GRANDE_TRAITE_RATIO);
+    const grandeTraiteDelivered = grandeTraiteByProducer[p.id] || 0;
+    const grandeTraiteRemaining = Math.max(0, grandeTraiteCap - grandeTraiteDelivered);
+    const seasonCap = inGrandeTraite ? Math.min(remaining, grandeTraiteRemaining) : remaining;
+
+    if (inGrandeTraite && seasonCap < MIN_REMAINING_WEIGHT_KG) {
+      excluded.push({
+        id: p.id,
+        full_name: name,
+        reason: "grande_traite_cap_reached",
+        message: `Le producteur ${name} a atteint le plafond de ${Math.round(GRANDE_TRAITE_RATIO * 100)} % autorisé pour la grande traite (septembre à février). Le solde sera disponible à compter du 1er mars.`,
+      });
+      continue;
+    }
+
     eligible.push({
       id: p.id,
       full_name: name,
@@ -196,6 +227,7 @@ export async function buildEligibleProducers(
       delivery_potential: potential,
       remaining_potential: remaining,
       last_delivery_date: last || null,
+      season_cap_remaining: seasonCap,
     });
   }
 
@@ -222,11 +254,29 @@ export async function validateDistributionBeforeSave(
   campaignLabelInput?: string,
   remainingSnapshot?: Record<string, number>
 ): Promise<string[]> {
-  const { deliveredByProducer, lastDeliveryByProducer } = await buildEligibleProducers(
+  const { deliveredByProducer, lastDeliveryByProducer, campaignLabel } = await buildEligibleProducers(
     registreId,
     new Date(),
     campaignLabelInput
   );
+  const { startIso: gtStartIso, endExclusiveIso: gtEndExclusiveIso } = grandeTraiteBounds(campaignLabel);
+
+  // Cumuls déjà livrés pendant la grande traite (sept→fév) de la campagne active.
+  const grandeTraiteByProducer: Record<string, number> = {};
+  {
+    const { data: gtData, error: gtError } = await supabase
+      .from("deliveries")
+      .select("producer_id, net_weight, delivery_date")
+      .eq("registre_id", registreId)
+      .eq("campaign_label", campaignLabel)
+      .gte("delivery_date", gtStartIso)
+      .lt("delivery_date", gtEndExclusiveIso);
+    if (gtError) throw gtError;
+    (gtData || []).forEach((d) => {
+      if (!d.producer_id) return;
+      grandeTraiteByProducer[d.producer_id] = (grandeTraiteByProducer[d.producer_id] || 0) + Number(d.net_weight || 0);
+    });
+  }
 
   const potentials: Record<string, { potential: number; name: string }> = {};
   const ids = Array.from(new Set(lines.map((l) => l.producer_id)));
@@ -263,6 +313,18 @@ export async function validateDistributionBeforeSave(
     if (delivered + Number(line.allocated_weight) > potential) {
       anomalies.push(`Le producteur ${name} dépasserait son potentiel pour la campagne active (potentiel ${potential} kg, déjà livré ${delivered} kg, volume proposé ${line.allocated_weight} kg).`);
       continue;
+    }
+    // Plafond de 70 % pendant la grande traite (sept→fév).
+    const lineDate = line.delivery_date || new Date().toISOString().slice(0, 10);
+    if (lineDate >= gtStartIso && lineDate < gtEndExclusiveIso) {
+      const grandeTraiteCap = Math.floor(potential * GRANDE_TRAITE_RATIO);
+      const gtDelivered = grandeTraiteByProducer[line.producer_id] || 0;
+      if (gtDelivered + Number(line.allocated_weight) > grandeTraiteCap) {
+        anomalies.push(
+          `Le producteur ${name} dépasserait le plafond de ${Math.round(GRANDE_TRAITE_RATIO * 100)} % autorisé pour la grande traite (plafond ${grandeTraiteCap} kg, déjà livré ${gtDelivered} kg, volume proposé ${line.allocated_weight} kg). Le solde sera livrable à partir du 1er mars.`
+        );
+        continue;
+      }
     }
     const last = lastDeliveryByProducer[line.producer_id];
     if (last) {

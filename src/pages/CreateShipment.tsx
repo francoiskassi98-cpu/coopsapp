@@ -338,6 +338,7 @@ export default function CreateShipment() {
         remaining_potential: p.remaining_potential,
         delivery_potential: p.delivery_potential,
         last_delivery_date: p.last_delivery_date,
+        season_cap_remaining: p.season_cap_remaining,
       })),
       Number(totalWeight),
       Number(totalBags),
