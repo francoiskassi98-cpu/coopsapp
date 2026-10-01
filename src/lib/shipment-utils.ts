@@ -16,6 +16,11 @@ export interface ProducerForDistribution {
   delivery_potential: number;
   /** Dernière livraison dans la campagne (yyyy-MM-dd), null si aucune. Sert à la rotation. */
   last_delivery_date?: string | null;
+  /**
+   * Solde disponible pour la saison en cours (grande traite 70 % ou petite traite 100 %).
+   * Si fourni, la capacité par chargement est en plus plafonnée par cette valeur.
+   */
+  season_cap_remaining?: number;
 }
 
 export interface DistributionResult {
