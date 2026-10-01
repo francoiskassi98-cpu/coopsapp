@@ -44,7 +44,8 @@ export type ExclusionReason =
   | "remaining_below_min"
   | "delay_not_elapsed"
   | "no_potential"
-  | "section_disabled";
+  | "section_disabled"
+  | "grande_traite_cap_reached";
 
 export interface ExcludedProducer {
   id: string;
