@@ -254,11 +254,29 @@ export async function validateDistributionBeforeSave(
   campaignLabelInput?: string,
   remainingSnapshot?: Record<string, number>
 ): Promise<string[]> {
-  const { deliveredByProducer, lastDeliveryByProducer } = await buildEligibleProducers(
+  const { deliveredByProducer, lastDeliveryByProducer, campaignLabel } = await buildEligibleProducers(
     registreId,
     new Date(),
     campaignLabelInput
   );
+  const { startIso: gtStartIso, endExclusiveIso: gtEndExclusiveIso } = grandeTraiteBounds(campaignLabel);
+
+  // Cumuls déjà livrés pendant la grande traite (sept→fév) de la campagne active.
+  const grandeTraiteByProducer: Record<string, number> = {};
+  {
+    const { data: gtData, error: gtError } = await supabase
+      .from("deliveries")
+      .select("producer_id, net_weight, delivery_date")
+      .eq("registre_id", registreId)
+      .eq("campaign_label", campaignLabel)
+      .gte("delivery_date", gtStartIso)
+      .lt("delivery_date", gtEndExclusiveIso);
+    if (gtError) throw gtError;
+    (gtData || []).forEach((d) => {
+      if (!d.producer_id) return;
+      grandeTraiteByProducer[d.producer_id] = (grandeTraiteByProducer[d.producer_id] || 0) + Number(d.net_weight || 0);
+    });
+  }
 
   const potentials: Record<string, { potential: number; name: string }> = {};
   const ids = Array.from(new Set(lines.map((l) => l.producer_id)));
