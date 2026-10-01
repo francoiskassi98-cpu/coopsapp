@@ -200,6 +200,22 @@ export async function buildEligibleProducers(
       }
     }
 
+    // Règle de saisonnalité 70 % (grande traite sept→fév) / 30 % (petite traite mars→août).
+    const grandeTraiteCap = Math.floor(potential * GRANDE_TRAITE_RATIO);
+    const grandeTraiteDelivered = grandeTraiteByProducer[p.id] || 0;
+    const grandeTraiteRemaining = Math.max(0, grandeTraiteCap - grandeTraiteDelivered);
+    const seasonCap = inGrandeTraite ? Math.min(remaining, grandeTraiteRemaining) : remaining;
+
+    if (inGrandeTraite && seasonCap < MIN_REMAINING_WEIGHT_KG) {
+      excluded.push({
+        id: p.id,
+        full_name: name,
+        reason: "grande_traite_cap_reached",
+        message: `Le producteur ${name} a atteint le plafond de ${Math.round(GRANDE_TRAITE_RATIO * 100)} % autorisé pour la grande traite (septembre à février). Le solde sera disponible à compter du 1er mars.`,
+      });
+      continue;
+    }
+
     eligible.push({
       id: p.id,
       full_name: name,
@@ -211,6 +227,7 @@ export async function buildEligibleProducers(
       delivery_potential: potential,
       remaining_potential: remaining,
       last_delivery_date: last || null,
+      season_cap_remaining: seasonCap,
     });
   }
 
