@@ -138,11 +138,17 @@ export async function buildEligibleProducers(
   }
 
   const deliveredByProducer: Record<string, number> = {};
+  const grandeTraiteByProducer: Record<string, number> = {};
   const lastDeliveryByProducer: Record<string, string> = {};
+  const { startIso: gtStartIso, endExclusiveIso: gtEndExclusiveIso } = grandeTraiteBounds(campaignLabel);
   for (const d of deliveries) {
     const pid = d.producer_id;
     if (!pid) continue;
-    deliveredByProducer[pid] = (deliveredByProducer[pid] || 0) + Number(d.net_weight || 0);
+    const w = Number(d.net_weight || 0);
+    deliveredByProducer[pid] = (deliveredByProducer[pid] || 0) + w;
+    if (d.delivery_date && d.delivery_date >= gtStartIso && d.delivery_date < gtEndExclusiveIso) {
+      grandeTraiteByProducer[pid] = (grandeTraiteByProducer[pid] || 0) + w;
+    }
     if (d.delivery_date && (!lastDeliveryByProducer[pid] || d.delivery_date > lastDeliveryByProducer[pid])) {
       lastDeliveryByProducer[pid] = d.delivery_date;
     }
@@ -151,6 +157,7 @@ export async function buildEligibleProducers(
   const eligible: EligibleProducer[] = [];
   const excluded: ExcludedProducer[] = [];
   const refIso = referenceDate.toISOString().slice(0, 10);
+  const inGrandeTraite = isGrandeTraite(referenceDate);
 
   for (const p of producers) {
     const name = p.full_name || "Producteur";
