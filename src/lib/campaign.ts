@@ -45,3 +45,31 @@ export function isCampaignStart(): boolean {
   const now = new Date();
   return now.getMonth() === 8 && now.getDate() <= 7;
 }
+
+/**
+ * Règle de saisonnalité (traçabilité CCC) :
+ *  - Grande traite (campagne principale) : 1er septembre → fin février
+ *    → plafond cumulé = 70 % du potentiel annuel initial.
+ *  - Petite traite (campagne intermédiaire) : 1er mars → 31 août
+ *    → solde restant du potentiel annuel disponible.
+ */
+export const GRANDE_TRAITE_RATIO = 0.70;
+
+/** Vrai si la date fournie se situe entre le 1er septembre et le 28/29 février (Grande Traite). */
+export function isGrandeTraite(date: Date | string | null | undefined): boolean {
+  const d = date ? new Date(date) : new Date();
+  if (isNaN(d.getTime())) return false;
+  const m = d.getMonth(); // 0-based : sept=8, fév=1
+  return m >= 8 || m <= 1;
+}
+
+/**
+ * Renvoie les bornes ISO [start, endExclusive[ de la grande traite d'une campagne "YYYY-YYYY".
+ * endExclusive = 1er mars de la seconde année (gère naturellement le 28/29 février).
+ */
+export function grandeTraiteBounds(campaignLabel: string): { startIso: string; endExclusiveIso: string } {
+  const years = String(campaignLabel || "").match(/(\d{4})/g);
+  const y1 = years && years.length >= 1 ? parseInt(years[0], 10) : new Date().getFullYear();
+  const y2 = years && years.length >= 2 ? parseInt(years[1], 10) : y1 + 1;
+  return { startIso: `${y1}-09-01`, endExclusiveIso: `${y2}-03-01` };
+}
