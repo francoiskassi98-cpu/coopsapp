@@ -1,4 +1,5 @@
 import { format, addDays, differenceInDays } from "date-fns";
+import { samplingRateRange } from "@/lib/campaign";
 
 export interface ProducerForDistribution {
   id: string;
@@ -381,18 +382,44 @@ export function distributeShipment(
   const { min: minBagWeight, max: maxBagWeight } = bagWeightRange(averageBagWeight);
   const minEntryWeight = Math.max(MIN_ALLOCATION_KG, minBagWeight);
 
-  // Capacité individuelle : 20 % du potentiel de livraison (valeur réelle, arrondi supérieur),
-  // toujours plafonnée par le potentiel restant du producteur.
+  // Taux de prélèvement saisonnier tiré aléatoirement pour chaque producteur.
+  const { min: rateMin, max: rateMax } = samplingRateRange(startDate);
+  const attempt = (randomRates: boolean) =>
+    distributeWithRates(producers, totalWeight, totalBags, startDate, endDate, lastReceiptNumber,
+      averageBagWeight, minBagWeight, maxBagWeight, minEntryWeight,
+      () => (randomRates ? randInt(rateMin, rateMax) : rateMax));
+  for (let k = 0; k < 4; k++) {
+    const r = attempt(true);
+    if (r.length > 0) return r;
+  }
+  // Repli : taux maximal de la période pour tous (toujours dans la plage autorisée).
+  return attempt(false);
+}
+
+function distributeWithRates(
+  producers: ProducerForDistribution[],
+  totalWeight: number,
+  totalBags: number,
+  startDate: Date,
+  endDate: Date,
+  lastReceiptNumber: number,
+  averageBagWeight: number,
+  minBagWeight: number,
+  maxBagWeight: number,
+  minEntryWeight: number,
+  pickRate: () => number
+): DistributionResult[] {
   const eligible = producers
     .filter((p) => Math.floor(p.remaining_potential) >= MIN_ALLOCATION_KG)
     .map((p) => {
       const seasonCap = p.season_cap_remaining !== undefined && p.season_cap_remaining !== null
         ? Math.floor(p.season_cap_remaining)
         : Number.POSITIVE_INFINITY;
+      const rate = pickRate();
       return {
         producer: p,
-        // Plafonds cumulés : potentiel restant, 20 % du potentiel initial, solde saisonnier (grande traite 70 %).
-        cap: Math.min(Math.floor(p.remaining_potential), Math.ceil(p.delivery_potential * 0.2), seasonCap),
+        // Plafonds cumulés : potentiel restant, taux saisonnier aléatoire du potentiel initial, solde saisonnier.
+        cap: Math.min(Math.floor(p.remaining_potential), Math.ceil((p.delivery_potential * rate) / 100), seasonCap),
       };
     })
     .filter((e) => e.cap >= minEntryWeight);

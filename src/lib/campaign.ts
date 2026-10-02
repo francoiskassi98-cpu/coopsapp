@@ -73,3 +73,16 @@ export function grandeTraiteBounds(campaignLabel: string): { startIso: string; e
   const y2 = years && years.length >= 2 ? parseInt(years[1], 10) : y1 + 1;
   return { startIso: `${y1}-09-01`, endExclusiveIso: `${y2}-03-01` };
 }
+
+/**
+ * Taux de prélèvement par livraison (en %), tiré aléatoirement par producteur :
+ *  - septembre → fin octobre : 15 à 20 %
+ *  - novembre → fin février  : 20 à 30 %
+ *  - mars → fin août         : 15 à 20 %
+ */
+export function samplingRateRange(date: Date | string | null | undefined): { min: number; max: number } {
+  const d = date ? new Date(date) : new Date();
+  const m = isNaN(d.getTime()) ? new Date().getMonth() : d.getMonth();
+  if (m === 10 || m === 11 || m === 0 || m === 1) return { min: 20, max: 30 };
+  return { min: 15, max: 20 };
+}
