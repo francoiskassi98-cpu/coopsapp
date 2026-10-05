@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { consumeForcedReloginFlag } from "@/hooks/useVersionGuard";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +31,12 @@ export default function Auth() {
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
+
+  useEffect(() => {
+    if (consumeForcedReloginFlag()) {
+      toast({ title: "Nouvelle version disponible", description: "L'application a été mise à jour. Veuillez vous reconnecter." });
+    }
+  }, []);
 
   if (authLoading) {
     return (
