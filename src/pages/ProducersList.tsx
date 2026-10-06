@@ -87,7 +87,7 @@ export default function Producers() {
         .returns<FetchedProducer[]>();
       if (error) {
         console.error("[ProducersList] chargement échoué", error);
-        toast.error("Une erreur est survenue lors du chargement des producteurs. Veuillez réessayer.");
+        toast({ title: "Une erreur est survenue.", description: "Le chargement des producteurs a échoué. Veuillez réessayer.", variant: "destructive" });
         setLoading(false);
         return;
       }
