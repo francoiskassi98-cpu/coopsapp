@@ -1,0 +1,10 @@
+DROP POLICY IF EXISTS producers_registre_select ON public.producers;
+CREATE POLICY producers_registre_select ON public.producers FOR SELECT TO authenticated USING (registre_id IN (SELECT unnest(public.my_registre_ids())));
+DROP POLICY IF EXISTS shipments_select ON public.shipments;
+CREATE POLICY shipments_select ON public.shipments FOR SELECT TO authenticated USING (registre_id IN (SELECT unnest(public.my_registre_ids())));
+DROP POLICY IF EXISTS deliveries_registre_select ON public.deliveries;
+CREATE POLICY deliveries_registre_select ON public.deliveries FOR SELECT TO authenticated USING (registre_id IN (SELECT unnest(public.my_registre_ids())));
+CREATE INDEX IF NOT EXISTS idx_producers_campaign_section_nom ON public.producers (campaign_label, section, nom);
+CREATE INDEX IF NOT EXISTS idx_producers_registre_campaign ON public.producers (registre_id, campaign_label);
+CREATE INDEX IF NOT EXISTS idx_shipments_campaign_created ON public.shipments (campaign_label, created_at);
+CREATE INDEX IF NOT EXISTS idx_deliveries_registre_campaign ON public.deliveries (registre_id, campaign_label);
