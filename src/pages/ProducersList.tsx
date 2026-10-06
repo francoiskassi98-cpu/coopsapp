@@ -76,14 +76,21 @@ export default function Producers() {
     let from = 0;
     const PAGE = 1000;
     while (true) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("producers")
         .select("*, registres(id, name)")
         .eq("campaign_label", campaignFilter)
         .order("section", { ascending: true })
         .order("nom", { ascending: true })
+        .order("id", { ascending: true })
         .range(from, from + PAGE - 1)
         .returns<FetchedProducer[]>();
+      if (error) {
+        console.error("[ProducersList] chargement échoué", error);
+        toast.error("Une erreur est survenue lors du chargement des producteurs. Veuillez réessayer.");
+        setLoading(false);
+        return;
+      }
       if (!data || data.length === 0) break;
       allData = allData.concat(data);
       if (data.length < PAGE) break;
