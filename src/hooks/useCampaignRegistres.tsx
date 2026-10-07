@@ -16,24 +16,13 @@ export function useCampaignRegistres(campaign: string | null | undefined) {
     enabled: !!campaign && !loadingRegistres,
     staleTime: 60_000,
     queryFn: async (): Promise<RegistreRef[]> => {
-      const results = await Promise.all(
-        registres.map(async (r) => {
-          const [prod, ship] = await Promise.all([
-            supabase
-              .from("producers")
-              .select("id", { count: "exact", head: true })
-              .eq("registre_id", r.id)
-              .eq("campaign_label", campaign as string),
-            supabase
-              .from("shipments")
-              .select("id", { count: "exact", head: true })
-              .eq("registre_id", r.id)
-              .eq("campaign_label", campaign as string),
-          ]);
-          return (prod.count ?? 0) > 0 || (ship.count ?? 0) > 0 ? r : null;
-        })
-      );
-      return results.filter((r): r is RegistreRef => r !== null);
+      // Une seule requête serveur au lieu de 2 comptages par registre.
+      const { data, error } = await supabase.rpc("campaign_registre_ids" as never, {
+        p_campaign_label: campaign as string,
+      } as never);
+      if (error) { console.error("[useCampaignRegistres]", error); return []; }
+      const ids = new Set(((data as Array<{ registre_id: string }> | null) ?? []).map((r) => r.registre_id));
+      return registres.filter((r) => ids.has(r.id));
     },
   });
 
