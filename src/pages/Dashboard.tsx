@@ -50,7 +50,8 @@ async function fetchAllRows<T>(query: PaginatedQuery): Promise<T[]> {
   const pageSize = 1000;
   while (true) {
     const { data, error } = await query.range(from, from + pageSize - 1);
-    if (error || !data || data.length === 0) break;
+    if (error) { console.error("[Dashboard] pagination", error); break; }
+    if (!data || data.length === 0) break;
     allData.push(...(data as T[]));
     if (data.length < pageSize) break;
     from += pageSize;
@@ -74,12 +75,15 @@ export default function Dashboard() {
   }, []);
 
   // Le filtre campagne est appliqué à la source (Supabase), jamais après calcul.
+  // Totaux agrégés côté serveur (une ligne par registre) — évite de charger tous les producteurs.
   const { data: allProducers = [], isLoading: loadingProducers } = useQuery({
     queryKey: ["dashboard", "producers", selectedCampaign],
-    queryFn: () => {
-      let q = supabase.from("producers").select("delivery_potential, remaining_potential, registre_id, campaign_label");
-      if (selectedCampaign !== "all") q = q.eq("campaign_label", selectedCampaign);
-      return fetchAllRows<DashboardProducer>(q as unknown as PaginatedQuery);
+    queryFn: async (): Promise<DashboardProducer[]> => {
+      const { data, error } = await supabase.rpc("producer_potentials_by_registre" as never, {
+        p_campaign_label: selectedCampaign === "all" ? null : selectedCampaign,
+      } as never);
+      if (error) { console.error("[Dashboard] potentiels", error); return []; }
+      return (data as DashboardProducer[] | null) ?? [];
     },
   });
 

@@ -1232,6 +1232,12 @@ export type Database = {
         Args: { p_campaign_label: string; p_registre: string }
         Returns: number
       }
+      campaign_registre_ids: {
+        Args: { p_campaign_label: string }
+        Returns: {
+          registre_id: string
+        }[]
+      }
       can_access_registre: { Args: { _registre_id: string }; Returns: boolean }
       can_write_registre: { Args: { _registre_id: string }; Returns: boolean }
       compute_campaign_label: { Args: { d: string }; Returns: string }
@@ -1311,6 +1317,15 @@ export type Database = {
       log_login_event: { Args: { p_user_agent?: string }; Returns: undefined }
       my_cooperative_ids: { Args: never; Returns: string[] }
       my_registre_ids: { Args: never; Returns: string[] }
+      producer_potentials_by_registre: {
+        Args: { p_campaign_label?: string }
+        Returns: {
+          delivery_potential: number
+          producer_count: number
+          registre_id: string
+          remaining_potential: number
+        }[]
+      }
       recompute_potentials: {
         Args: { _campaign_label?: string; _registre_id?: string }
         Returns: number
