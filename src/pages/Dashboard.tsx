@@ -16,6 +16,7 @@ import CoopTable from "@/components/dashboard/CoopTable";
 import DashboardFilters from "@/components/dashboard/DashboardFilters";
 import { useRegistres } from "@/hooks/useRegistres";
 import { useCampaignLabels } from "@/hooks/useCampaign";
+import type { PaginatedQuery } from "@/lib/database-utils";
 import ReportDialog from "@/components/dashboard/ReportDialog";
 import ReportGenerator from "@/components/dashboard/ReportGenerator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,6 +42,21 @@ interface DashboardShipment {
   connaissement: string | null;
   registre_id: string | null;
   partners?: { name: string | null } | null;
+}
+
+async function fetchAllRows<T>(query: PaginatedQuery): Promise<T[]> {
+  const allData: T[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await query.range(from, from + pageSize - 1);
+    if (error) { console.error("[Dashboard] pagination", error); break; }
+    if (!data || data.length === 0) break;
+    allData.push(...(data as T[]));
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return allData;
 }
 
 export default function Dashboard() {
