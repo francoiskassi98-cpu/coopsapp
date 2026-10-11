@@ -233,6 +233,191 @@ export type Database = {
           },
         ]
       }
+      geospatial_comments: {
+        Row: {
+          author_id: string
+          author_role: string | null
+          content: string
+          created_at: string
+          id: string
+          is_internal: boolean
+          request_id: string
+        }
+        Insert: {
+          author_id?: string
+          author_role?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          is_internal?: boolean
+          request_id: string
+        }
+        Update: {
+          author_id?: string
+          author_role?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          is_internal?: boolean
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geospatial_comments_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "geospatial_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geospatial_files: {
+        Row: {
+          comment: string | null
+          created_at: string
+          detected_format: string
+          file_category: string
+          file_name: string
+          file_size_bytes: number
+          id: string
+          mime_type: string | null
+          request_id: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          detected_format: string
+          file_category: string
+          file_name: string
+          file_size_bytes: number
+          id?: string
+          mime_type?: string | null
+          request_id: string
+          storage_path: string
+          uploaded_by?: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          detected_format?: string
+          file_category?: string
+          file_name?: string
+          file_size_bytes?: number
+          id?: string
+          mime_type?: string | null
+          request_id?: string
+          storage_path?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geospatial_files_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "geospatial_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geospatial_history: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          details: Json | null
+          id: string
+          request_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          request_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geospatial_history_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "geospatial_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geospatial_requests: {
+        Row: {
+          cooperative_id: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_archived: boolean
+          notification_error: string | null
+          publication_notified_at: string | null
+          published_at: string | null
+          published_by: string | null
+          return_comment: string | null
+          status: string
+          submission_notified_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cooperative_id: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_archived?: boolean
+          notification_error?: string | null
+          publication_notified_at?: string | null
+          published_at?: string | null
+          published_by?: string | null
+          return_comment?: string | null
+          status?: string
+          submission_notified_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cooperative_id?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_archived?: boolean
+          notification_error?: string | null
+          publication_notified_at?: string | null
+          published_at?: string | null
+          published_by?: string | null
+          return_comment?: string | null
+          status?: string
+          submission_notified_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geospatial_requests_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       login_events: {
         Row: {
           created_at: string
