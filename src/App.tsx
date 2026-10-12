@@ -30,6 +30,10 @@ const Trash = lazyWithRetry(() => import("@/pages/Trash"));
 const LoginEvents = lazyWithRetry(() => import("@/pages/LoginEvents"));
 const Partners = lazyWithRetry(() => import("@/pages/Partners"));
 const ShipmentTemplates = lazyWithRetry(() => import("@/pages/ShipmentTemplates"));
+const GeospatialDashboard = lazyWithRetry(() => import("@/pages/geospatial/GeospatialDashboard"));
+const GeospatialSubmit = lazyWithRetry(() => import("@/pages/geospatial/GeospatialSubmit"));
+const GeospatialHistory = lazyWithRetry(() => import("@/pages/geospatial/GeospatialHistory"));
+const GeospatialDetail = lazyWithRetry(() => import("@/pages/geospatial/GeospatialDetail"));
 const NotFound = lazyWithRetry(() => import("@/pages/NotFound"));
 const OAuthConsent = lazyWithRetry(() => import("@/pages/OAuthConsent"));
 
@@ -73,6 +77,10 @@ const App = () => (
                     <Route path="/chargements" element={<CreateShipment />} />
                     <Route path="/export" element={<ExportPage />} />
                     <Route path="/partenaires" element={<Partners />} />
+                    <Route path="/geospatial" element={<GeospatialDashboard />} />
+                    <Route path="/geospatial/soumettre" element={<GeospatialSubmit />} />
+                    <Route path="/geospatial/historique" element={<GeospatialHistory />} />
+                    <Route path="/geospatial/:id" element={<GeospatialDetail />} />
                     <Route element={<ProtectedRoute adminOnly />}>
                       <Route path="/gestion" element={<UserManagement />} />
                       <Route path="/gestion/modeles-chargement" element={<ShipmentTemplates />} />
