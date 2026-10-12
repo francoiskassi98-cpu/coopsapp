@@ -1,6 +1,13 @@
-// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { detectGeoFile, GEO_MAX_FILE_BYTES } from "@/lib/geospatial";
+
+// jsdom ne fournit pas Blob.arrayBuffer/text
+const read = (b: Blob, as: "buf" | "txt") => new Promise<ArrayBuffer | string>((res) => {
+  const r = new FileReader(); r.onload = () => res(r.result as ArrayBuffer | string);
+  if (as === "buf") r.readAsArrayBuffer(b); else r.readAsText(b);
+});
+Blob.prototype.arrayBuffer = function () { return read(this, "buf") as Promise<ArrayBuffer>; };
+Blob.prototype.text = function () { return read(this, "txt") as Promise<string>; };
 
 const f = (content: string, name: string) => new File([content], name);
 
