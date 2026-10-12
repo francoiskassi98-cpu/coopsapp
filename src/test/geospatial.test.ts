@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { detectGeoFile, GEO_MAX_FILE_BYTES } from "@/lib/geospatial";
 
