@@ -44,6 +44,11 @@ export default function GeoDropzone({ files, onChange, disabled }: {
         <input ref={input} type="file" multiple accept={GEO_ACCEPT} className="hidden"
           onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
       </div>
+      <div className="flex justify-start">
+        <Button type="button" variant="outline" size="sm" disabled={disabled || files.length >= GEO_MAX_FILES} onClick={() => input.current?.click()}>
+          <UploadCloud className="h-4 w-4 mr-1" />Ajouter des fichiers
+        </Button>
+      </div>
 
       {files.length > 0 && (
         <ul className="divide-y divide-border rounded-xl border">
@@ -58,9 +63,9 @@ export default function GeoDropzone({ files, onChange, disabled }: {
                 {p.check.error && <div className="text-xs text-destructive mt-0.5">{p.check.error}</div>}
                 {p.check.warning && <div className="text-xs text-secondary mt-0.5">{p.check.warning}</div>}
               </div>
-              <Button type="button" variant="ghost" size="icon" aria-label="Retirer le fichier" disabled={disabled}
+              <Button type="button" variant="ghost" size="sm" aria-label={`Retirer ${p.file.name}`} disabled={disabled}
                 onClick={() => onChange(files.filter((x) => x.id !== p.id))}>
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4 mr-1" />Retirer
               </Button>
             </li>
           ))}

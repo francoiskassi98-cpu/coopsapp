@@ -51,8 +51,9 @@ export default function GeospatialSubmit() {
         details: { count: valid.length, total_bytes: total },
       });
       const { data: n, error: nErr } = await notifyGeo(requestId, "submitted");
-      if (nErr || !n?.ok) toast.warning("Demande enregistrée, mais la notification e-mail n'a pas pu être envoyée.");
-      else toast.success("Demande soumise. Le super administrateur a été notifié.");
+      const openAction = { label: "Ouvrir la demande", onClick: () => nav(`/geospatial/${requestId}`) };
+      if (nErr || !n?.ok) toast.warning("Demande enregistrée, mais la notification e-mail n'a pas pu être envoyée.", { action: openAction });
+      else toast.success("Demande soumise avec succès. Le super administrateur a été notifié.", { action: openAction });
       qc.invalidateQueries({ queryKey: ["geo-dashboard"] });
       qc.invalidateQueries({ queryKey: ["geo-list"] });
       nav(`/geospatial/${requestId}`);
@@ -90,9 +91,10 @@ export default function GeospatialSubmit() {
             <p className="text-xs text-muted-foreground">Envoi en cours… {progress}%</p>
           </div>
         )}
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" disabled={busy} onClick={() => nav("/geospatial")}>Annuler</Button>
           <Button disabled={!canSubmit} onClick={() => setConfirm(true)}>
-            {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}Envoyer la demande
+            {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}Soumettre les données
           </Button>
         </div>
       </CardContent></Card>

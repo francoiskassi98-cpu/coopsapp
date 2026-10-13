@@ -36,8 +36,8 @@ export default function GeospatialDashboard() {
       <PageHeader icon={Map} title="Centre géospatial"
         description={isSuperAdmin ? "Traitez les fichiers polygonaux soumis par les coopératives." : "Soumettez vos fichiers polygonaux et récupérez les résultats traités."}
         actions={<div className="flex gap-2">
-          <Button asChild variant="outline"><Link to="/geospatial/historique"><History className="h-4 w-4 mr-2" />Historique</Link></Button>
-          {!isSuperAdmin && <Button asChild><Link to="/geospatial/soumettre"><Upload className="h-4 w-4 mr-2" />Soumettre</Link></Button>}
+          <Button asChild variant="outline"><Link to="/geospatial/historique"><History className="h-4 w-4 mr-2" />Toutes les demandes</Link></Button>
+          {!isSuperAdmin && <Button asChild><Link to="/geospatial/soumettre"><Upload className="h-4 w-4 mr-2" />Nouvelle soumission</Link></Button>}
         </div>} />
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -66,7 +66,7 @@ export default function GeospatialDashboard() {
                   {(r.cooperatives as { name: string } | null)?.name} · {new Date(r.created_at).toLocaleString("fr-FR")}
                 </div>
               </div>
-              <GeoStatusBadge status={r.status} />
+              <div className="flex items-center gap-2 shrink-0"><GeoStatusBadge status={r.status} /><span className="text-xs text-primary hidden sm:inline">Voir les détails →</span></div>
             </Link>
           ))}
         </CardContent>
