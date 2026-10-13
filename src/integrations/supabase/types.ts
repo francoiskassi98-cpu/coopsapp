@@ -1451,6 +1451,10 @@ export type Database = {
           }
       delete_registre: { Args: { _registre_id: string }; Returns: undefined }
       delete_shipment: { Args: { _shipment_id: string }; Returns: undefined }
+      geo_set_archived: {
+        Args: { _archived: boolean; _request_id: string }
+        Returns: undefined
+      }
       get_dashboard_stats_by_registre: {
         Args: { p_campaign_label?: string; p_registre_id: string }
         Returns: {
