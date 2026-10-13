@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { History } from "lucide-react";
+import { History, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import GeoRowActions from "@/components/geospatial/GeoRowActions";
 import GeoStatusBadge from "@/components/geospatial/GeoStatusBadge";
 import { STATUS_LABEL, formatBytes } from "@/lib/geospatial";
 
@@ -28,7 +30,7 @@ export default function GeospatialHistory() {
     queryKey: ["geo-list"],
     queryFn: async () => {
       const { data, error } = await supabase.from("geospatial_requests")
-        .select("id,title,status,is_archived,created_at,created_by,cooperative_id,cooperatives(name),geospatial_files(detected_format,file_size_bytes,file_category)")
+        .select("id,title,status,is_archived,created_at,created_by,cooperative_id,cooperatives(name),geospatial_files(detected_format,file_size_bytes,file_category,storage_path,file_name)")
         .order("created_at", { ascending: false }).limit(1000);
       if (error) throw error;
       const ids = Array.from(new Set((data ?? []).map((r) => r.created_by)));
@@ -53,7 +55,8 @@ export default function GeospatialHistory() {
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={History} title="Historique géospatial" description="Toutes les soumissions et leurs traitements." />
+      <PageHeader icon={History} title="Historique géospatial" description="Toutes les soumissions et leurs traitements."
+        actions={!isSuperAdmin && <Button asChild><Link to="/geospatial/soumettre"><Upload className="h-4 w-4 mr-2" />Nouvelle soumission</Link></Button>} />
       <Card><CardContent className="p-4 space-y-3">
         <Tabs value={archived} onValueChange={setArchived}>
           <TabsList><TabsTrigger value="actifs">Actifs</TabsTrigger><TabsTrigger value="archives">Archivés</TabsTrigger></TabsList>
@@ -86,12 +89,12 @@ export default function GeospatialHistory() {
         <Table>
           <TableHeader><TableRow>
             <TableHead>Demande</TableHead>{isSuperAdmin && <TableHead>Coopérative</TableHead>}
-            <TableHead>Auteur</TableHead><TableHead>Date</TableHead><TableHead>Fichiers</TableHead><TableHead>Statut</TableHead>
+            <TableHead>Auteur</TableHead><TableHead>Date</TableHead><TableHead>Fichiers</TableHead><TableHead>Statut</TableHead><TableHead className="text-right">Actions</TableHead>
           </TableRow></TableHeader>
           <TableBody>
-            {isLoading && [0, 1, 2].map((i) => <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-6 w-full" /></TableCell></TableRow>)}
-            {isError && <TableRow><TableCell colSpan={6} className="text-destructive">Une erreur est survenue.</TableCell></TableRow>}
-            {!isLoading && !isError && filtered.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Aucune demande trouvée.</TableCell></TableRow>}
+            {isLoading && [0, 1, 2].map((i) => <TableRow key={i}><TableCell colSpan={8}><Skeleton className="h-6 w-full" /></TableCell></TableRow>)}
+            {isError && <TableRow><TableCell colSpan={8} className="text-destructive">Une erreur est survenue.</TableCell></TableRow>}
+            {!isLoading && !isError && filtered.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Aucune demande trouvée.</TableCell></TableRow>}
             {filtered.map((r) => {
               const orig = r.geospatial_files.filter((f) => f.file_category === "original");
               return (
@@ -102,6 +105,7 @@ export default function GeospatialHistory() {
                   <TableCell className="whitespace-nowrap">{new Date(r.created_at).toLocaleString("fr-FR")}</TableCell>
                   <TableCell className="whitespace-nowrap">{orig.length} · {formatBytes(orig.reduce((s, f) => s + Number(f.file_size_bytes), 0))}</TableCell>
                   <TableCell><GeoStatusBadge status={r.status} /></TableCell>
+                  <TableCell className="text-right"><GeoRowActions row={r} /></TableCell>
                 </TableRow>
               );
             })}

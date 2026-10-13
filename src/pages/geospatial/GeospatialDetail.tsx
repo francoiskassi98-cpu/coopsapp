@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Map, Download, Trash2, Archive, ArchiveRestore, Send, Loader2, Upload, Lock, ArrowLeft } from "lucide-react";
+import { Map, Download, Trash2, Archive, ArchiveRestore, Send, Loader2, Upload, Lock, ArrowLeft, PlayCircle, HelpCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import GeoStatusBadge from "@/components/geospatial/GeoStatusBadge";
 import GeoDropzone, { type PendingGeoFile } from "@/components/geospatial/GeoDropzone";
-import { ACTION_LABEL, GEO_BUCKET, STATUS_LABEL, downloadGeoFile, formatBytes, notifyGeo, uploadGeoFile } from "@/lib/geospatial";
+import { ACTION_LABEL, GEO_BUCKET, STATUS_LABEL, downloadGeoFile, downloadGeoFiles, formatBytes, notifyGeo, notifyGeoInfo, setGeoArchived, uploadGeoFile } from "@/lib/geospatial";
 
 type FileRow = { id: string; file_name: string; storage_path: string; file_size_bytes: number; detected_format: string; file_category: string; comment: string | null; created_at: string; uploaded_by: string };
 
@@ -33,7 +33,8 @@ export default function GeospatialDetail() {
   const [treatedComment, setTreatedComment] = useState("");
   const [returnComment, setReturnComment] = useState("");
   const [busy, setBusy] = useState(false);
-  const [dialog, setDialog] = useState<null | "publish" | "delete">(null);
+  const [dialog, setDialog] = useState<null | "publish" | "delete" | "info">(null);
+  const [infoMsg, setInfoMsg] = useState("");
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["geo-detail", id],
@@ -141,6 +142,30 @@ export default function GeospatialDetail() {
     } catch (e) { fail(e); } finally { setBusy(false); setDialog(null); }
   };
 
+  const dlAll = async (list: FileRow[]) => {
+    if (!user || busy) return;
+    setBusy(true);
+    try { await downloadGeoFiles(list, id, user.id); } catch (e) { fail(e); } finally { setBusy(false); }
+  };
+
+  const toggleArchive = async () => {
+    setBusy(true);
+    try { await setGeoArchived(id, !req.is_archived); toast.success(req.is_archived ? "Demande restaurée." : "Demande archivée."); refresh(); }
+    catch (e) { fail(e); } finally { setBusy(false); }
+  };
+
+  const requestInfo = async () => {
+    if (!user || !infoMsg.trim()) return;
+    setBusy(true);
+    const { error } = await supabase.from("geospatial_comments").insert({ request_id: id, author_id: user.id, content: infoMsg.trim().slice(0, 5000), is_internal: false });
+    if (error) { setBusy(false); return fail(error); }
+    const { data: n, error: nErr } = await notifyGeoInfo(id);
+    setBusy(false); setDialog(null); setInfoMsg("");
+    if (nErr || !n?.ok) toast.warning("Demande enregistrée, mais la notification e-mail n'a pas pu être envoyée.");
+    else toast.success("Demande d'informations envoyée à la coopérative.");
+    refresh();
+  };
+
   const FileList = ({ list, canDelete }: { list: FileRow[]; canDelete?: boolean }) => (
     list.length === 0 ? <p className="text-sm text-muted-foreground">Aucun fichier.</p> :
     <ul className="divide-y divide-border rounded-xl border">
@@ -163,11 +188,18 @@ export default function GeospatialDetail() {
       <Button asChild variant="ghost" size="sm"><Link to="/geospatial/historique"><ArrowLeft className="h-4 w-4 mr-1" />Historique</Link></Button>
       <PageHeader icon={Map} title={req.title}
         description={<span className="flex flex-wrap items-center gap-2"><GeoStatusBadge status={req.status} />{req.is_archived && <span className="text-xs rounded-full bg-muted px-2 py-0.5">Archivée</span>}</span>}
-        actions={isSuperAdmin && <div className="flex flex-wrap gap-2">
-          <Button variant="outline" disabled={busy} onClick={() => updateReq({ is_archived: !req.is_archived }, req.is_archived ? "Demande restaurée." : "Demande archivée.")}>
+        actions={<div className="flex flex-wrap gap-2">
+          {isSuperAdmin && req.status === "en_attente" && !req.is_archived && (
+            <Button disabled={busy} onClick={() => updateReq({ status: "en_cours" }, "Demande prise en charge.")}><PlayCircle className="h-4 w-4 mr-1" />Prendre en charge</Button>
+          )}
+          {isSuperAdmin && originals.length > 0 && <Button variant="outline" disabled={busy} onClick={() => dlAll(originals)}><Download className="h-4 w-4 mr-1" />Télécharger les originaux</Button>}
+          {treatedFiles.length > 0 && (isSuperAdmin || req.status === "publie") && <Button variant="outline" disabled={busy} onClick={() => dlAll(treatedFiles)}><Download className="h-4 w-4 mr-1" />Télécharger les fichiers traités</Button>}
+          {isSuperAdmin && req.status !== "publie" && !req.is_archived && <Button variant="outline" disabled={busy} onClick={() => setDialog("info")}><HelpCircle className="h-4 w-4 mr-1" />Demander des informations</Button>}
+          {isSuperAdmin && req.status !== "publie" && <Button disabled={busy || treatedFiles.length === 0} title={treatedFiles.length === 0 ? "Déposez d'abord un fichier traité" : undefined} onClick={() => { setReturnComment(req.return_comment ?? ""); setDialog("publish"); }}><Send className="h-4 w-4 mr-1" />Publier les résultats</Button>}
+          <Button variant="outline" disabled={busy} onClick={toggleArchive}>
             {req.is_archived ? <><ArchiveRestore className="h-4 w-4 mr-1" />Restaurer</> : <><Archive className="h-4 w-4 mr-1" />Archiver</>}
           </Button>
-          <Button variant="destructive" disabled={busy} onClick={() => setDialog("delete")}><Trash2 className="h-4 w-4 mr-1" />Supprimer</Button>
+          {isSuperAdmin && <Button variant="destructive" disabled={busy} onClick={() => setDialog("delete")}><Trash2 className="h-4 w-4 mr-1" />Supprimer définitivement</Button>}
         </div>} />
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -194,7 +226,7 @@ export default function GeospatialDetail() {
           <Card><CardHeader><CardTitle className="text-base">Fichiers d'origine ({originals.length})</CardTitle></CardHeader>
             <CardContent><FileList list={originals} /></CardContent></Card>
 
-          <Card><CardHeader><CardTitle className="text-base">Fichiers traités ({treatedFiles.length})</CardTitle></CardHeader>
+          <Card id="fichiers-traites"><CardHeader><CardTitle className="text-base">Fichiers traités ({treatedFiles.length})</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               {!isSuperAdmin && req.status !== "publie"
                 ? <p className="text-sm text-muted-foreground">Les résultats seront disponibles après publication par le super administrateur.</p>
@@ -206,17 +238,17 @@ export default function GeospatialDetail() {
                   <Textarea placeholder="Commentaire associé aux fichiers (optionnel)" value={treatedComment} maxLength={2000} onChange={(e) => setTreatedComment(e.target.value)} />
                   <div className="flex flex-wrap gap-2 justify-end">
                     <Button variant="outline" disabled={busy || treated.length === 0} onClick={uploadTreated}>
-                      {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}Déposer
+                      {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}Déposer les fichiers traités
                     </Button>
                     <Button disabled={busy || treatedFiles.length === 0} onClick={() => { setReturnComment(req.return_comment ?? ""); setDialog("publish"); }}>
-                      <Send className="h-4 w-4 mr-1" />Publier pour la coopérative
+                      <Send className="h-4 w-4 mr-1" />Publier les résultats
                     </Button>
                   </div>
                 </div>
               )}
             </CardContent></Card>
 
-          <Card><CardHeader><CardTitle className="text-base">Commentaires</CardTitle></CardHeader>
+          <Card id="commentaires"><CardHeader><CardTitle className="text-base">Commentaires</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {comments.length === 0 && <p className="text-sm text-muted-foreground">Aucun commentaire.</p>}
               {comments.map((c) => (
@@ -232,7 +264,7 @@ export default function GeospatialDetail() {
               <Textarea placeholder="Ajouter un commentaire…" value={comment} maxLength={5000} onChange={(e) => setComment(e.target.value)} />
               <div className="flex items-center justify-between gap-2">
                 {isSuperAdmin ? <label className="flex items-center gap-2 text-sm"><Switch checked={internal} onCheckedChange={setInternal} />Note interne (invisible pour la coopérative)</label> : <span />}
-                <Button size="sm" disabled={busy || !comment.trim()} onClick={addComment}>Publier le commentaire</Button>
+                <Button size="sm" disabled={busy || !comment.trim()} onClick={addComment}>Ajouter un commentaire</Button>
               </div>
             </CardContent></Card>
         </div>
@@ -266,6 +298,16 @@ export default function GeospatialDetail() {
           <Textarea placeholder="Commentaire de restitution" value={returnComment} maxLength={5000} onChange={(e) => setReturnComment(e.target.value)} />
           <AlertDialogFooter><AlertDialogCancel disabled={busy}>Annuler</AlertDialogCancel>
             <AlertDialogAction disabled={busy} onClick={(e) => { e.preventDefault(); publish(); }}>{busy && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}Publier</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={dialog === "info"} onOpenChange={(o) => !busy && setDialog(o ? "info" : null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>Demander des informations</AlertDialogTitle>
+            <AlertDialogDescription>Ce message sera visible par la coopérative, qui sera notifiée.</AlertDialogDescription></AlertDialogHeader>
+          <Textarea value={infoMsg} maxLength={5000} rows={4} onChange={(e) => setInfoMsg(e.target.value)} placeholder="Précisez les informations attendues…" />
+          <AlertDialogFooter><AlertDialogCancel disabled={busy}>Annuler</AlertDialogCancel>
+            <AlertDialogAction disabled={busy || !infoMsg.trim()} onClick={(e) => { e.preventDefault(); requestInfo(); }}>{busy && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}Envoyer</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
