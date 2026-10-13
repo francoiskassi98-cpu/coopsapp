@@ -165,3 +165,27 @@ export function notifyGeo(requestId: string, event: "submitted" | "published") {
     body: { request_id: requestId, event, app_url: window.location.origin },
   });
 }
+
+export function notifyGeoInfo(requestId: string) {
+  return supabase.functions.invoke("notify-geospatial", {
+    body: { request_id: requestId, event: "info_requested", app_url: window.location.origin },
+  });
+}
+
+/** Archive / restaure une demande (contrôle serveur : super admin ou membre de la coopérative). */
+export async function setGeoArchived(requestId: string, archived: boolean) {
+  const { error } = await supabase.rpc("geo_set_archived", { _request_id: requestId, _archived: archived });
+  if (error) throw error;
+}
+
+/** Télécharge séquentiellement une liste de fichiers via URL signées courtes (aucun lien public). */
+export async function downloadGeoFiles(files: { storage_path: string; file_name: string }[], requestId: string, userId: string) {
+  for (const f of files) {
+    const { data, error } = await supabase.storage.from(GEO_BUCKET).createSignedUrl(f.storage_path, 60, { download: f.file_name });
+    if (error || !data) throw error ?? new Error("signed url");
+    const a = document.createElement("a");
+    a.href = data.signedUrl; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove();
+    await supabase.from("geospatial_history").insert({ request_id: requestId, actor_id: userId, action: "telechargement", details: { file: f.file_name } });
+    await new Promise((r) => setTimeout(r, 400));
+  }
+}
