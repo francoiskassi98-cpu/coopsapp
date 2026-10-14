@@ -112,12 +112,16 @@ Deno.serve(async (req) => {
       })));
     }
 
+    // Destinataire fixe du Centre géospatial pour chaque nouvelle soumission
+    const emails = new Set(recipients.map((p) => p.email.toLowerCase()));
+    if (event === "submitted") emails.add("servicesagro01@gmail.com");
+
     let failures = 0;
-    for (const p of recipients) {
-      const res = await sendGmail({ to: p.email, subject, html });
-      if (!res.ok) failures++;
+    for (const to of emails) {
+      const res = await sendGmail({ to, subject, html });
+      if (!res.ok) { failures++; console.error("[notify-geospatial] envoi échoué", to, res.status, res.details); }
     }
-    const ok = recipients.length > 0 && failures < recipients.length;
+    const ok = emails.size > 0 && failures < emails.size;
     const stamp = new Date().toISOString();
     if (event === "info_requested") return json({ ok, sent: recipients.length - failures });
     await admin.from("geospatial_requests").update({
@@ -125,7 +129,7 @@ Deno.serve(async (req) => {
       notification_error: ok ? null : "Échec de l'envoi de l'e-mail",
     }).eq("id", request_id);
 
-    return json({ ok, sent: recipients.length - failures });
+    return json({ ok, sent: emails.size - failures });
   } catch (e) {
     console.error("[notify-geospatial]", e);
     return json({ error: "Une erreur est survenue." }, 500);
