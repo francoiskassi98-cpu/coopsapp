@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Map, Download, Trash2, Archive, ArchiveRestore, Send, Loader2, Upload, Lock, ArrowLeft, PlayCircle, HelpCircle } from "lucide-react";
@@ -53,6 +53,11 @@ export default function GeospatialDetail() {
       return { req: req.data, files: (files.data ?? []) as FileRow[], comments: comments.data ?? [], hist: hist.data ?? [], names };
     },
   });
+
+  useEffect(() => {
+    if (!data?.req || !window.location.hash) return;
+    document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [data?.req]);
 
   const refresh = () => { refetch(); qc.invalidateQueries({ queryKey: ["geo-list"] }); qc.invalidateQueries({ queryKey: ["geo-dashboard"] }); };
   const fail = (e: unknown) => { console.error(e); toast.error("Une erreur est survenue."); };
