@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Eye, Download, MessageSquare, Archive, ArchiveRestore, PlayCircle, HelpCircle, Upload, Send, Trash2, Loader2, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +21,10 @@ export default function GeoRowActions({ row }: { row: GeoRow }) {
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState<null | "info" | "delete">(null);
   const [msg, setMsg] = useState("");
+  const [menu, setMenu] = useState(false);
+  const MenuItem = ({ onClick, danger, children }: { onClick: () => void; danger?: boolean; children: React.ReactNode }) => (
+    <button type="button" className={`flex items-center rounded-md px-2 py-1.5 text-sm text-left hover:bg-muted ${danger ? "text-destructive" : ""}`} onClick={() => { setMenu(false); onClick(); }}>{children}</button>
+  );
 
   const originals = row.geospatial_files.filter((f) => f.file_category === "original");
   const treated = row.geospatial_files.filter((f) => f.file_category === "treated");
@@ -65,28 +69,28 @@ export default function GeoRowActions({ row }: { row: GeoRow }) {
       {isSuperAdmin && row.status === "en_attente" && !row.is_archived && (
         <Button size="sm" disabled={busy} onClick={takeCharge}>{busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <PlayCircle className="h-4 w-4 mr-1" />}Prendre en charge</Button>
       )}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      <Popover open={menu} onOpenChange={setMenu}>
+        <PopoverTrigger asChild>
           <Button size="sm" variant="ghost" disabled={busy} aria-label="Plus d'actions">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}</Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => open()}><Eye className="h-4 w-4 mr-2" />Voir les détails</DropdownMenuItem>
-          {isSuperAdmin && originals.length > 0 && <DropdownMenuItem onClick={() => dl(originals)}><Download className="h-4 w-4 mr-2" />Télécharger les originaux ({originals.length})</DropdownMenuItem>}
-          {canDownloadTreated && <DropdownMenuItem onClick={() => dl(treated)}><Download className="h-4 w-4 mr-2" />Télécharger le fichier traité ({treated.length})</DropdownMenuItem>}
-          <DropdownMenuItem onClick={() => open("#commentaires")}><MessageSquare className="h-4 w-4 mr-2" />{isSuperAdmin ? "Ajouter un commentaire" : "Consulter les commentaires"}</DropdownMenuItem>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-64 p-1 flex flex-col">
+          <MenuItem onClick={() => open()}><Eye className="h-4 w-4 mr-2" />Voir les détails</MenuItem>
+          {isSuperAdmin && originals.length > 0 && <MenuItem onClick={() => dl(originals)}><Download className="h-4 w-4 mr-2" />Télécharger les originaux ({originals.length})</MenuItem>}
+          {canDownloadTreated && <MenuItem onClick={() => dl(treated)}><Download className="h-4 w-4 mr-2" />Télécharger le fichier traité ({treated.length})</MenuItem>}
+          <MenuItem onClick={() => open("#commentaires")}><MessageSquare className="h-4 w-4 mr-2" />{isSuperAdmin ? "Ajouter un commentaire" : "Consulter les commentaires"}</MenuItem>
           {isSuperAdmin && !row.is_archived && row.status !== "publie" && <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setDialog("info")}><HelpCircle className="h-4 w-4 mr-2" />Demander des informations</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => open("#fichiers-traites")}><Upload className="h-4 w-4 mr-2" />Déposer les fichiers traités</DropdownMenuItem>
-            {treated.length > 0 && <DropdownMenuItem onClick={() => open("#fichiers-traites")}><Send className="h-4 w-4 mr-2" />Publier les résultats</DropdownMenuItem>}
+            <div className="my-1 h-px bg-border" />
+            <MenuItem onClick={() => setDialog("info")}><HelpCircle className="h-4 w-4 mr-2" />Demander des informations</MenuItem>
+            <MenuItem onClick={() => open("#fichiers-traites")}><Upload className="h-4 w-4 mr-2" />Déposer les fichiers traités</MenuItem>
+            {treated.length > 0 && <MenuItem onClick={() => open("#fichiers-traites")}><Send className="h-4 w-4 mr-2" />Publier les résultats</MenuItem>}
           </>}
-          <DropdownMenuSeparator />
+          <div className="my-1 h-px bg-border" />
           {row.is_archived
-            ? <DropdownMenuItem onClick={() => archive(false)}><ArchiveRestore className="h-4 w-4 mr-2" />Restaurer</DropdownMenuItem>
-            : <DropdownMenuItem onClick={() => archive(true)}><Archive className="h-4 w-4 mr-2" />Archiver</DropdownMenuItem>}
-          {isSuperAdmin && <DropdownMenuItem className="text-destructive" onClick={() => setDialog("delete")}><Trash2 className="h-4 w-4 mr-2" />Supprimer définitivement</DropdownMenuItem>}
-        </DropdownMenuContent>
-      </DropdownMenu>
+            ? <MenuItem onClick={() => archive(false)}><ArchiveRestore className="h-4 w-4 mr-2" />Restaurer</MenuItem>
+            : <MenuItem onClick={() => archive(true)}><Archive className="h-4 w-4 mr-2" />Archiver</MenuItem>}
+          {isSuperAdmin && <MenuItem danger onClick={() => setDialog("delete")}><Trash2 className="h-4 w-4 mr-2" />Supprimer définitivement</MenuItem>}
+        </PopoverContent>
+      </Popover>
 
       <AlertDialog open={dialog === "info"} onOpenChange={(o) => !busy && setDialog(o ? "info" : null)}>
         <AlertDialogContent>
