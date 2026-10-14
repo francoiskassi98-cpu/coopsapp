@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
     }
     const ok = emails.size > 0 && failures < emails.size;
     const stamp = new Date().toISOString();
-    if (event === "info_requested") return json({ ok, sent: recipients.length - failures });
+    if (event === "info_requested") return json({ ok, sent: emails.size - failures });
     await admin.from("geospatial_requests").update({
       ...(event === "submitted" ? { submission_notified_at: ok ? stamp : null } : { publication_notified_at: ok ? stamp : null }),
       notification_error: ok ? null : "Échec de l'envoi de l'e-mail",
