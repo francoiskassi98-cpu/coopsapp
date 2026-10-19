@@ -537,13 +537,13 @@ export default function ShipmentDetails() {
       {/* Edit Dialog */}
       <Dialog open={!!editingShipment} onOpenChange={(open) => !open && setEditingShipment(null)}>
 
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Truck className="h-5 w-5" /> Modifier le chargement
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 pt-2">
+          <div className="space-y-4 pt-2 overflow-y-auto pr-1 -mr-1 min-h-0">
             <div className="space-y-2">
               <Label>N° Connaissement</Label>
               <Input value={editConnaissement} onChange={(e) => setEditConnaissement(e.target.value)} />
