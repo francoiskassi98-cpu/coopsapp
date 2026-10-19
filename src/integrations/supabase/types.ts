@@ -1524,6 +1524,15 @@ export type Database = {
         Returns: undefined
       }
       shares_my_cooperative: { Args: { _user_id: string }; Returns: boolean }
+      update_shipment_quantities: {
+        Args: {
+          _rows: Json
+          _shipment_id: string
+          _total_bags: number
+          _total_weight: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "super_admin" | "coop_admin" | "agent"
