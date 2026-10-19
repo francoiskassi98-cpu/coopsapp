@@ -629,12 +629,31 @@ export default function ShipmentDetails() {
               </div>
             </div>
 
-            <Button onClick={handleSaveEdit} disabled={saving} className="w-full">
+            <Button onClick={requestSave} disabled={saving} className="w-full">
               {saving ? "Enregistrement..." : "Enregistrer les modifications"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmQty} onOpenChange={(o) => !o && !saving && setConfirmQty(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la modification des quantités ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Poids : {editingShipment?.total_weight.toLocaleString("fr-FR")} kg → {Number(editTotalWeight).toLocaleString("fr-FR")} kg.
+              Sacs : {editingShipment?.total_bags} → {editTotalBags}.
+              La répartition entre les producteurs déjà présents sera recalculée exactement, et leur potentiel mis à jour.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); void handleSaveEdit(); }} disabled={saving}>
+              {saving ? "Enregistrement..." : "Confirmer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
