@@ -299,12 +299,61 @@ export default function ShipmentDetails() {
     setEditDeparture(s.departure_date || "");
   };
 
+  const [confirmQty, setConfirmQty] = useState(false);
+
+  const quantitiesChanged = () =>
+    !!editingShipment &&
+    (Number(editTotalWeight) !== editingShipment.total_weight || Number(editTotalBags) !== editingShipment.total_bags);
+
+  const requestSave = () => {
+    if (!editingShipment) return;
+    if (quantitiesChanged()) {
+      const w = Number(editTotalWeight), b = Number(editTotalBags);
+      if (!Number.isInteger(w) || !Number.isInteger(b) || w <= 0 || b <= 0) {
+        toast({ title: "Valeurs invalides", description: "Le poids et le nombre de sacs doivent être des entiers positifs.", variant: "destructive" });
+        return;
+      }
+      setConfirmQty(true);
+    } else {
+      void handleSaveEdit();
+    }
+  };
+
   const handleSaveEdit = async () => {
     if (!editingShipment) return;
     setSaving(true);
     try {
       const weight = Number(editTotalWeight);
       const bags = Number(editTotalBags);
+      if (quantitiesChanged()) {
+        const { data: dels, error: dErr } = await supabase
+          .from("deliveries")
+          .select("id, net_weight, num_bags, producers(remaining_potential)")
+          .eq("shipment_id", editingShipment.id);
+        if (dErr) throw dErr;
+        const { redistributeShipment } = await import("@/lib/shipment-edit");
+        type D = { id: string; net_weight: number; num_bags: number; producers: { remaining_potential: number } | null };
+        let result;
+        try {
+          result = redistributeShipment(
+            ((dels || []) as unknown as D[]).map((d) => ({
+              id: d.id,
+              weight: Number(d.net_weight),
+              bags: Number(d.num_bags),
+              cap: Number(d.net_weight) + Number(d.producers?.remaining_potential ?? 0),
+            })),
+            weight,
+            bags,
+          );
+        } catch (e) {
+          toast({ title: "Modification impossible", description: (e as Error).message, variant: "destructive" });
+          return;
+        }
+        const { error: rErr } = await supabase.rpc("update_shipment_quantities" as never, {
+          _shipment_id: editingShipment.id, _total_weight: weight, _total_bags: bags, _rows: result,
+        } as never);
+        if (rErr) throw rErr;
+      }
       const coopName = cooperativesList.find(c => c.id === editCoopId)?.name || null;
       const { error } = await supabase
         .from("shipments")
@@ -312,9 +361,6 @@ export default function ShipmentDetails() {
           connaissement: editConnaissement || null,
           zone: coopName,
           registre_id: editCoopId || null,
-          total_weight: weight,
-          total_bags: bags,
-          avg_bag_weight: bags > 0 ? weight / bags : 0,
           project: editProject,
           destination: editDestination,
           partner_id: editPartnerId || null,
@@ -328,12 +374,15 @@ export default function ShipmentDetails() {
       if (error) throw error;
       toast({ title: "Chargement modifié" });
       setEditingShipment(null);
-      fetchAll();
+      await fetchAll();
+      await queryClient.invalidateQueries();
+      window.dispatchEvent(new CustomEvent("shipment:saved"));
     } catch (err) {
       console.error(err);
       toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
       setSaving(false);
+      setConfirmQty(false);
     }
   };
 
