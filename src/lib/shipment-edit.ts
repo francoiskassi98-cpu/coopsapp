@@ -92,3 +92,36 @@ export function redistributeShipment(rows: EditRow[], newWeight: number, newBags
 
   return rows.map((r, i) => ({ id: r.id, weight: weights[i], bags: bags[i] }));
 }
+
+/** Grande traite : 1er septembre → fin février. */
+function isGrandeTraite(date: string): boolean {
+  const m = new Date(date).getMonth() + 1;
+  return m >= 9 || m <= 2;
+}
+function campaignStartYear(date: string): number {
+  const d = new Date(date);
+  return d.getMonth() + 1 >= 9 ? d.getFullYear() : d.getFullYear() - 1;
+}
+
+/**
+ * Poids maximal autorisé pour un producteur lors de la modification :
+ * potentiel annuel − autres livraisons, et en grande traite
+ * 70 % du potentiel − autres livraisons de la grande traite.
+ * Un producteur au plafond est figé ; le surplus va aux autres.
+ */
+export function computeEditCap(
+  potential: number,
+  deliveryDate: string,
+  otherDeliveries: { weight: number; date: string }[],
+): number {
+  const total = otherDeliveries.reduce((s, o) => s + o.weight, 0);
+  let cap = potential - total;
+  if (isGrandeTraite(deliveryDate)) {
+    const y = campaignStartYear(deliveryDate);
+    const gt = otherDeliveries
+      .filter((o) => isGrandeTraite(o.date) && campaignStartYear(o.date) === y)
+      .reduce((s, o) => s + o.weight, 0);
+    cap = Math.min(cap, Math.floor(potential * 0.7) - gt);
+  }
+  return Math.max(0, Math.floor(cap));
+}
