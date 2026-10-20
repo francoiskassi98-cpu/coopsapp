@@ -15,6 +15,13 @@
       "when": 1791893742103,
       "tag": "0001_geo_archive_rpc",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792514341881,
+      "tag": "0002_agent_create_registre_for_import",
+      "breakpoints": true
     }
   ]
 }

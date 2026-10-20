@@ -1449,6 +1449,10 @@ export type Database = {
             }
             Returns: string
           }
+      create_registre_for_import: {
+        Args: { p_cooperative_id: string; p_name: string }
+        Returns: string
+      }
       delete_registre: { Args: { _registre_id: string }; Returns: undefined }
       delete_shipment: { Args: { _shipment_id: string }; Returns: undefined }
       geo_set_archived: {
