@@ -444,17 +444,14 @@ export default function Producers() {
           "Aucune coopérative associée à votre compte. Contactez le super administrateur.",
         );
       }
-      const toCreate = missing.map((name) => ({
-        name,
-        cooperative_id: coopId,
-        status: "active",
-      }));
-      const { data: created, error: createErr } = await supabase
-        .from("registres")
-        .insert(toCreate)
-        .select("id, name");
-      if (createErr) throw createErr;
-      (created ?? []).forEach((r) => map.set(r.name.trim().toLowerCase(), r.id));
+      for (const name of missing) {
+        const { data: newId, error: createErr } = await supabase.rpc(
+          "create_registre_for_import",
+          { p_name: name, p_cooperative_id: coopId },
+        );
+        if (createErr) throw createErr;
+        if (newId) map.set(name.toLowerCase(), newId as string);
+      }
     }
 
     return map;
