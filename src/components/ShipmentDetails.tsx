@@ -284,8 +284,18 @@ export default function ShipmentDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const [editProjects, setEditProjects] = useState<{ id: string; name: string }[]>([]);
+
   const openEdit = (s: ShipmentWithDetails) => {
     setEditingShipment(s);
+    void (async () => {
+      const { data: reg } = await supabase.from("registres").select("cooperative_id").eq("id", s.cooperative_id || "").maybeSingle();
+      let q = supabase.from("projects").select("id, name").eq("is_active", true).order("name");
+      if (reg?.cooperative_id) q = q.eq("cooperative_id", reg.cooperative_id);
+      const { data, error } = await q;
+      if (error) console.error("[ShipmentDetails.projects]", error);
+      setEditProjects(data || []);
+    })();
     setEditCoopId(s.cooperative_id || "");
     setEditProject(s.project);
     setEditDestination(s.destination);
@@ -354,14 +364,13 @@ export default function ShipmentDetails() {
         } as never);
         if (rErr) throw rErr;
       }
-      const coopName = cooperativesList.find(c => c.id === editCoopId)?.name || null;
+      const selProject = editProjects.find((p) => p.name === editProject);
       const { error } = await supabase
         .from("shipments")
         .update({
           connaissement: editConnaissement || null,
-          zone: coopName,
-          registre_id: editCoopId || null,
           project: editProject,
+          ...(selProject ? { project_id: selProject.id } : {}),
           destination: editDestination,
           partner_id: editPartnerId || null,
           driver_name: editDriver.trim() || null,
@@ -562,24 +571,28 @@ export default function ShipmentDetails() {
 
             <div className="space-y-2">
               <Label>Registre</Label>
-              <Select value={editCoopId} onValueChange={setEditCoopId}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner un registre" /></SelectTrigger>
+              <Select value={editCoopId} disabled>
+                <SelectTrigger className="opacity-60 cursor-not-allowed"><SelectValue placeholder="Sélectionner un registre" /></SelectTrigger>
                 <SelectContent>
                   {cooperativesList.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Le registre ne peut pas être modifié.</p>
             </div>
 
             <div className="space-y-2">
               <Label>Projet</Label>
               <Select value={editProject} onValueChange={setEditProject}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Sélectionner un projet" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Fairtrade">Fairtrade</SelectItem>
-                  <SelectItem value="Rainforest Alliance">Rainforest Alliance</SelectItem>
-                  <SelectItem value="Ordinaire">Ordinaire</SelectItem>
+                  {editProject && !editProjects.some((p) => p.name === editProject) && (
+                    <SelectItem value={editProject}>{editProject}</SelectItem>
+                  )}
+                  {editProjects.map((p) => (
+                    <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
