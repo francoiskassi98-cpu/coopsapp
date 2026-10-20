@@ -53,41 +53,41 @@ export function redistributeShipment(rows: EditRow[], newWeight: number, newBags
     bags[best]--; diff++;
   }
 
-  // 2) Poids
-  const avg = Math.ceil(newWeight / newBags);
+  // 2) Poids : la différence est divisée par le nombre de producteurs et
+  //    ajoutée/retirée au poids déjà enregistré de chacun (aucune plage ±5 kg).
   const active = rows.map((r, i) => ({ r, i })).filter(({ i }) => bags[i] > 0);
-  const lo = new Map<number, number>();
-  const hi = new Map<number, number>();
-  for (const { r, i } of active) {
-    const l = Math.max(MIN_WEIGHT, bags[i] * Math.max(1, avg - BAG_RANGE));
-    const h = Math.min(Math.floor(r.cap), bags[i] * (avg + BAG_RANGE));
-    if (h < l) throw new Error("Le potentiel disponible d'au moins un producteur ne permet pas cette répartition.");
-    lo.set(i, l); hi.set(i, h);
+  const lo = (i: number) => MIN_WEIGHT;
+  const hi = (i: number) => Math.floor(rows[i].cap);
+  for (const { i } of active) {
+    if (hi(i) < lo(i)) throw new Error("Le potentiel disponible d'au moins un producteur ne permet pas cette répartition.");
   }
-  const sumLo = active.reduce((s, { i }) => s + lo.get(i)!, 0);
-  const sumHi = active.reduce((s, { i }) => s + hi.get(i)!, 0);
+  const sumLo = active.length * MIN_WEIGHT;
+  const sumHi = active.reduce((s, { i }) => s + hi(i), 0);
   if (newWeight < sumLo || newWeight > sumHi) {
     throw new Error(`Poids impossible avec ces producteurs : il doit être compris entre ${sumLo} et ${sumHi} kg.`);
   }
 
-  const oldTotal = rows.reduce((s, r) => s + r.weight, 0) || 1;
   const weights = new Array(rows.length).fill(0);
+  const currentSum = active.reduce((s, { r }) => s + Math.round(r.weight), 0);
+  const share = (newWeight - currentSum) / active.length;
   for (const { r, i } of active) {
-    const base = bags[i] === r.bags ? Math.round(r.weight * newWeight / oldTotal) : bags[i] * avg;
-    weights[i] = Math.min(hi.get(i)!, Math.max(lo.get(i)!, base));
+    const base = Math.round(r.weight) + Math.round(share);
+    weights[i] = Math.min(hi(i), Math.max(lo(i), base));
   }
+  // Solde exact : réparti sur tous les producteurs ayant de la marge.
   let wDiff = newWeight - weights.reduce((a, b) => a + b, 0);
   let guard = 0;
-  while (wDiff !== 0 && guard++ < 10_000_000) {
+  while (wDiff !== 0 && guard++ < 100_000) {
     const step = wDiff > 0 ? 1 : -1;
-    let moved = false;
-    for (const { i } of active) {
+    const room = active.filter(({ i }) => (step > 0 ? weights[i] < hi(i) : weights[i] > lo(i)));
+    if (room.length === 0) throw new Error("Répartition impossible avec les règles actuelles.");
+    const per = Math.max(1, Math.floor(Math.abs(wDiff) / room.length));
+    for (const { i } of room) {
       if (wDiff === 0) break;
-      if (step > 0 ? weights[i] < hi.get(i)! : weights[i] > lo.get(i)!) {
-        weights[i] += step; wDiff -= step; moved = true;
-      }
+      const limit = step > 0 ? hi(i) - weights[i] : weights[i] - lo(i);
+      const m = Math.min(per, limit, Math.abs(wDiff));
+      weights[i] += step * m; wDiff -= step * m;
     }
-    if (!moved) throw new Error("Répartition impossible avec les règles actuelles.");
   }
 
   return rows.map((r, i) => ({ id: r.id, weight: weights[i], bags: bags[i] }));
