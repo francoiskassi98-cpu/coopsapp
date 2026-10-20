@@ -29,3 +29,15 @@ describe("redistributeShipment", () => {
     expect(() => redistributeShipment(capped, 2100, 32)).toThrow();
   });
 });
+
+describe("redistribution du delta sur tous les producteurs", () => {
+  it("divise la différence par le nombre de producteurs", () => {
+    const r = redistributeShipment(rows, 2300, 32); // +300 / 3 = +100 chacun
+    expect(r.map((x) => x.weight)).toEqual([1000, 700, 600]);
+  });
+  it("baisse répartie sur tous, total exact", () => {
+    const r = redistributeShipment(rows, 1901, 32); // -99 → -33 chacun
+    expect(r.map((x) => x.weight)).toEqual([867, 567, 467]);
+    expect(sum(r, "weight")).toBe(1901);
+  });
+});

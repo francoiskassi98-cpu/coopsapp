@@ -56,7 +56,7 @@ export function redistributeShipment(rows: EditRow[], newWeight: number, newBags
   // 2) Poids : la différence est divisée par le nombre de producteurs et
   //    ajoutée/retirée au poids déjà enregistré de chacun (aucune plage ±5 kg).
   const active = rows.map((r, i) => ({ r, i })).filter(({ i }) => bags[i] > 0);
-  const lo = (i: number) => MIN_WEIGHT;
+  const lo = (_i: number) => MIN_WEIGHT;
   const hi = (i: number) => Math.floor(rows[i].cap);
   for (const { i } of active) {
     if (hi(i) < lo(i)) throw new Error("Le potentiel disponible d'au moins un producteur ne permet pas cette répartition.");
