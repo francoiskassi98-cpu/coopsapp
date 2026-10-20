@@ -338,19 +338,36 @@ export default function ShipmentDetails() {
       if (quantitiesChanged()) {
         const { data: dels, error: dErr } = await supabase
           .from("deliveries")
-          .select("id, net_weight, num_bags, producers(remaining_potential)")
+          .select("id, producer_id, net_weight, num_bags, delivery_date, producers(delivery_potential)")
           .eq("shipment_id", editingShipment.id);
         if (dErr) throw dErr;
-        const { redistributeShipment } = await import("@/lib/shipment-edit");
-        type D = { id: string; net_weight: number; num_bags: number; producers: { remaining_potential: number } | null };
+        type D = { id: string; producer_id: string; net_weight: number; num_bags: number; delivery_date: string; producers: { delivery_potential: number } | null };
+        const list = (dels || []) as unknown as D[];
+        // Autres livraisons de ces producteurs (hors ce chargement), lues par lots.
+        const pids = [...new Set(list.map((d) => d.producer_id))];
+        const others: { producer_id: string; net_weight: number; delivery_date: string }[] = [];
+        for (let k = 0; k < pids.length; k += 200) {
+          const { data: o, error: oErr } = await supabase
+            .from("deliveries")
+            .select("producer_id, net_weight, delivery_date")
+            .in("producer_id", pids.slice(k, k + 200))
+            .neq("shipment_id", editingShipment.id);
+          if (oErr) throw oErr;
+          others.push(...((o || []) as typeof others));
+        }
+        const { redistributeShipment, computeEditCap } = await import("@/lib/shipment-edit");
         let result;
         try {
           result = redistributeShipment(
-            ((dels || []) as unknown as D[]).map((d) => ({
+            list.map((d) => ({
               id: d.id,
               weight: Number(d.net_weight),
               bags: Number(d.num_bags),
-              cap: Number(d.net_weight) + Number(d.producers?.remaining_potential ?? 0),
+              cap: computeEditCap(
+                Number(d.producers?.delivery_potential ?? 0),
+                d.delivery_date,
+                others.filter((o) => o.producer_id === d.producer_id).map((o) => ({ weight: Number(o.net_weight), date: o.delivery_date })),
+              ),
             })),
             weight,
             bags,
