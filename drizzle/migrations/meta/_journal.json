@@ -43,6 +43,13 @@
       "when": 1792665815125,
       "tag": "0005_ai_assistant_threads",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792689894235,
+      "tag": "0006_subscription_payments_cinetpay",
+      "breakpoints": true
     }
   ]
 }
