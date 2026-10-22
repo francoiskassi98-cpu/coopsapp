@@ -414,6 +414,8 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
     rejectedRows,
     warnings,
     blockingErrors,
+    sessionId,
+    unknownHeaders,
   };
 }
 
