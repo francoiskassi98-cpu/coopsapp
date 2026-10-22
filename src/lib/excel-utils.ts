@@ -50,6 +50,32 @@ export interface ImportReport {
   rejectedRows: number;
   warnings: number;
   blockingErrors: number;
+  /** ID de session KNF lu dans les propriétés du fichier (mots-clés), si présent. */
+  sessionId?: string;
+  /** En-têtes du fichier absents du modèle (colonnes ajoutées). */
+  unknownHeaders?: string[];
+}
+
+/** Préfixe des mots-clés Excel portant l'ID de session de mise à jour. */
+export const KNF_KEYWORD_PREFIX = "KNF-ID:";
+
+/** Génère un ID de session court et lisible (6 caractères). */
+export function generateKnfId(): string {
+  const bytes = new Uint8Array(4);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 6).toUpperCase();
+}
+
+/** Nom du fichier d'export de mise à jour : KNF_AAAA-MM-JJ_ID_NomRegistre.xlsx */
+export function buildKnfFileName(id: string, registre: string, date = new Date()): string {
+  const d = date.toISOString().slice(0, 10);
+  const safe = stripAccents(registre).replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "Registre";
+  return `KNF_${d}_${id}_${safe}.xlsx`;
+}
+
+/** Normalise un nom de fichier téléchargé (retire les suffixes « (1) » ajoutés par le navigateur). */
+export function normalizeDownloadedName(name: string): string {
+  return name.trim().replace(/\s*\(\d+\)(?=\.xlsx$)/i, "");
 }
 
 function normalizeHeader(header: string): string {
@@ -257,6 +283,10 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
     if (COLUMN_MAP[normalized]) headerMap[key] = COLUMN_MAP[normalized];
   }
 
+  const unknownHeaders = sheetHeaders.filter((h) => !headerMap[h]);
+  const kw = String(workbook.keywords ?? "");
+  const sessionId = kw.startsWith(KNF_KEYWORD_PREFIX) ? kw.slice(KNF_KEYWORD_PREFIX.length).trim() : undefined;
+
   const errors: ImportError[] = [];
   const rows: ProducerRow[] = [];
   const plantationCodes = new Map<string, number>(); // code -> first row seen
@@ -384,6 +414,8 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
     rejectedRows,
     warnings,
     blockingErrors,
+    sessionId,
+    unknownHeaders,
   };
 }
 
@@ -391,9 +423,11 @@ export async function exportToExcel<T extends object>(
   data: T[],
 
   filename: string,
-  sheetName = "Données"
+  sheetName = "Données",
+  knfId?: string
 ) {
   const workbook = new ExcelJS.Workbook();
+  if (knfId) workbook.keywords = `${KNF_KEYWORD_PREFIX}${knfId}`;
   const ws = workbook.addWorksheet(sheetName);
 
   if (data.length > 0) {
