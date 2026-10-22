@@ -27,6 +27,8 @@ interface CoopBase {
   official_email: string | null;
   manager_name: string | null;
   logo_path: string | null;
+  subscription_price_xof: number;
+  subscription_period_months: number;
 }
 
 interface Row {
@@ -40,6 +42,8 @@ interface Row {
   official_email: string | null;
   manager_name: string | null;
   logo_path: string | null;
+  subscription_price_xof: number;
+  subscription_period_months: number;
   status: Status;
   plan_name: string | null;
   start_date: string | null;
@@ -67,12 +71,13 @@ export default function CooperativesManagement() {
   const [subForm, setSubForm] = useState({
     plan_name: "Pilote", start_date: "", end_date: "", status: "trial" as Status,
   });
+  const [priceForm, setPriceForm] = useState({ amount: "0", months: "12" });
 
   const load = async () => {
     setLoading(true);
     const { data: coops } = await supabase
       .from("cooperatives")
-      .select("id,name,acronym,city,region,country,phone,official_email,manager_name,logo_path")
+      .select("id,name,acronym,city,region,country,phone,official_email,manager_name,logo_path,subscription_price_xof,subscription_period_months")
       .is("deleted_at", null)
       .order("name");
     const list: CoopBase[] = (coops || []) as CoopBase[];
@@ -122,11 +127,22 @@ export default function CooperativesManagement() {
       end_date: r.end_date ?? new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString().slice(0, 10),
       status: r.status,
     });
+    setPriceForm({ amount: String(r.subscription_price_xof ?? 0), months: String(r.subscription_period_months ?? 12) });
   };
 
   const submitSub = async () => {
     if (!subEdit) return;
+    const amount = Number(priceForm.amount);
+    const months = Number(priceForm.months);
+    if (!Number.isInteger(amount) || amount < 0 || (amount > 0 && (amount < 100 || amount % 5 !== 0))) {
+      toast.error("Montant invalide : entier en FCFA, multiple de 5, minimum 100 (ou 0 si non défini).");
+      return;
+    }
+    if (!Number.isInteger(months) || months < 1 || months > 36) { toast.error("Durée invalide (1 à 36 mois)."); return; }
     setSaving(true);
+    const { error: priceErr } = await supabase.from("cooperatives")
+      .update({ subscription_price_xof: amount, subscription_period_months: months }).eq("id", subEdit.id);
+    if (priceErr) { console.error(priceErr); toast.error("Une erreur est survenue."); setSaving(false); return; }
     // Upsert la dernière souscription : on met à jour la plus récente ou on en insère une.
     const { data: existing } = await supabase.from("subscriptions")
       .select("id").eq("cooperative_id", subEdit.id)
@@ -289,6 +305,11 @@ export default function CooperativesManagement() {
         <DialogContent>
           <DialogHeader><DialogTitle>Abonnement — {subEdit?.name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3 rounded-md border p-3">
+              <div className="space-y-1.5"><Label>Montant à payer (FCFA)</Label><Input type="number" min={0} step={5} value={priceForm.amount} onChange={(e) => setPriceForm({ ...priceForm, amount: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>Durée payée (mois)</Label><Input type="number" min={1} max={36} value={priceForm.months} onChange={(e) => setPriceForm({ ...priceForm, months: e.target.value })} /></div>
+              <p className="col-span-2 text-xs text-muted-foreground">Montant utilisé pour le paiement Mobile Money de la coopérative. Modifiable à tout moment.</p>
+            </div>
             <div className="space-y-1.5"><Label>Plan</Label><Input value={subForm.plan_name} onChange={(e) => setSubForm({ ...subForm, plan_name: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5"><Label>Date de début</Label><Input type="date" value={subForm.start_date} onChange={(e) => setSubForm({ ...subForm, start_date: e.target.value })} /></div>
