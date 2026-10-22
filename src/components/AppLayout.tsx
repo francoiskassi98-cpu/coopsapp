@@ -208,7 +208,7 @@ export default function AppLayout() {
           </AnimatePresence>
         </main>
       </div>
-      {!guard.blocked && <AiAssistant />}
+      {!guard.blocked && isAdmin && <AiAssistant />}
     </div>
   );
 }
