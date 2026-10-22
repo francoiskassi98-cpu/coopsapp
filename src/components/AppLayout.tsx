@@ -10,6 +10,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { currentCampaign } from "@/lib/campaign";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import SubscriptionBlocked from "@/components/SubscriptionBlocked";
+import AiAssistant from "@/components/AiAssistant";
 
 type NavItem = { to: string; label: string; icon: typeof BarChart3; adminOnly?: boolean; superAdminOnly?: boolean };
 type NavGroup = { label: string; items: NavItem[] };
@@ -207,6 +208,7 @@ export default function AppLayout() {
           </AnimatePresence>
         </main>
       </div>
+      {!guard.blocked && <AiAssistant />}
     </div>
   );
 }
