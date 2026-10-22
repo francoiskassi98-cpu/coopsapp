@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Eye, Pencil, Trash2, Upload, RefreshCw, Download, FileSpreadsheet, CheckCircle, AlertCircle, ShieldOff, ToggleLeft, ToggleRight } from "lucide-react";
 import { useSortableTable, SortableHeader, type SortValue } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
-import { parseExcelFile, downloadImportTemplate, exportToExcel, downloadErrorReport, type ProducerRow, type ImportError, type ImportReport, joinFullName } from "@/lib/excel-utils";
+import { parseExcelFile, downloadImportTemplate, exportToExcel, downloadErrorReport, type ProducerRow, type ImportError, type ImportReport, joinFullName, generateKnfId, buildKnfFileName, normalizeDownloadedName } from "@/lib/excel-utils";
 import PageHeader from "@/components/PageHeader";
 import { Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -67,6 +67,28 @@ export default function Producers() {
   const [importing, setImporting] = useState(false);
   const [importDone, setImportDone] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  // Session de mise à jour verrouillée : fichier KNF attendu en réimport.
+  const [updateSession, setUpdateSession] = useState<{ id: string; fileName: string; registre: string } | null>(() => {
+    try {
+      const raw = sessionStorage.getItem("knf-update-session");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+  useEffect(() => {
+    if (updateSession) sessionStorage.setItem("knf-update-session", JSON.stringify(updateSession));
+    else sessionStorage.removeItem("knf-update-session");
+  }, [updateSession]);
+  useEffect(() => {
+    if (updateSession && !importMode) setImportMode("update");
+  }, [updateSession, importMode]);
+  useEffect(() => {
+    if (!updateSession) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [updateSession]);
 
 
   const loadProducers = useCallback(async () => {
@@ -338,7 +360,7 @@ export default function Producers() {
   }
 
   // --- Export existing data ---
-  async function handleExportProducers(cooperative?: string) {
+  async function handleExportProducers(cooperative?: string, forUpdate = false) {
     let data = producers;
     if (cooperative && cooperative !== "all") {
       data = producers.filter((p) => p.cooperative === cooperative);
@@ -368,6 +390,20 @@ export default function Producers() {
       "Statut": p.is_active === false ? "INACTIF" : "ACTIF",
       "Carte CCC": p.carte_ccc || "",
     }));
+    if (forUpdate) {
+      const registre = cooperative && cooperative !== "all" ? cooperative : "Tous-les-registres";
+      const id = generateKnfId();
+      const fileName = buildKnfFileName(id, registre);
+      await exportToExcel(rows, fileName, "Registre", id);
+      setUpdateSession({ id, fileName, registre });
+      setImportFile(null);
+      setParsedRows([]);
+      setImportErrors([]);
+      setImportReport(null);
+      setImportDone(false);
+      toast({ title: "Export réussi", description: `Modifiez puis réimportez exactement « ${fileName} ».` });
+      return;
+    }
     const suffix = cooperative && cooperative !== "all" ? `-${cooperative}` : "";
     await exportToExcel(rows, `Registre-Producteurs${suffix}.xlsx`, "Registre");
     toast({ title: "Export réussi" });
@@ -388,10 +424,32 @@ export default function Producers() {
     setImportDone(false);
     const buffer = await f.arrayBuffer();
     const report = await parseExcelFile(buffer);
+    if (importMode === "update" && updateSession) {
+      const fatal: ImportError[] = [];
+      const mk = (column: string, value: string, cause: string, expected: string, action: string): ImportError => ({
+        row: 0, column, value, cause, expected, action, severity: "error",
+        message: `[${column}] ${cause}. Attendu : ${expected}. ${action}`,
+      });
+      if (normalizeDownloadedName(f.name) !== updateSession.fileName) {
+        fatal.push(mk("Nom du fichier", f.name, "Fichier non reconnu : le nom ne correspond pas au fichier de mise à jour téléchargé", updateSession.fileName, "Importez exactement le fichier exporté, sans le renommer."));
+      } else if (report.sessionId && report.sessionId !== updateSession.id) {
+        fatal.push(mk("Identifiant du fichier", report.sessionId, "L'identifiant interne du fichier ne correspond pas à la session en cours", updateSession.id, "Importez le fichier exporté lors de cette mise à jour."));
+      }
+      if (report.unknownHeaders && report.unknownHeaders.length > 0) {
+        fatal.push(mk("Structure", report.unknownHeaders.join(", "), `Colonne(s) ajoutée(s) non autorisée(s) : ${report.unknownHeaders.map((h) => `« ${h} »`).join(", ")}`, "Uniquement les colonnes du fichier exporté", "Supprimez les colonnes ajoutées puis réimportez le fichier."));
+      }
+      if (fatal.length > 0) {
+        setParsedRows([]);
+        setImportErrors(fatal);
+        setImportReport({ ...report, rows: [], errors: fatal, validRows: 0, blockingErrors: fatal.length });
+        toast({ title: "Fichier refusé", description: fatal[0].cause, variant: "destructive" });
+        return;
+      }
+    }
     setParsedRows(report.rows);
     setImportErrors(report.errors);
     setImportReport(report);
-  }, []);
+  }, [importMode, updateSession]);
 
 
   const onDrop = useCallback(
@@ -775,6 +833,7 @@ export default function Producers() {
       }
 
       setImportDone(true);
+      if (importMode === "update") setUpdateSession(null);
       // La campagne du fichier peut être nouvelle : on rafraîchit la liste des campagnes
       // et on positionne le filtre dessus pour que les données importées soient visibles.
       await queryClient.invalidateQueries({ queryKey: ["campaign-labels"] });
@@ -1040,8 +1099,13 @@ export default function Producers() {
       </Card>
 
       {/* Import / Update Dialog */}
-      <Dialog open={!!importMode} onOpenChange={() => setImportMode(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+      <Dialog open={!!importMode} onOpenChange={(o) => { if (!o && updateSession && importMode === "update") return; if (!o) setImportMode(null); }}>
+        <DialogContent
+          className="max-w-4xl max-h-[90vh] overflow-auto"
+          onEscapeKeyDown={(e) => { if (updateSession && importMode === "update") e.preventDefault(); }}
+          onPointerDownOutside={(e) => { if (updateSession && importMode === "update") e.preventDefault(); }}
+          onInteractOutside={(e) => { if (updateSession && importMode === "update") e.preventDefault(); }}
+        >
           <DialogHeader>
             <DialogTitle>
               {importMode === "insert" ? "Importer des producteurs" : "Mettre à jour les producteurs"}
@@ -1053,8 +1117,23 @@ export default function Producers() {
             </DialogDescription>
           </DialogHeader>
 
+          {importMode === "update" && updateSession && (
+            <div className="border border-primary/50 rounded-lg p-4 bg-primary/5 space-y-2">
+              <p className="text-sm font-medium">🔒 Mise à jour en cours — page verrouillée</p>
+              <p className="text-sm text-muted-foreground">
+                Fichier attendu : <span className="font-mono font-semibold text-foreground">{updateSession.fileName}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Modifiez ce fichier sans le renommer ni ajouter de colonne, puis importez-le ci-dessous.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => { setUpdateSession(null); setImportMode(null); }}>
+                Annuler la mise à jour
+              </Button>
+            </div>
+          )}
+
           {/* Export existing data before update */}
-          {importMode === "update" && producers.length > 0 && (
+          {importMode === "update" && !updateSession && producers.length > 0 && (
             <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
               <p className="text-sm font-medium">📥 Exporter les données actuelles avant la mise à jour</p>
               <div className="flex items-center gap-2 flex-wrap">
@@ -1069,7 +1148,7 @@ export default function Producers() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="sm" onClick={() => handleExportProducers(exportCoopForUpdate)}>
+                <Button variant="outline" size="sm" onClick={() => handleExportProducers(exportCoopForUpdate, true)}>
                   <Download className="h-4 w-4 mr-2" />
                   Exporter
                 </Button>
