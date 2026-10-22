@@ -424,6 +424,13 @@ export default function Producers() {
     setImportDone(false);
     const buffer = await f.arrayBuffer();
     const report = await parseExcelFile(buffer);
+    if (importMode === "update" && !updateSession) {
+      const err: ImportError = { row: 0, column: "Fichier", value: f.name, cause: "Aucun fichier de mise à jour n'a été exporté", expected: "Fichier KNF exporté depuis cette fenêtre", action: "Cliquez d'abord sur « Exporter » ci-dessus, modifiez ce fichier puis réimportez-le.", severity: "error", message: "Exportez d'abord le fichier de mise à jour." };
+      setParsedRows([]);
+      setImportErrors([err]);
+      setImportReport({ ...report, rows: [], errors: [err], validRows: 0, blockingErrors: 1 });
+      return;
+    }
     if (importMode === "update" && updateSession) {
       const fatal: ImportError[] = [];
       const mk = (column: string, value: string, cause: string, expected: string, action: string): ImportError => ({
