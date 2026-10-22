@@ -34,6 +34,7 @@ const GeospatialDashboard = lazyWithRetry(() => import("@/pages/geospatial/Geosp
 const GeospatialSubmit = lazyWithRetry(() => import("@/pages/geospatial/GeospatialSubmit"));
 const GeospatialHistory = lazyWithRetry(() => import("@/pages/geospatial/GeospatialHistory"));
 const GeospatialDetail = lazyWithRetry(() => import("@/pages/geospatial/GeospatialDetail"));
+const MySubscription = lazyWithRetry(() => import("@/pages/MySubscription"));
 const NotFound = lazyWithRetry(() => import("@/pages/NotFound"));
 const OAuthConsent = lazyWithRetry(() => import("@/pages/OAuthConsent"));
 
@@ -87,6 +88,7 @@ const App = () => (
                       <Route path="/audit" element={<AuditLog />} />
                       <Route path="/audit/connexions" element={<LoginEvents />} />
                       <Route path="/corbeille" element={<Trash />} />
+                      <Route path="/abonnement" element={<MySubscription />} />
                     </Route>
                     <Route element={<ProtectedRoute superAdminOnly />}>
                       <Route path="/gestion/dashboard" element={<SuperAdminDashboard />} />

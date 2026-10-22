@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { BarChart3, Truck, FileSpreadsheet, Users, Settings, LogOut, ShieldCheck, Building2, Sprout, Handshake, Trash2, KeyRound, FileCog, LayoutDashboard, Menu, Map } from "lucide-react";
+import { BarChart3, Truck, FileSpreadsheet, Users, Settings, LogOut, ShieldCheck, Building2, Sprout, Handshake, Trash2, KeyRound, FileCog, LayoutDashboard, Menu, Map, CreditCard } from "lucide-react";
 import { useEffect, useState } from "react";
 import AppHeader from "@/components/AppHeader";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,7 @@ const groups: NavGroup[] = [
       { to: "/audit", label: "Journal d'audit", icon: ShieldCheck, adminOnly: true },
       { to: "/audit/connexions", label: "Journal de connexion", icon: KeyRound, adminOnly: true },
       { to: "/corbeille", label: "Corbeille", icon: Trash2, adminOnly: true },
+      { to: "/abonnement", label: "Mon abonnement", icon: CreditCard, adminOnly: true },
     ],
   },
   {
@@ -199,7 +200,7 @@ export default function AppLayout() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
             >
-              {guard.blocked ? (
+              {guard.blocked && location.pathname !== "/abonnement" ? (
                 <SubscriptionBlocked reason={guard.reason} endDate={guard.subscription?.end_date} />
               ) : (
                 <Outlet />
