@@ -145,6 +145,8 @@ export type Database = {
           president_name: string | null
           rccm: string | null
           region: string | null
+          subscription_period_months: number
+          subscription_price_xof: number
           subscription_status: Database["public"]["Enums"]["subscription_status"]
           tax_number: string | null
           updated_at: string
@@ -169,6 +171,8 @@ export type Database = {
           president_name?: string | null
           rccm?: string | null
           region?: string | null
+          subscription_period_months?: number
+          subscription_price_xof?: number
           subscription_status?: Database["public"]["Enums"]["subscription_status"]
           tax_number?: string | null
           updated_at?: string
@@ -193,6 +197,8 @@ export type Database = {
           president_name?: string | null
           rccm?: string | null
           region?: string | null
+          subscription_period_months?: number
+          subscription_price_xof?: number
           subscription_status?: Database["public"]["Enums"]["subscription_status"]
           tax_number?: string | null
           updated_at?: string
@@ -1338,6 +1344,71 @@ export type Database = {
           },
         ]
       }
+      subscription_payments: {
+        Row: {
+          amount_xof: number
+          cooperative_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_number: string | null
+          invoice_sent_at: string | null
+          operator_reference: string | null
+          paid_at: string | null
+          payment_method: string | null
+          period_end: string | null
+          period_months: number
+          period_start: string | null
+          status: string
+          transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_xof: number
+          cooperative_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_number?: string | null
+          invoice_sent_at?: string | null
+          operator_reference?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          period_end?: string | null
+          period_months: number
+          period_start?: string | null
+          status?: string
+          transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_xof?: number
+          cooperative_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_number?: string | null
+          invoice_sent_at?: string | null
+          operator_reference?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          period_end?: string | null
+          period_months?: number
+          period_start?: string | null
+          status?: string
+          transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_payments_cooperative_id_fkey"
+            columns: ["cooperative_id"]
+            isOneToOne: false
+            referencedRelation: "cooperatives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           amount: number | null
@@ -1569,6 +1640,7 @@ export type Database = {
       log_login_event: { Args: { p_user_agent?: string }; Returns: undefined }
       my_cooperative_ids: { Args: never; Returns: string[] }
       my_registre_ids: { Args: never; Returns: string[] }
+      next_invoice_number: { Args: never; Returns: string }
       producer_potentials_by_registre: {
         Args: { p_campaign_label?: string }
         Returns: {

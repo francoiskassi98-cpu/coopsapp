@@ -30,7 +30,7 @@ export default function SubscriptionBlocked({ reason, endDate }: Props) {
           )}
           <div className="rounded-md bg-muted/50 p-3 text-muted-foreground flex items-start gap-2">
             <PhoneCall className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>Contactez votre administrateur pour renouveler ou réactiver votre abonnement.</span>
+            <span>Administrateur : renouvelez par Mobile Money depuis <a href="/abonnement" className="underline font-medium text-foreground">Mon abonnement</a>. Sinon, contactez votre administrateur.</span>
           </div>
         </CardContent>
       </Card>
