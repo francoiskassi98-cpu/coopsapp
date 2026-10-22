@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
           if (campaign_label) ship = ship.eq("campaign_label", campaign_label);
           if (registre_id) ship = ship.eq("registre_id", registre_id);
           const s = await ship;
-          let prod = sb.from("producer_registry").select("potentiel_livraison,potentiel_restant", { count: "exact" }).limit(20000);
+          let prod = sb.from("producers").select("delivery_potential,remaining_potential", { count: "exact" }).is("deleted_at", null).limit(20000);
           if (campaign_label) prod = prod.eq("campaign_label", campaign_label);
           if (registre_id) prod = prod.eq("registre_id", registre_id);
           const p = await prod;
@@ -75,8 +75,8 @@ Deno.serve(async (req) => {
             poids_livre_kg: sum(s.data, "total_weight"),
             sacs: sum(s.data, "total_bags"),
             producteurs: p.count ?? 0,
-            potentiel_total_kg: sum(p.data, "potentiel_livraison"),
-            potentiel_restant_kg: sum(p.data, "potentiel_restant"),
+            potentiel_total_kg: sum(p.data, "delivery_potential"),
+            potentiel_restant_kg: sum(p.data, "remaining_potential"),
             note: (p.count ?? 0) > 20000 ? "Échantillon limité à 20000 producteurs" : undefined,
           };
         },
@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
           if (error) { console.error(error); return { erreur: "Lecture impossible" }; }
           const ids = [...new Set((data ?? []).map((d) => d.producer_id))];
           const { data: prods } = ids.length
-            ? await sb.from("producer_registry").select("id,nom_complet,section,code_plantation").in("id", ids)
+            ? await sb.from("producers").select("id,full_name,section,plantation_code").in("id", ids)
             : { data: [] as any[] };
           const pm = new Map((prods ?? []).map((p: any) => [p.id, p]));
           return (data ?? []).map((d) => ({ ...d, producteur: pm.get(d.producer_id) ?? null }));
@@ -132,25 +132,25 @@ Deno.serve(async (req) => {
           tri: z.enum(["potentiel_restant_desc", "potentiel_restant_asc", "nom"]).nullable(),
         }),
         execute: async (a) => {
-          let q = sb.from("producer_registry")
-            .select("id,nom_complet,section,code_plantation,carte_ccc,campaign_label,registre_id,potentiel_livraison,potentiel_restant,actif,sexe").limit(50);
+          let q = sb.from("producers")
+            .select("id,full_name,section,plantation_code,carte_ccc,campaign_label,registre_id,delivery_potential,remaining_potential,is_active,sexe").is("deleted_at", null).limit(50);
           if (a.search) {
             const s = a.search.replace(/[,()%]/g, " ").trim();
-            q = q.or(`nom_complet.ilike.%${s}%,code_plantation.ilike.%${s}%`);
+            q = q.or(`full_name.ilike.%${s}%,plantation_code.ilike.%${s}%`);
           }
           if (a.section) q = q.ilike("section", `%${a.section}%`);
           if (a.campaign_label) q = q.eq("campaign_label", a.campaign_label);
           if (a.registre_id) q = q.eq("registre_id", a.registre_id);
-          q = a.tri === "potentiel_restant_desc" ? q.order("potentiel_restant", { ascending: false })
-            : a.tri === "potentiel_restant_asc" ? q.order("potentiel_restant", { ascending: true })
-            : q.order("nom_complet");
+          q = a.tri === "potentiel_restant_desc" ? q.order("remaining_potential", { ascending: false })
+            : a.tri === "potentiel_restant_asc" ? q.order("remaining_potential", { ascending: true })
+            : q.order("full_name");
           const { data, error } = await q;
           if (error) { console.error(error); return { erreur: "Lecture impossible" }; }
           return (data ?? []).map((r: any) => ({ ...r, registre: nameOf(r.registre_id) }));
         },
       }),
       livraisons_producteur: tool({
-        description: "Historique des livraisons d'un producteur (id producer_registry).",
+        description: "Historique des livraisons d'un producteur (id producteur).",
         inputSchema: z.object({ producer_id: z.string() }),
         execute: async ({ producer_id }) => {
           const { data, error } = await sb.from("deliveries")
@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
         description: "Agrégat par section : nombre de producteurs, potentiel total, restant et livré.",
         inputSchema: z.object({ campaign_label: z.string().nullable(), registre_id: z.string().nullable() }),
         execute: async (a) => {
-          let q = sb.from("producer_registry").select("section,potentiel_livraison,potentiel_restant").limit(20000);
+          let q = sb.from("producers").select("section,delivery_potential,remaining_potential").is("deleted_at", null).limit(20000);
           if (a.campaign_label) q = q.eq("campaign_label", a.campaign_label);
           if (a.registre_id) q = q.eq("registre_id", a.registre_id);
           const { data, error } = await q;
@@ -174,8 +174,8 @@ Deno.serve(async (req) => {
             const k = r.section || "Sans section";
             agg[k] ??= { producteurs: 0, potentiel: 0, restant: 0, livre: 0 };
             agg[k].producteurs++;
-            agg[k].potentiel += Number(r.potentiel_livraison);
-            agg[k].restant += Number(r.potentiel_restant);
+            agg[k].potentiel += Number(r.delivery_potential);
+            agg[k].restant += Number(r.remaining_potential);
             agg[k].livre = agg[k].potentiel - agg[k].restant;
           }
           return agg;
