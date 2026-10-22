@@ -1640,6 +1640,7 @@ export type Database = {
       log_login_event: { Args: { p_user_agent?: string }; Returns: undefined }
       my_cooperative_ids: { Args: never; Returns: string[] }
       my_registre_ids: { Args: never; Returns: string[] }
+      next_invoice_number: { Args: never; Returns: string }
       producer_potentials_by_registre: {
         Args: { p_campaign_label?: string }
         Returns: {

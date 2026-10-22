@@ -57,6 +57,13 @@
       "when": 1792689907270,
       "tag": "0007_protect_subscription_price",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792689921345,
+      "tag": "0008_next_invoice_number",
+      "breakpoints": true
     }
   ]
 }
