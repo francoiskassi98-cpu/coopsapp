@@ -26,6 +26,11 @@ Deno.serve(async (req) => {
     if (userErr || !userData.user) return json({ error: "Non authentifié" }, 401);
     const userId = userData.user.id;
 
+    const { data: roleRow } = await sb.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+    if (roleRow?.role !== "super_admin" && roleRow?.role !== "coop_admin") {
+      return json({ error: "Assistant réservé aux administrateurs" }, 403);
+    }
+
     const parsed = BodySchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return json({ error: "Requête invalide" }, 400);
     const { threadId, question } = parsed.data;
