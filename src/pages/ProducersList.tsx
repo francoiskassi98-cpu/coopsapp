@@ -131,13 +131,7 @@ export default function Producers() {
   }, [campaignFilter, queryClient, producersCacheKey]);
 
   useEffect(() => {
-    const cached = queryClient.getQueryState(producersCacheKey);
-    // Données récentes (< 5 min) : affichage immédiat sans requête.
-    if (cached?.data && Date.now() - cached.dataUpdatedAt < 5 * 60 * 1000) {
-      setProducers(cached.data as ProducerListRow[]);
-      setLoading(false);
-      return;
-    }
+    // Affiche le cache instantanément puis rafraîchit en arrière-plan (potentiels à jour).
     loadProducers();
   }, [loadProducers, queryClient, producersCacheKey]);
 
