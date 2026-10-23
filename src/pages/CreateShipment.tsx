@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef, Suspense } from "react";
+import { lazyWithRetry } from "@/lib/lazy-with-retry";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,18 +9,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { distributeShipment, getCurrentCampaign, normalizeCampaign, verifyDistributionTotals, splitBagsExactly, computeAverageBagWeight, bagWeightRange, isBagWeightInRange, MAX_BAGS_PER_PRODUCER, type DistributionResult } from "@/lib/shipment-utils";
+import { normalizeCampaign, currentCampaign as getCurrentCampaign } from "@/lib/campaign";
+import { distributeShipment, verifyDistributionTotals, splitBagsExactly, computeAverageBagWeight, bagWeightRange, isBagWeightInRange, MAX_BAGS_PER_PRODUCER, type DistributionResult } from "@/lib/shipment-utils";
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
 import { toast } from "@/hooks/use-toast";
 import { Truck, Plus, Download, Pencil, Check, X, FileSpreadsheet, FolderPlus, Maximize2, Minimize2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import ImportShipments from "@/pages/ImportShipments";
-import ShipmentDetails from "@/components/ShipmentDetails";
-import ShipmentHistory from "@/components/ShipmentHistory";
 import { TemplatePreview, type TemplatePreviewData } from "@/components/shipments/TemplatePreview";
 import PageHeader from "@/components/PageHeader";
+
+const ImportShipments = lazyWithRetry(() => import("@/pages/ImportShipments"));
+const ShipmentDetails = lazyWithRetry(() => import("@/components/ShipmentDetails"));
+const ShipmentHistory = lazyWithRetry(() => import("@/components/ShipmentHistory"));
+const tabFallback = <div className="py-12 text-center text-muted-foreground">Chargement…</div>;
 import { useActiveShipmentTemplates } from "@/hooks/useShipmentTemplates";
 import { useCampaignRegistres } from "@/hooks/useCampaignRegistres";
 import { usePartners } from "@/hooks/usePartners";
@@ -162,24 +166,12 @@ export default function CreateShipment() {
     setCoopStats(null);
     const PAGE = 1000;
     const loadProducers = async () => {
-      let potentiel = 0, remaining = 0, from = 0;
-      for (;;) {
-        const { data, error } = await supabase
-          .from("producers")
-          .select("delivery_potential, remaining_potential")
-          .eq("registre_id", registreId)
-          .eq("campaign_label", campaign)
-          .range(from, from + PAGE - 1);
-        if (error) { console.error("[CreateShipment.stats.producers]", error); break; }
-        if (!data || data.length === 0) break;
-        data.forEach((p) => {
-          potentiel += Number(p.delivery_potential) || 0;
-          remaining += Number(p.remaining_potential) || 0;
-        });
-        if (data.length < PAGE) break;
-        from += PAGE;
-      }
-      return { potentiel, remaining };
+      // Agrégat serveur (une ligne par registre) au lieu de paginer tous les producteurs.
+      const { data, error } = await supabase.rpc("producer_potentials_by_registre" as never, { p_campaign_label: campaign } as never);
+      if (error) { console.error("[CreateShipment.stats.producers]", error); return { potentiel: 0, remaining: 0 }; }
+      const row = ((data as { registre_id: string | null; delivery_potential: number | null; remaining_potential: number | null }[] | null) ?? [])
+        .find((r) => r.registre_id === registreId);
+      return { potentiel: Number(row?.delivery_potential) || 0, remaining: Number(row?.remaining_potential) || 0 };
     };
     const loadDelivered = async () => {
       let delivered = 0, from = 0;
@@ -1385,15 +1377,15 @@ export default function CreateShipment() {
         </TabsContent>
 
         <TabsContent value="history">
-          <ShipmentHistory />
+          <Suspense fallback={tabFallback}><ShipmentHistory /></Suspense>
         </TabsContent>
 
         <TabsContent value="details">
-          <ShipmentDetails />
+          <Suspense fallback={tabFallback}><ShipmentDetails /></Suspense>
         </TabsContent>
 
         <TabsContent value="import">
-          <ImportShipments />
+          <Suspense fallback={tabFallback}><ImportShipments /></Suspense>
         </TabsContent>
       </Tabs>
 

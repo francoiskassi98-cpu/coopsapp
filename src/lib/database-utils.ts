@@ -65,3 +65,19 @@ export async function fetchAllRows<T = Record<string, unknown>>(
 
   return allRows;
 }
+
+/**
+ * Pagine un query builder déjà construit (filtres/tri appliqués) par pages de `pageSize`.
+ * En cas d'erreur, journalise et renvoie les lignes déjà récupérées.
+ */
+export async function fetchAllPages<T>(query: PaginatedQuery, pageSize = 1000, tag = "pagination"): Promise<T[]> {
+  const all: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await query.range(from, from + pageSize - 1);
+    if (error) { console.error(`[${tag}]`, error); break; }
+    if (!data || data.length === 0) break;
+    all.push(...(data as T[]));
+    if (data.length < pageSize) break;
+  }
+  return all;
+}

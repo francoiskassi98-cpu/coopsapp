@@ -1,11 +1,12 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
+import { lazyWithRetry } from "@/lib/lazy-with-retry";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { AlertTriangle, RefreshCw, Mail, LayoutDashboard } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
-import { isCampaignStart, getCurrentCampaign } from "@/lib/shipment-utils";
+import { isCampaignStart, currentCampaign as getCurrentCampaign } from "@/lib/campaign";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -16,9 +17,7 @@ import CoopTable from "@/components/dashboard/CoopTable";
 import DashboardFilters from "@/components/dashboard/DashboardFilters";
 import { useRegistres } from "@/hooks/useRegistres";
 import { useCampaignLabels } from "@/hooks/useCampaign";
-import type { PaginatedQuery } from "@/lib/database-utils";
-import ReportDialog from "@/components/dashboard/ReportDialog";
-import ReportGenerator from "@/components/dashboard/ReportGenerator";
+import { fetchAllPages, type PaginatedQuery } from "@/lib/database-utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const PIE_COLORS = ["hsl(25, 65%, 32%)", "hsl(140, 35%, 40%)", "hsl(35, 70%, 55%)", "hsl(200, 50%, 50%)", "hsl(280, 40%, 50%)", "hsl(0, 50%, 50%)", "hsl(60, 50%, 45%)"];
@@ -44,26 +43,13 @@ interface DashboardShipment {
   partners?: { name: string | null } | null;
 }
 
-async function fetchAllRows<T>(query: PaginatedQuery): Promise<T[]> {
-  const allData: T[] = [];
-  let from = 0;
-  const pageSize = 1000;
-  while (true) {
-    const { data, error } = await query.range(from, from + pageSize - 1);
-    if (error) { console.error("[Dashboard] pagination", error); break; }
-    if (!data || data.length === 0) break;
-    allData.push(...(data as T[]));
-    if (data.length < pageSize) break;
-    from += pageSize;
-  }
-  return allData;
-}
+const ReportGenerator = lazyWithRetry(() => import("@/components/dashboard/ReportGenerator"));
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
   const [showCampaignAlert, setShowCampaignAlert] = useState(false);
   const [coopDetailName, setCoopDetailName] = useState<string | null>(null);
-  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [tab, setTab] = useState("apercu");
 
   // Chronology filters
   const [selectedCampaign, setSelectedCampaign] = useState<string>(getCurrentCampaign());
@@ -94,7 +80,7 @@ export default function Dashboard() {
         .from("shipments")
         .select("id, project, destination, total_weight, total_bags, created_at, campaign_label, zone, connaissement, registre_id, partners(name)");
       if (selectedCampaign !== "all") q = q.eq("campaign_label", selectedCampaign);
-      return fetchAllRows<DashboardShipment>(q.order("created_at", { ascending: false }) as unknown as PaginatedQuery);
+      return fetchAllPages<DashboardShipment>(q.order("created_at", { ascending: false }) as unknown as PaginatedQuery, 1000, "Dashboard");
     },
   });
 
@@ -211,7 +197,7 @@ export default function Dashboard() {
         description={`Plateforme intégrée de gestion des registres, des producteurs, des livraisons, de la traçabilité, des primes et des rapports de performance. — Campagne ${getCurrentCampaign()}`}
         actions={
           <>
-            <Button onClick={() => setShowReportDialog(true)} variant="outline">
+            <Button onClick={() => setTab("powerpoint")} variant="outline">
               <Mail className="h-4 w-4" />
               Envoyer un rapport
             </Button>
@@ -223,7 +209,7 @@ export default function Dashboard() {
         }
       />
 
-      <Tabs defaultValue="apercu" className="space-y-6">
+      <Tabs value={tab} onValueChange={setTab} className="space-y-6">
         <TabsList>
           <TabsTrigger value="apercu">Aperçu</TabsTrigger>
           <TabsTrigger value="powerpoint">Rapport campagne</TabsTrigger>
@@ -350,24 +336,12 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      <ReportDialog
-        open={showReportDialog}
-        onOpenChange={setShowReportDialog}
-        dashboardData={{
-          totalPotential: stats.totalPotential,
-          totalDelivered: stats.totalDelivered,
-          remaining: stats.remaining,
-          shipmentCount: stats.shipmentCount,
-          coopStats,
-          byProject,
-          byPartner,
-          campaign: selectedCampaign !== "all" ? selectedCampaign : getCurrentCampaign(),
-        }}
-      />
         </TabsContent>
 
         <TabsContent value="powerpoint">
-          <ReportGenerator />
+          <Suspense fallback={<div className="py-12 text-center text-muted-foreground">Chargement…</div>}>
+            <ReportGenerator />
+          </Suspense>
         </TabsContent>
       </Tabs>
     </div>

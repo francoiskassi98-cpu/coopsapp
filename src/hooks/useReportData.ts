@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ReportPayload, ReportType } from "@/lib/pptx-report-generator";
-import { normalizeCampaign } from "@/lib/shipment-utils";
+import { normalizeCampaign } from "@/lib/campaign";
 
 export interface ReportFilters {
   campaignId: string | null;
