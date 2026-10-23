@@ -1,214 +1,114 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { ReportPayload, ReportType } from "@/lib/pptx-report-generator";
 import { normalizeCampaign } from "@/lib/campaign";
+import { computeReportMetrics, type RawDelivery, type RawProducer, type RawShipment, type ReportMetrics } from "@/lib/report-metrics";
 
 export interface ReportFilters {
-  campaignId: string | null;
-  campaignName: string;
-  cooperatives: string[]; // empty = all the user can see
-  project: string | null;
-  destination: string | null;
-  partnerId: string | null;
+  campaignId: string;
+  registreId: string | null; // null = tous les registres accessibles
   dateFrom: string | null;
   dateTo: string | null;
 }
 
-/** Chargement enrichi des noms de partenaire et de registre. */
-interface ShipmentReportRow {
-  id: string;
-  project: string;
-  destination: string;
-  connaissement: string | null;
-  total_weight: number | string | null;
-  created_at: string;
-  partners?: { name: string } | null;
-  registres?: { name: string } | null;
+export interface ReportPayload {
+  campaign: string;
+  cooperativeName: string;
+  scopeLabel: string;
+  registreNames: string[];
+  userEmail: string | null;
+  generatedAt: Date;
+  period: { from: string | null; to: string | null };
+  metrics: ReportMetrics;
 }
 
-/** Ligne producteur utilisée pour les statistiques du rapport (source : table `producers`). */
-interface RegistryReportRow {
-  section: string;
-  delivery_potential: number | string | null;
-  remaining_potential: number | string | null;
-  latitude: number | string | null;
-  longitude: number | string | null;
-  national_id: string | null;
-  total_cocoa_area: number | string | null;
-  registres?: { name: string } | null;
-  /** Nom du registre normalisé côté client. */
-  cooperative?: string;
-}
-
-/** Vue minimale d'un query builder paginable. */
 interface RangeableQuery<T> {
   range(from: number, to: number): PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
 }
 
 async function fetchAll<T>(query: RangeableQuery<T>): Promise<T[]> {
   const out: T[] = [];
-  let from = 0;
   const size = 1000;
-  while (true) {
+  for (let from = 0; ; from += size) {
     const { data, error } = await query.range(from, from + size - 1);
     if (error) throw error;
     if (!data || data.length === 0) break;
     out.push(...data);
     if (data.length < size) break;
-    from += size;
   }
   return out;
 }
 
-const num = (v: unknown): number => Number(v ?? 0) || 0;
+const num = (v: unknown) => Number(v ?? 0) || 0;
 
-export async function loadReportData(
-  type: ReportType,
-  filters: ReportFilters,
-  userEmail: string | null,
-): Promise<ReportPayload> {
-  // Shipments
+/**
+ * Charge les données réelles du rapport (RLS appliquée : seules les données
+ * de la coopérative de l'utilisateur sont lisibles). 3 requêtes paginées, sans N+1.
+ */
+export async function loadReportData(filters: ReportFilters, userEmail: string | null): Promise<ReportPayload> {
+  const campaign = normalizeCampaign(filters.campaignId);
+
+  const { data: regs, error: regErr } = await supabase.from("registres").select("id,name,cooperative_id").order("name");
+  if (regErr) throw regErr;
+  const registreNames: Record<string, string> = {};
+  (regs ?? []).forEach((r) => { registreNames[r.id] = r.name; });
+
+  // Chargements officiels : non annulés, non supprimés
   let shQ = supabase
     .from("shipments")
-    .select("id, project, destination, connaissement, total_weight, created_at, partners(name), registres(name)");
-  if (filters.campaignId) shQ = shQ.eq("campaign_label", filters.campaignId);
-  if (filters.project) shQ = shQ.eq("project", filters.project);
-  if (filters.destination) shQ = shQ.eq("destination", filters.destination);
-  if (filters.partnerId) shQ = shQ.eq("partner_id", filters.partnerId);
-  // Overlap logic: include shipments whose delivery window touches the period
+    .select("id, lot_number, connaissement, project, destination, registre_id, total_weight, created_at, delivery_start, partners(name)")
+    .eq("campaign_label", campaign)
+    .eq("is_cancelled", false)
+    .is("deleted_at", null);
+  if (filters.registreId) shQ = shQ.eq("registre_id", filters.registreId);
   if (filters.dateFrom) shQ = shQ.gte("delivery_end", filters.dateFrom);
   if (filters.dateTo) shQ = shQ.lte("delivery_start", filters.dateTo);
-  shQ = shQ.eq("is_cancelled", false).order("created_at", { ascending: true });
-  let shipments = await fetchAll<ShipmentReportRow>(shQ.returns<ShipmentReportRow[]>());
+  type ShRow = Omit<RawShipment, "partner"> & { partners: { name: string } | null };
+  const shRows = await fetchAll<ShRow>(shQ.order("created_at").order("id").returns<ShRow[]>());
+  const shipments: RawShipment[] = shRows.map((s) => ({ ...s, total_weight: num(s.total_weight), partner: s.partners?.name ?? null }));
 
-  // Producteurs de la campagne (source unique du potentiel, multi-campagne)
-  let prQ = supabase
+  let dQ = supabase
+    .from("deliveries")
+    .select("id, shipment_id, producer_id, registre_id, net_weight, delivery_date")
+    .eq("campaign_label", campaign);
+  if (filters.registreId) dQ = dQ.eq("registre_id", filters.registreId);
+  type DRow = RawDelivery & { id: string };
+  const deliveries = (await fetchAll<DRow>(dQ.order("id").returns<DRow[]>())).map((d) => ({ ...d, net_weight: num(d.net_weight) }));
+
+  let pQ = supabase
     .from("producers")
-    .select("section, delivery_potential, remaining_potential, latitude, longitude, national_id, total_cocoa_area, registres(name)")
+    .select("id, registre_id, section, full_name, nom, prenom, plantation_code, delivery_potential, remaining_potential, is_active")
+    .eq("campaign_label", campaign)
     .is("deleted_at", null);
-  if (filters.campaignId) prQ = prQ.eq("campaign_label", filters.campaignId);
-  let registry = (await fetchAll<RegistryReportRow>(prQ.returns<RegistryReportRow[]>())).map((r) => ({
-    ...r,
-    cooperative: r.registres?.name ?? "",
+  if (filters.registreId) pQ = pQ.eq("registre_id", filters.registreId);
+  type PRow = { id: string; registre_id: string; section: string; full_name: string; nom: string | null; prenom: string | null; plantation_code: string; delivery_potential: number; remaining_potential: number; is_active: boolean };
+  const producers: RawProducer[] = (await fetchAll<PRow>(pQ.order("id").returns<PRow[]>())).map((p) => ({
+    id: p.id, registre_id: p.registre_id, section: p.section,
+    name: [p.nom, p.prenom].filter(Boolean).join(" ") || p.full_name,
+    code: p.plantation_code, delivery_potential: num(p.delivery_potential),
+    remaining_potential: num(p.remaining_potential), is_active: p.is_active,
   }));
 
-  // Cooperatives filter (UI selection)
-  const coopSet = new Set(filters.cooperatives.map((c) => c.toLowerCase()));
-  if (coopSet.size > 0) {
-    shipments = shipments.filter((s) => coopSet.has(String(s.registres?.name ?? "").toLowerCase()));
-    registry = registry.filter((r) => coopSet.has(String(r.cooperative ?? "").toLowerCase()));
+  const scopeRegistreIds = filters.registreId
+    ? [filters.registreId]
+    : [...new Set([...producers.map((p) => p.registre_id), ...shipments.map((s) => s.registre_id)])];
+
+  const coopIds = [...new Set((regs ?? []).filter((r) => scopeRegistreIds.includes(r.id)).map((r) => r.cooperative_id).filter(Boolean))] as string[];
+  let cooperativeName = "Coopérative";
+  if (coopIds.length > 0) {
+    const { data: coops } = await supabase.from("cooperatives").select("name").in("id", coopIds);
+    if (coops && coops.length) cooperativeName = coops.map((c) => c.name).join(" · ");
   }
 
-  // Stats
-  const totalPotential = registry.reduce((s, r) => s + num(r.delivery_potential), 0);
-  const remaining = registry.reduce((s, r) => s + num(r.remaining_potential), 0);
-  const totalDelivered = shipments.reduce((s, sh) => s + num(sh.total_weight), 0);
-
-  // Group helpers
-  const groupSum = <T,>(arr: T[], key: (x: T) => string, val: (x: T) => number) => {
-    const m: Record<string, number> = {};
-    arr.forEach((x) => {
-      const k = key(x) || "Inconnu";
-      m[k] = (m[k] || 0) + val(x);
-    });
-    return Object.entries(m).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  };
-
-  const byProject = groupSum(shipments, (s) => s.project, (s) => num(s.total_weight));
-  const byDestination = groupSum(shipments, (s) => s.destination, (s) => num(s.total_weight));
-  const byPartner = groupSum(shipments, (s) => s.partners?.name || "Inconnu", (s) => num(s.total_weight));
-
-  // Monthly
-  const monthlyMap: Record<string, number> = {};
-  shipments.forEach((s) => {
-    const d = new Date(s.created_at);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    monthlyMap[key] = (monthlyMap[key] || 0) + num(s.total_weight);
-  });
-  const monthly = Object.entries(monthlyMap)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([label, value]) => ({ label, value }));
-
-  // Coop stats
-  const coopPot: Record<string, { potentiel: number; remaining: number }> = {};
-  registry.forEach((r) => {
-    const k = r.cooperative || "Inconnu";
-    if (!coopPot[k]) coopPot[k] = { potentiel: 0, remaining: 0 };
-    coopPot[k].potentiel += num(r.delivery_potential);
-    coopPot[k].remaining += num(r.remaining_potential);
-  });
-  const coopDel: Record<string, { delivered: number; count: number }> = {};
-  shipments.forEach((s) => {
-    const k = s.registres?.name || "Inconnu";
-    if (!coopDel[k]) coopDel[k] = { delivered: 0, count: 0 };
-    coopDel[k].delivered += num(s.total_weight);
-    coopDel[k].count += 1;
-  });
-  const coopStats = Array.from(new Set([...Object.keys(coopPot), ...Object.keys(coopDel)]))
-    .map((name) => ({
-      name,
-      potentiel: coopPot[name]?.potentiel || 0,
-      delivered: coopDel[name]?.delivered || 0,
-      remaining: coopPot[name]?.remaining || 0,
-      shipmentCount: coopDel[name]?.count || 0,
-    }))
-    .sort((a, b) => b.delivered - a.delivered);
-
-  // Top sections
-  const secMap: Record<string, { potentiel: number; cooperative: string }> = {};
-  registry.forEach((r) => {
-    const k = `${r.section}__${r.cooperative}`;
-    if (!secMap[k]) secMap[k] = { potentiel: 0, cooperative: r.cooperative || "—" };
-    secMap[k].potentiel += num(r.delivery_potential);
-  });
-  const topSections = Object.entries(secMap)
-    .map(([k, v]) => ({ name: k.split("__")[0], cooperative: v.cooperative, potentiel: v.potentiel }))
-    .sort((a, b) => b.potentiel - a.potentiel);
-
-  // Shipments sample
-  const shipmentsSample = shipments
-    .slice()
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .map((s) => ({
-      connaissement: s.connaissement || "",
-      project: s.project,
-      partner: s.partners?.name || "—",
-      destination: s.destination,
-      weight: num(s.total_weight),
-      date: new Date(s.created_at).toLocaleDateString("fr-FR"),
-    }));
-
-  // Tracability
-  const withGps = registry.filter((r) => r.latitude && r.longitude).length;
-  const withoutCni = registry.filter((r) => !r.national_id || String(r.national_id).trim() === "").length;
-  const areas = registry.map((r) => num(r.total_cocoa_area)).filter((n) => n > 0);
-  const avgArea = areas.length > 0 ? areas.reduce((s, v) => s + v, 0) / areas.length : 0;
+  const generatedAt = new Date();
+  const metrics = computeReportMetrics({ campaign, now: generatedAt, shipments, deliveries, producers, registreNames, scopeRegistreIds });
 
   return {
-    type,
-    campaign: filters.campaignName ? normalizeCampaign(filters.campaignName) : "—",
-    cooperatives: filters.cooperatives,
+    campaign,
+    cooperativeName,
+    scopeLabel: filters.registreId ? `Registre ${registreNames[filters.registreId] ?? ""}` : "Tous les registres",
+    registreNames: scopeRegistreIds.map((id) => registreNames[id] ?? "Registre inconnu").sort(),
     userEmail,
-    generatedAt: new Date(),
-    stats: {
-      totalPotential,
-      totalDelivered,
-      remaining,
-      shipmentCount: shipments.length,
-      producerCount: registry.length,
-    },
-    coopStats,
-    byProject,
-    byDestination,
-    byPartner,
-    monthly,
-    topSections,
-    shipmentsSample,
-    tracability: {
-      totalProducers: registry.length,
-      withGps,
-      withoutGps: registry.length - withGps,
-      withoutCni,
-      avgArea,
-    },
+    generatedAt,
+    period: { from: filters.dateFrom, to: filters.dateTo },
+    metrics,
   };
 }
