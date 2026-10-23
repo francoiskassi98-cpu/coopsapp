@@ -85,7 +85,8 @@ class Deck {
     s.addChart(this.pptx.ChartType.bar, series.map((se) => ({ name: se.name, labels, values: se.values })), {
       x: opts.x, y: opts.y, w: opts.w, h: opts.h, barDir: opts.dir ?? "col",
       barGrouping: opts.stacked ? "stacked" : "clustered",
-      chartColors: opts.colors ?? [TH.forest, TH.leafLight, TH.gold],
+      chartColors: series.length === 1 ? [(opts.colors ?? [TH.forest])[0]] : (opts.colors ?? [TH.forest, TH.leafLight, TH.gold]),
+      valAxisMinVal: 0,
       showLegend: opts.legend ?? series.length > 1, legendPos: "b", legendFontSize: 10,
       showTitle: !!opts.title, title: opts.title, titleFontSize: 12, titleColor: TH.forestDark, titleFontFace: FB,
       catAxisLabelFontSize: 9, valAxisLabelFontSize: 9, catAxisLabelColor: TH.muted, valAxisLabelColor: TH.muted,
