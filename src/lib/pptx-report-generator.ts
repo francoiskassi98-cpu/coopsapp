@@ -126,7 +126,7 @@ function monthlySlide(pptx: PptxGenJS, payload: ReportPayload, page: number, tot
     labels: payload.monthly.map((m) => m.label),
     values: payload.monthly.map((m) => m.value),
   }], {
-    x: 0.5, y: 1.0, w: 12.3, h: 5.9,
+    x: 0.5, y: 1.5, w: 12.3, h: 5.3,
     chartColors: [TH.primary],
     showLegend: false,
     showTitle: false,
@@ -148,7 +148,7 @@ function distributionSlide(pptx: PptxGenJS, title: string, data: Array<{ name: s
     labels: data.map((d) => d.name),
     values: data.map((d) => d.value),
   }], {
-    x: 0.5, y: 1.0, w: 6.5, h: 5.9,
+    x: 0.5, y: 1.5, w: 6.5, h: 5.3,
     chartColors: [TH.primary, TH.accent, TH.ok, TH.alert, "1565C0", "8E44AD", "E67E22"],
     showLegend: true,
     legendPos: "b",
@@ -156,9 +156,9 @@ function distributionSlide(pptx: PptxGenJS, title: string, data: Array<{ name: s
   });
   const sum = data.reduce((s, d) => s + d.value, 0);
   const rows: PptxGenJS.TableRow[] = [[
-    { text: "Catégorie", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 11 } },
-    { text: "Poids (kg)", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 11, align: "right" } },
-    { text: "Part", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 11, align: "right" } },
+    { text: "Catégorie", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 11 } },
+    { text: "Poids (kg)", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 11, align: "right" } },
+    { text: "Part", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 11, align: "right" } },
   ]];
   data.forEach((d, i) => {
     const bg = i % 2 === 0 ? TH.light : TH.bg;
@@ -168,7 +168,7 @@ function distributionSlide(pptx: PptxGenJS, title: string, data: Array<{ name: s
       { text: sum > 0 ? `${((d.value / sum) * 100).toFixed(1)} %` : "—", options: { fill: { color: bg }, fontSize: 10, align: "right" } },
     ]);
   });
-  s.addTable(rows, { x: 7.2, y: 1.0, w: 5.6, colW: [2.6, 1.6, 1.4], border: { type: "solid", pt: 0.5, color: "CCCCCC" } });
+  s.addTable(rows, { x: 7.2, y: 1.5, w: 5.6, colW: [2.6, 1.6, 1.4], border: { type: "solid", pt: 0.5, color: "E4DED2" } });
 }
 
 function coopSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total: number) {
@@ -179,12 +179,12 @@ function coopSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total:
     return;
   }
   const rows: PptxGenJS.TableRow[] = [[
-    { text: "Registre", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10 } },
-    { text: "Potentiel", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10, align: "right" } },
-    { text: "Livré", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10, align: "right" } },
-    { text: "Restant", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10, align: "right" } },
-    { text: "Chargt.", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10, align: "right" } },
-    { text: "Taux", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10, align: "right" } },
+    { text: "Registre", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 10 } },
+    { text: "Potentiel", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 10, align: "right" } },
+    { text: "Livré", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 10, align: "right" } },
+    { text: "Restant", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 10, align: "right" } },
+    { text: "Chargt.", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 10, align: "right" } },
+    { text: "Taux", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 10, align: "right" } },
   ]];
   payload.coopStats.slice(0, 14).forEach((c, i) => {
     const bg = i % 2 === 0 ? TH.light : TH.bg;
@@ -198,7 +198,7 @@ function coopSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total:
       { text: taux, options: { fill: { color: bg }, fontSize: 10, align: "right" } },
     ]);
   });
-  s.addTable(rows, { x: 0.4, y: 1.0, w: 12.5, colW: [3.5, 1.9, 1.9, 1.9, 1.4, 1.9], border: { type: "solid", pt: 0.5, color: "CCCCCC" } });
+  s.addTable(rows, { x: 0.4, y: 1.5, w: 12.5, colW: [3.5, 1.9, 1.9, 1.9, 1.4, 1.9], border: { type: "solid", pt: 0.5, color: "E4DED2" } });
 }
 
 function shipmentsSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total: number) {
@@ -209,12 +209,12 @@ function shipmentsSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, t
     return;
   }
   const rows: PptxGenJS.TableRow[] = [[
-    { text: "Connaiss.", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10 } },
-    { text: "Projet", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10 } },
-    { text: "Partenaire", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10 } },
-    { text: "Destination", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10 } },
-    { text: "Poids (kg)", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10, align: "right" } },
-    { text: "Date", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", fontSize: 10 } },
+    { text: "Connaiss.", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 10 } },
+    { text: "Projet", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 10 } },
+    { text: "Partenaire", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 10 } },
+    { text: "Destination", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 10 } },
+    { text: "Poids (kg)", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 10, align: "right" } },
+    { text: "Date", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", fontSize: 10 } },
   ]];
   payload.shipmentsSample.slice(0, 18).forEach((sh, i) => {
     const bg = i % 2 === 0 ? TH.light : TH.bg;
@@ -227,7 +227,7 @@ function shipmentsSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, t
       { text: sh.date, options: { fill: { color: bg }, fontSize: 9 } },
     ]);
   });
-  s.addTable(rows, { x: 0.3, y: 1.0, w: 12.7, colW: [1.9, 1.8, 2.5, 2.3, 1.8, 2.4], border: { type: "solid", pt: 0.5, color: "CCCCCC" } });
+  s.addTable(rows, { x: 0.3, y: 1.5, w: 12.7, colW: [1.9, 1.8, 2.5, 2.3, 1.8, 2.4], border: { type: "solid", pt: 0.5, color: "E4DED2" } });
 }
 
 function tracabilitySlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total: number) {
@@ -254,8 +254,8 @@ function tracabilitySlide(pptx: PptxGenJS, payload: ReportPayload, page: number,
   const lines = [
     `• Couverture GPS : ${gpsRate.toFixed(1)} % des producteurs géolocalisés.`,
     `• Conformité CNI : ${cniRate.toFixed(1)} % des producteurs identifiés.`,
-    t.withoutGps > 0 ? `⚠ ${fr(t.withoutGps)} producteur(s) à géolocaliser pour conformité EUDR.` : "✅ Tous les producteurs sont géolocalisés.",
-    t.withoutCni > 0 ? `⚠ ${fr(t.withoutCni)} producteur(s) sans pièce d'identité enregistrée.` : "✅ Tous les producteurs ont une CNI enregistrée.",
+    t.withoutGps > 0 ? `${fr(t.withoutGps)} producteur(s) à géolocaliser pour conformité EUDR.` : "Tous les producteurs sont géolocalisés.",
+    t.withoutCni > 0 ? `${fr(t.withoutCni)} producteur(s) sans pièce d'identité enregistrée.` : "Tous les producteurs ont une CNI enregistrée.",
   ];
   s.addText(lines.join("\n"), { x: 0.6, y: 3.9, w: 12, h: 3, fontSize: 13, color: TH.text, lineSpacingMultiple: 1.4 });
 }
@@ -273,20 +273,20 @@ function eudrSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total:
   s.addText(`Score global : ${eudrScore.toFixed(1)} / 100`, { x: 4.0, y: 2.0, w: 5.3, h: 0.5, fontSize: 14, color: "FFFFFF", align: "center" });
 
   const rows: PptxGenJS.TableRow[] = [
-    [{ text: "Indicateur", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF" } },
-     { text: "Valeur", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", align: "right" } },
-     { text: "Cible", options: { bold: true, fill: { color: TH.primary }, color: "FFFFFF", align: "right" } }],
+    [{ text: "Indicateur", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF" } },
+     { text: "Valeur", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", align: "right" } },
+     { text: "Cible", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF", align: "right" } }],
     [{ text: "Producteurs géolocalisés" }, { text: `${gpsRate.toFixed(1)} %`, options: { align: "right" } }, { text: "100 %", options: { align: "right" } }],
     [{ text: "Producteurs identifiés (CNI)" }, { text: `${cniRate.toFixed(1)} %`, options: { align: "right" } }, { text: "100 %", options: { align: "right" } }],
     [{ text: "Surface moyenne (ha)" }, { text: t.avgArea.toFixed(2), options: { align: "right" } }, { text: "—", options: { align: "right" } }],
     [{ text: "Producteurs à compléter" }, { text: fr(t.withoutGps + t.withoutCni), options: { align: "right" } }, { text: "0", options: { align: "right" } }],
   ];
-  s.addTable(rows, { x: 0.5, y: 3.0, w: 12.3, colW: [6.5, 2.9, 2.9], fontSize: 12, border: { type: "solid", pt: 0.5, color: "CCCCCC" } });
+  s.addTable(rows, { x: 0.5, y: 3.0, w: 12.3, colW: [6.5, 2.9, 2.9], fontSize: 12, border: { type: "solid", pt: 0.5, color: "E4DED2" } });
 
   const risks: string[] = [];
   if (gpsRate < 100) risks.push(`• Risque EUDR : ${fr(t.withoutGps)} parcelle(s) sans coordonnées GPS.`);
   if (t.withoutCni > 0) risks.push(`• Risque traçabilité : ${fr(t.withoutCni)} producteur(s) non identifié(s).`);
-  if (risks.length === 0) risks.push("• ✅ Aucun risque majeur détecté.");
+  if (risks.length === 0) risks.push("• Aucun risque majeur détecté.");
   s.addText(risks.join("\n"), { x: 0.6, y: 6.0, w: 12, h: 1.0, fontSize: 12, color: TH.text, lineSpacingMultiple: 1.3 });
 }
 
@@ -303,7 +303,7 @@ function sectionsSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, to
     labels: data.map((d) => `${d.name} — ${d.cooperative}`),
     values: data.map((d) => d.potentiel),
   }], {
-    x: 0.5, y: 1.0, w: 12.3, h: 5.9,
+    x: 0.5, y: 1.5, w: 12.3, h: 5.3,
     chartColors: [TH.primary],
     showLegend: false,
     barDir: "bar",
@@ -329,10 +329,10 @@ function conclusionSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, 
     `• Producteurs référencés : ${fr(payload.stats.producerCount)}`,
     "",
     rate >= 75
-      ? `✅ La campagne ${payload.campaign} affiche une excellente progression (${rate.toFixed(1)} %).`
+      ? `La campagne ${payload.campaign} affiche une excellente progression (${rate.toFixed(1)} %).`
       : rate >= 50
-      ? `🟢 La campagne ${payload.campaign} progresse de manière satisfaisante (${rate.toFixed(1)} %).`
-      : `⚠ La campagne ${payload.campaign} nécessite une intensification des collectes (${rate.toFixed(1)} %).`,
+      ? `La campagne ${payload.campaign} progresse de manière satisfaisante (${rate.toFixed(1)} %).`
+      : `La campagne ${payload.campaign} nécessite une intensification des collectes (${rate.toFixed(1)} %).`,
   ];
   s.addText(lines.join("\n"), { x: 0.8, y: 2.9, w: 11.7, h: 4, fontSize: 16, color: "EFEFEF", lineSpacingMultiple: 1.5 });
   s.addText(`${page} / ${total}`, { x: 12, y: 7.0, w: 1, h: 0.3, fontSize: 9, color: "AAAAAA", align: "right" });
