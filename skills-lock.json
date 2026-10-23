@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "data-analysis": {
+      "source": "bytedance/deer-flow",
+      "sourceType": "github",
+      "skillPath": "skills/public/data-analysis/SKILL.md",
+      "computedHash": "c646114572ac6d5f6e0ebd89bbf5af2561b841197a2914d4697d8a0d6f021336"
+    },
+    "elite-powerpoint-designer": {
+      "source": "willem4130/claude-code-skills",
+      "sourceType": "github",
+      "skillPath": "skills/elite-powerpoint-designer/SKILL.md",
+      "computedHash": "93c18e7db1899926c8527b485858ed633f07c1f4b09930e2f32053f5bfb5ed7d"
+    },
+    "powerbi-modeling": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/powerbi-modeling/SKILL.md",
+      "computedHash": "b98ebe4d3876548b0a10c1c97216fdf4d50799243ffbb38158b367574bbf19f5"
+    }
+  }
+}
