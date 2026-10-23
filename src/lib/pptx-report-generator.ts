@@ -247,7 +247,7 @@ function tracabilitySlide(pptx: PptxGenJS, payload: ReportPayload, page: number,
     s.addText(k.label, { x, y: 2.6, w: 2.9, h: 0.4, fontSize: 12, color: TH.text, align: "center" });
   });
   s.addText(`Surface cacao moyenne : ${t.avgArea.toFixed(2)} ha`, {
-    x: 0.4, y: 3.1, w: 12.5, h: 0.5, fontSize: 14, bold: true, color: TH.primary, align: "center",
+    x: 0.4, y: 3.45, w: 12.5, h: 0.5, fontSize: 14, bold: true, color: TH.primary, align: "center",
   });
   const gpsRate = t.totalProducers > 0 ? (t.withGps / t.totalProducers) * 100 : 0;
   const cniRate = t.totalProducers > 0 ? ((t.totalProducers - t.withoutCni) / t.totalProducers) * 100 : 0;
@@ -257,7 +257,7 @@ function tracabilitySlide(pptx: PptxGenJS, payload: ReportPayload, page: number,
     t.withoutGps > 0 ? `${fr(t.withoutGps)} producteur(s) à géolocaliser pour conformité EUDR.` : "Tous les producteurs sont géolocalisés.",
     t.withoutCni > 0 ? `${fr(t.withoutCni)} producteur(s) sans pièce d'identité enregistrée.` : "Tous les producteurs ont une CNI enregistrée.",
   ];
-  s.addText(lines.join("\n"), { x: 0.6, y: 3.9, w: 12, h: 3, fontSize: 13, color: TH.text, lineSpacingMultiple: 1.4 });
+  s.addText(lines.join("\n"), { x: 0.6, y: 4.1, w: 12, h: 2.8, fontSize: 13, color: TH.text, lineSpacingMultiple: 1.4 });
 }
 
 function eudrSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total: number) {
