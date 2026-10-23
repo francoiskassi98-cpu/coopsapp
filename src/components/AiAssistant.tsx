@@ -41,8 +41,10 @@ export default function AiAssistant() {
 
   useEffect(() => { if (open) loadThreads(); }, [open, loadThreads]);
 
+  const skipLoadRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!activeId) { setMessages([]); return; }
+    if (!activeId) { if (!skipLoadRef.current) setMessages([]); return; }
+    if (skipLoadRef.current === activeId) { skipLoadRef.current = null; return; }
     let cancel = false;
     supabase.from("ai_chat_messages").select("id,role,content").eq("thread_id", activeId).order("created_at").then(({ data, error }) => {
       if (error) console.error(error);
@@ -69,15 +71,16 @@ export default function AiAssistant() {
     setBusy(true);
     setInput("");
     let threadId = activeId;
+    const asstId = crypto.randomUUID();
+    setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", content: question }, { id: asstId, role: "assistant", content: "" }]);
     try {
       if (!threadId) {
         const { data, error } = await supabase.from("ai_chat_threads").insert({ title: "Nouvelle discussion" }).select("id").single();
         if (error || !data) throw error ?? new Error("thread");
         threadId = data.id;
+        skipLoadRef.current = threadId;
         setActiveId(threadId);
       }
-      const asstId = crypto.randomUUID();
-      setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", content: question }, { id: asstId, role: "assistant", content: "" }]);
       const { data: s } = await supabase.auth.getSession();
       const ctrl = new AbortController();
       abortRef.current = ctrl;
