@@ -242,9 +242,9 @@ function tracabilitySlide(pptx: PptxGenJS, payload: ReportPayload, page: number,
   ];
   kpis.forEach((k, i) => {
     const x = 0.4 + i * 3.15;
-    s.addShape(pptx.ShapeType.roundRect, { x, y: 1.2, w: 2.9, h: 1.6, fill: { color: TH.light }, line: { color: k.color, width: 1 }, rectRadius: 0.08 });
-    s.addText(k.value, { x, y: 1.35, w: 2.9, h: 0.9, fontSize: 26, bold: true, color: k.color, align: "center" });
-    s.addText(k.label, { x, y: 2.2, w: 2.9, h: 0.4, fontSize: 12, color: TH.text, align: "center" });
+    s.addShape(pptx.ShapeType.roundRect, { x, y: 1.6, w: 2.9, h: 1.6, fill: { color: TH.light }, line: { color: k.color, width: 1 }, rectRadius: 0.08 });
+    s.addText(k.value, { x, y: 1.75, w: 2.9, h: 0.9, fontSize: 26, bold: true, color: k.color, align: "center" });
+    s.addText(k.label, { x, y: 2.6, w: 2.9, h: 0.4, fontSize: 12, color: TH.text, align: "center" });
   });
   s.addText(`Surface cacao moyenne : ${t.avgArea.toFixed(2)} ha`, {
     x: 0.4, y: 3.1, w: 12.5, h: 0.5, fontSize: 14, bold: true, color: TH.primary, align: "center",
@@ -268,9 +268,9 @@ function eudrSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total:
   const cniRate = t.totalProducers > 0 ? ((t.totalProducers - t.withoutCni) / t.totalProducers) * 100 : 0;
   const eudrScore = (gpsRate * 0.6 + cniRate * 0.4);
   const status = eudrScore >= 90 ? { txt: "CONFORME", c: TH.ok } : eudrScore >= 70 ? { txt: "ATTENTION", c: TH.accent } : { txt: "NON CONFORME", c: TH.alert };
-  s.addShape(pptx.ShapeType.roundRect, { x: 4.0, y: 1.1, w: 5.3, h: 1.6, fill: { color: status.c }, rectRadius: 0.1 });
-  s.addText(`Statut EUDR : ${status.txt}`, { x: 4.0, y: 1.3, w: 5.3, h: 0.6, fontSize: 22, bold: true, color: "FFFFFF", align: "center" });
-  s.addText(`Score global : ${eudrScore.toFixed(1)} / 100`, { x: 4.0, y: 2.0, w: 5.3, h: 0.5, fontSize: 14, color: "FFFFFF", align: "center" });
+  s.addShape(pptx.ShapeType.roundRect, { x: 4.0, y: 1.45, w: 5.3, h: 1.6, fill: { color: status.c }, rectRadius: 0.1 });
+  s.addText(`Statut EUDR : ${status.txt}`, { x: 4.0, y: 1.6, w: 5.3, h: 0.6, fontSize: 22, bold: true, color: "FFFFFF", align: "center" });
+  s.addText(`Score global : ${eudrScore.toFixed(1)} / 100`, { x: 4.0, y: 2.3, w: 5.3, h: 0.5, fontSize: 14, color: "FFFFFF", align: "center" });
 
   const rows: PptxGenJS.TableRow[] = [
     [{ text: "Indicateur", options: { bold: true, fill: { color: TH.primaryDark }, color: "FFFFFF" } },
