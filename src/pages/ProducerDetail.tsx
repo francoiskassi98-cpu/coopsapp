@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, ArrowLeft, User, MapPin, Truck, Coins, Activity, TrendingUp, Search } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { normalizeCampaign, getCurrentCampaign } from "@/lib/shipment-utils";
+import { normalizeCampaign, currentCampaign as getCurrentCampaign } from "@/lib/campaign";
 import type { PaginatedQuery } from "@/lib/database-utils";
 
 const fmt = (n: number) => Number(n || 0).toLocaleString("fr-FR");

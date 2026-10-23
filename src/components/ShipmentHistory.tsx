@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { RefreshCw, History } from "lucide-react";
 import { toast } from "sonner";
 import { useSortableTable, SortableHeader, type SortValue } from "@/hooks/useSortableTable";
-import type { PaginatedQuery } from "@/lib/database-utils";
+import { fetchAllPages, type PaginatedQuery } from "@/lib/database-utils";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useCampaignLabels } from "@/hooks/useCampaign";
 import { normalizeCampaign } from "@/lib/campaign";
@@ -30,20 +30,6 @@ interface HistoryShipment {
   registres?: { name: string | null } | null;
 }
 
-async function fetchAllRows<T>(query: PaginatedQuery): Promise<T[]> {
-  const allData: T[] = [];
-  let from = 0;
-  const pageSize = 1000;
-  while (true) {
-    const { data, error } = await query.range(from, from + pageSize - 1);
-    if (error || !data || data.length === 0) break;
-    allData.push(...(data as T[]));
-    if (data.length < pageSize) break;
-    from += pageSize;
-  }
-  return allData;
-}
-
 export default function ShipmentHistory() {
   const [shipments, setShipments] = useState<HistoryShipment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +41,7 @@ export default function ShipmentHistory() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const shipmentsData = await fetchAllRows<HistoryShipment>(
+      const shipmentsData = await fetchAllPages<HistoryShipment>(
         supabase
           .from("shipments")
           .select("id, connaissement, lot_number, project, destination, total_weight, total_bags, created_at, zone, campaign_label, partners(name), registres(name)")

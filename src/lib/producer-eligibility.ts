@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { normalizeCampaign, getCurrentCampaign } from "@/lib/shipment-utils";
+import { normalizeCampaign, currentCampaign as getCurrentCampaign } from "@/lib/campaign";
 import { GRANDE_TRAITE_RATIO, grandeTraiteBounds, isGrandeTraite } from "@/lib/campaign";
 import type { Tables } from "@/integrations/supabase/types";
 
