@@ -91,8 +91,13 @@ export default function Producers() {
   }, [updateSession]);
 
 
+  // Cache mémoire par campagne : retour instantané sur la page, rafraîchi après chaque modification.
+  const producersCacheKey = useMemo(() => ["producers-list", campaignFilter] as const, [campaignFilter]);
+
   const loadProducers = useCallback(async () => {
-    setLoading(true);
+    const cached = queryClient.getQueryData<ProducerListRow[]>(producersCacheKey);
+    if (cached) setProducers(cached);
+    setLoading(!cached);
     type FetchedProducer = ProducerDbRow & { registres?: { id: string; name: string } | null };
     let allData: FetchedProducer[] = [];
     let from = 0;
@@ -119,13 +124,21 @@ export default function Producers() {
       from += PAGE;
     }
     // Compat : expose le nom du registre sous `cooperative` pour tout le rendu existant
-    setProducers(allData.map((p) => ({ ...p, cooperative: p.registres?.name || "" })));
+    const rows = allData.map((p) => ({ ...p, cooperative: p.registres?.name || "" }));
+    queryClient.setQueryData(producersCacheKey, rows);
+    setProducers(rows);
     setLoading(false);
-  }, [campaignFilter]);
+  }, [campaignFilter, queryClient, producersCacheKey]);
 
   useEffect(() => {
+    // Affiche le cache instantanément puis rafraîchit en arrière-plan (potentiels à jour).
     loadProducers();
-  }, [loadProducers]);
+  }, [loadProducers, queryClient, producersCacheKey]);
+
+  // Garde le cache aligné avec les modifications locales (activation/désactivation…).
+  useEffect(() => {
+    if (!loading) queryClient.setQueryData(producersCacheKey, producers);
+  }, [producers, loading, queryClient, producersCacheKey]);
 
 
   // Unique cooperatives for filter
