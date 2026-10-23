@@ -1,16 +1,16 @@
 import PptxGenJS from "pptxgenjs";
 
-// Thème cacao
+// Thème « Financial Elite » cacao : vert profond, or, ivoire
 const TH = {
-  primary: "2C5F2D",      // vert cacao
-  primaryDark: "1B3B1C",
-  accent: "C9A24C",       // or
+  primary: "1F4D3A",
+  primaryDark: "10291F",
+  accent: "C9A24C",
   bg: "FFFFFF",
-  light: "F4F1EC",
+  light: "F5F1E8",
   text: "2A2A2A",
-  muted: "6B6B6B",
+  muted: "7A7468",
   alert: "B85042",
-  ok: "2E7D32",
+  ok: "3C7A55",
 };
 
 export type ReportType = "campaign" | "cooperative" | "shipments" | "tracability" | "eudr";
@@ -46,62 +46,72 @@ export interface ReportPayload {
 
 const fr = (n: number) => Math.round(Number(n) || 0).toLocaleString("fr-FR");
 
+const FONT_TITLE = "Georgia";
+const FONT_BODY = "Calibri";
+
+// En-tête éditorial : fond clair, filet or, titre serif — style keynote sobre
 function header(slide: PptxGenJS.Slide, pptx: PptxGenJS, title: string, subtitle: string, page: number, total: number) {
   slide.background = { color: TH.bg };
-  slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 0.7, fill: { color: TH.primary } });
-  slide.addText(title, { x: 0.4, y: 0.08, w: 9, h: 0.55, fontSize: 20, bold: true, color: "FFFFFF", fontFace: "Calibri" });
-  slide.addText(subtitle, { x: 9.4, y: 0.18, w: 3.5, h: 0.35, fontSize: 11, color: "EFEFEF", align: "right" });
-  // footer
-  slide.addShape(pptx.ShapeType.rect, { x: 0, y: 7.2, w: 13.33, h: 0.3, fill: { color: TH.light } });
-  slide.addText("COOPS APP — Gestion des chargements cacao", { x: 0.4, y: 7.22, w: 9, h: 0.26, fontSize: 9, color: TH.muted });
-  slide.addText(`${page} / ${total}`, { x: 12, y: 7.22, w: 1, h: 0.26, fontSize: 9, color: TH.muted, align: "right" });
+  slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.18, h: 7.5, fill: { color: TH.primary } });
+  slide.addText(subtitle.toUpperCase(), { x: 0.6, y: 0.3, w: 8, h: 0.3, fontSize: 10, bold: true, color: TH.accent, fontFace: FONT_BODY, charSpacing: 3 });
+  slide.addText(title, { x: 0.6, y: 0.55, w: 12, h: 0.6, fontSize: 26, bold: true, color: TH.primaryDark, fontFace: FONT_TITLE });
+  slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.18, w: 0.9, h: 0.05, fill: { color: TH.accent } });
+  slide.addText("COOPS APP", { x: 0.6, y: 7.05, w: 6, h: 0.3, fontSize: 9, bold: true, color: TH.muted, fontFace: FONT_BODY, charSpacing: 2 });
+  slide.addText(`${String(page).padStart(2, "0")} / ${String(total).padStart(2, "0")}`, { x: 11.5, y: 7.05, w: 1.4, h: 0.3, fontSize: 9, color: TH.muted, align: "right", fontFace: FONT_BODY });
 }
 
 function coverSlide(pptx: PptxGenJS, title: string, payload: ReportPayload) {
   const s = pptx.addSlide();
   s.background = { color: TH.primaryDark };
-  s.addShape(pptx.ShapeType.rect, { x: 0, y: 3.0, w: 13.33, h: 0.06, fill: { color: TH.accent } });
-  s.addText("COOPS APP", { x: 0.6, y: 0.5, w: 6, h: 0.5, fontSize: 14, bold: true, color: TH.accent, fontFace: "Calibri" });
-  s.addText(title, { x: 0.6, y: 1.8, w: 12, h: 1.2, fontSize: 44, bold: true, color: "FFFFFF" });
-  s.addText(`Campagne ${payload.campaign}`, { x: 0.6, y: 3.2, w: 12, h: 0.6, fontSize: 22, color: "DDDDDD" });
+  s.addShape(pptx.ShapeType.rect, { x: 8.9, y: 0, w: 4.43, h: 7.5, fill: { color: TH.primary } });
+  s.addShape(pptx.ShapeType.ellipse, { x: 9.6, y: 1.6, w: 3.0, h: 3.0, fill: { color: TH.accent, transparency: 75 }, line: { color: TH.accent, width: 1 } });
+  s.addText(payload.campaign, { x: 8.9, y: 2.6, w: 4.43, h: 1, fontSize: 30, bold: true, color: "FFFFFF", align: "center", fontFace: FONT_TITLE });
+  s.addText("CAMPAGNE", { x: 8.9, y: 2.2, w: 4.43, h: 0.4, fontSize: 11, color: TH.accent, align: "center", bold: true, charSpacing: 4, fontFace: FONT_BODY });
+  s.addText("COOPS APP", { x: 0.7, y: 0.6, w: 6, h: 0.4, fontSize: 12, bold: true, color: TH.accent, fontFace: FONT_BODY, charSpacing: 4 });
+  s.addText(title, { x: 0.7, y: 2.0, w: 7.8, h: 1.8, fontSize: 48, bold: true, color: "FFFFFF", fontFace: FONT_TITLE, valign: "top" });
+  s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 3.95, w: 1.2, h: 0.06, fill: { color: TH.accent } });
   const coops = payload.cooperatives.length === 0 ? "Tous les registres" : payload.cooperatives.join(" · ");
-  s.addText(coops, { x: 0.6, y: 4.0, w: 12, h: 0.6, fontSize: 16, color: TH.accent });
-  s.addText(`Généré le ${payload.generatedAt.toLocaleDateString("fr-FR")} à ${payload.generatedAt.toLocaleTimeString("fr-FR")}`, {
-    x: 0.6, y: 6.4, w: 12, h: 0.4, fontSize: 12, color: "BBBBBB",
+  s.addText(coops, { x: 0.7, y: 4.2, w: 7.8, h: 0.8, fontSize: 16, color: "E8E2D4", fontFace: FONT_BODY, valign: "top" });
+  s.addText(`Généré le ${payload.generatedAt.toLocaleDateString("fr-FR")} à ${payload.generatedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}${payload.userEmail ? `  ·  ${payload.userEmail}` : ""}`, {
+    x: 0.7, y: 6.6, w: 7.8, h: 0.4, fontSize: 11, color: "A8B5A8", fontFace: FONT_BODY,
   });
-  if (payload.userEmail) {
-    s.addText(`Par ${payload.userEmail}`, { x: 0.6, y: 6.8, w: 12, h: 0.4, fontSize: 11, color: "999999" });
-  }
 }
 
 function kpiSlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total: number) {
   const s = pptx.addSlide();
   header(s, pptx, "Résumé exécutif", `Campagne ${payload.campaign}`, page, total);
   const rate = payload.stats.totalPotential > 0 ? (payload.stats.totalDelivered / payload.stats.totalPotential) * 100 : 0;
+  // Chiffre clé héros
+  s.addText(`${rate.toFixed(1)} %`, { x: 0.6, y: 1.6, w: 4.6, h: 1.6, fontSize: 72, bold: true, color: TH.primary, fontFace: FONT_TITLE });
+  s.addText("Taux de réalisation de la campagne", { x: 0.6, y: 3.15, w: 4.6, h: 0.4, fontSize: 13, color: TH.muted, fontFace: FONT_BODY });
+  // Barre de progression
+  s.addShape(pptx.ShapeType.roundRect, { x: 0.6, y: 3.7, w: 4.4, h: 0.22, fill: { color: TH.light }, rectRadius: 0.11 });
+  s.addShape(pptx.ShapeType.roundRect, { x: 0.6, y: 3.7, w: Math.max(0.22, 4.4 * Math.min(rate, 100) / 100), h: 0.22, fill: { color: TH.accent }, rectRadius: 0.11 });
+
   const kpis = [
     { label: "Potentiel total", value: `${fr(payload.stats.totalPotential)} kg`, color: TH.primary },
-    { label: "Livré", value: `${fr(payload.stats.totalDelivered)} kg`, color: TH.ok },
-    { label: "Restant", value: `${fr(payload.stats.remaining)} kg`, color: TH.alert },
+    { label: "Volume livré", value: `${fr(payload.stats.totalDelivered)} kg`, color: TH.ok },
+    { label: "Restant à livrer", value: `${fr(payload.stats.remaining)} kg`, color: TH.alert },
     { label: "Chargements", value: `${fr(payload.stats.shipmentCount)}`, color: TH.accent },
   ];
   kpis.forEach((k, i) => {
-    const x = 0.4 + i * 3.15;
-    s.addShape(pptx.ShapeType.roundRect, { x, y: 1.2, w: 2.9, h: 1.8, fill: { color: TH.light }, line: { color: k.color, width: 1 }, rectRadius: 0.08 });
-    s.addText(k.value, { x, y: 1.4, w: 2.9, h: 0.9, fontSize: 26, bold: true, color: k.color, align: "center" });
-    s.addText(k.label, { x, y: 2.3, w: 2.9, h: 0.5, fontSize: 12, color: TH.text, align: "center" });
+    const x = 5.8 + (i % 2) * 3.6;
+    const y = 1.6 + Math.floor(i / 2) * 1.75;
+    s.addShape(pptx.ShapeType.rect, { x, y, w: 3.4, h: 1.55, fill: { color: TH.light }, line: { color: TH.light } });
+    s.addShape(pptx.ShapeType.rect, { x, y, w: 0.08, h: 1.55, fill: { color: k.color } });
+    s.addText(k.label.toUpperCase(), { x: x + 0.3, y: y + 0.2, w: 3, h: 0.3, fontSize: 9, bold: true, color: TH.muted, charSpacing: 2, fontFace: FONT_BODY });
+    s.addText(k.value, { x: x + 0.3, y: y + 0.55, w: 3, h: 0.8, fontSize: 24, bold: true, color: TH.primaryDark, fontFace: FONT_TITLE });
   });
-  s.addText(`Taux de réalisation : ${rate.toFixed(1)} %`, {
-    x: 0.4, y: 3.3, w: 12.5, h: 0.6, fontSize: 18, bold: true, color: TH.primary, align: "center",
-  });
-  // Auto commentary
-  const lines: string[] = [];
-  lines.push(`• ${payload.coopStats.length} registre(s) active(s).`);
-  lines.push(`• ${fr(payload.stats.producerCount)} producteur(s) référencé(s) dans le registre.`);
-  if (rate >= 75) lines.push("• ✅ Campagne en excellente progression.");
-  else if (rate >= 50) lines.push("• 🟢 Progression satisfaisante de la campagne.");
-  else if (rate >= 25) lines.push("• ⚠ Progression modérée — intensifier les collectes recommandé.");
-  else lines.push("• 🛑 Taux de réalisation faible — actions correctives requises.");
-  s.addText(lines.join("\n"), { x: 0.6, y: 4.2, w: 12, h: 2.6, fontSize: 14, color: TH.text, lineSpacingMultiple: 1.4 });
+
+  let verdict: string;
+  if (rate >= 75) verdict = "Campagne en excellente progression.";
+  else if (rate >= 50) verdict = "Progression satisfaisante de la campagne.";
+  else if (rate >= 25) verdict = "Progression modérée — intensifier les collectes.";
+  else verdict = "Taux de réalisation faible — actions correctives requises.";
+  s.addText([
+    { text: "À retenir  ", options: { bold: true, color: TH.accent } },
+    { text: `${verdict}  ${payload.coopStats.length} registre(s) actif(s) · ${fr(payload.stats.producerCount)} producteur(s) référencé(s).`, options: { color: TH.text } },
+  ], { x: 0.6, y: 5.4, w: 12.2, h: 0.9, fontSize: 14, fontFace: FONT_BODY, valign: "middle" });
 }
 
 function monthlySlide(pptx: PptxGenJS, payload: ReportPayload, page: number, total: number) {
