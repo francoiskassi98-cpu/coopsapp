@@ -1256,6 +1256,7 @@ export type Database = {
           total_bags: number
           total_weight: number
           trailer_number: string | null
+          trashed_deliveries: Json | null
           truck_number: string | null
           zone: string | null
         }
@@ -1283,6 +1284,7 @@ export type Database = {
           total_bags: number
           total_weight: number
           trailer_number?: string | null
+          trashed_deliveries?: Json | null
           truck_number?: string | null
           zone?: string | null
         }
@@ -1310,6 +1312,7 @@ export type Database = {
           total_bags?: number
           total_weight?: number
           trailer_number?: string | null
+          trashed_deliveries?: Json | null
           truck_number?: string | null
           zone?: string | null
         }
@@ -1658,6 +1661,7 @@ export type Database = {
         Args: { _producer_id: string }
         Returns: undefined
       }
+      restore_shipment: { Args: { _shipment_id: string }; Returns: undefined }
       shares_my_cooperative: { Args: { _user_id: string }; Returns: boolean }
       update_shipment_quantities: {
         Args: {

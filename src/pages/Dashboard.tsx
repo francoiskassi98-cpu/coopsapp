@@ -78,7 +78,7 @@ export default function Dashboard() {
     queryFn: () => {
       let q = supabase
         .from("shipments")
-        .select("id, project, destination, total_weight, total_bags, created_at, campaign_label, zone, connaissement, registre_id, partners(name)");
+        .select("id, project, destination, total_weight, total_bags, created_at, campaign_label, zone, connaissement, registre_id, partners(name)").is("deleted_at", null);
       if (selectedCampaign !== "all") q = q.eq("campaign_label", selectedCampaign);
       return fetchAllPages<DashboardShipment>(q.order("created_at", { ascending: false }) as unknown as PaginatedQuery, 1000, "Dashboard");
     },

@@ -118,6 +118,7 @@ export default function ExportPage() {
     let q = supabase
       .from("shipments")
       .select("id, connaissement, zone, registre_id, campaign_label")
+      .is("deleted_at", null)
       .eq("status", "active")
       .order("created_at", { ascending: false });
     if (selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS) {

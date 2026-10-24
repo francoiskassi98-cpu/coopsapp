@@ -45,6 +45,7 @@ export default function ShipmentHistory() {
         supabase
           .from("shipments")
           .select("id, connaissement, lot_number, project, destination, total_weight, total_bags, created_at, zone, campaign_label, partners(name), registres(name)")
+          .is("deleted_at", null)
           .order("created_at", { ascending: false }) as unknown as PaginatedQuery
       );
       setShipments(shipmentsData);

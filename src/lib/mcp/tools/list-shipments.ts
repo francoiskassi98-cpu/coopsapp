@@ -23,6 +23,7 @@ export default defineTool({
     const sb = sbForUser(ctx);
     let q = sb.from("shipments")
       .select("id,lot_number,campaign_label,total_weight,total_bags,departure_date,is_cancelled,registre_id")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(limit ?? 50);
     if (campaign_label) q = q.eq("campaign_label", campaign_label);
