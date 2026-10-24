@@ -1,0 +1,1 @@
+ALTER TABLE public.deliveries DROP CONSTRAINT IF EXISTS deliveries_max_15_bags;

@@ -71,6 +71,13 @@
       "when": 1792864521525,
       "tag": "0009_soft_delete_shipments_trash",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792865253126,
+      "tag": "0010_allow_import_over_15_bags",
+      "breakpoints": true
     }
   ]
 }
