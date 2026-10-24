@@ -206,6 +206,7 @@ export default function ShipmentDetails() {
         const { data, error } = await supabase
           .from("shipments")
           .select("*, registres(id, name, cooperative_id, cooperatives(name))")
+          .is("deleted_at", null)
           .order("created_at", { ascending: false })
           .range(from, from + pageSize - 1);
         if (error) throw error;
