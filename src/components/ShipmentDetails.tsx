@@ -692,7 +692,7 @@ export default function ShipmentDetails() {
             <AlertDialogTitle>Supprimer ce chargement ?</AlertDialogTitle>
             <AlertDialogDescription>
               Le chargement {deleteTarget?.connaissement || ""} et toutes ses livraisons
-              (poids, sacs, dates, reçus) seront définitivement supprimés. Le potentiel
+              (poids, sacs, dates, reçus) seront placés dans la corbeille. Le potentiel
               restant des producteurs concernés sera automatiquement restauré.
             </AlertDialogDescription>
           </AlertDialogHeader>

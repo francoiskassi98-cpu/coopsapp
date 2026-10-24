@@ -110,6 +110,7 @@ export async function buildEligibleProducers(
       .select("id, full_name, nom, prenom, section, plantation_code, delivery_potential, remaining_potential, carte_ccc")
       .eq("is_active", true)
       .eq("registre_id", registreId)
+      .is("deleted_at", null)
       .eq("campaign_label", campaignLabel)
       .order("section")
       .range(from, from + PAGE - 1);

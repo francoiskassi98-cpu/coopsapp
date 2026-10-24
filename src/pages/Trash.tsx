@@ -57,7 +57,9 @@ export default function Trash() {
   useEffect(() => { load(); }, [load]);
 
   const restore = async (id: string) => {
-    const { error } = await trashTable(tab).update({ deleted_at: null }).eq("id", id);
+    const { error } = tab === "shipments"
+      ? await supabase.rpc("restore_shipment", { _shipment_id: id })
+      : await trashTable(tab).update({ deleted_at: null }).eq("id", id);
     if (error) { console.error(error); toast.error("Une erreur est survenue."); return; }
     toast.success("Élément restauré");
     load();

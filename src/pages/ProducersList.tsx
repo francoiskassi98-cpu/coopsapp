@@ -107,6 +107,7 @@ export default function Producers() {
         .from("producers")
         .select("*, registres(id, name)")
         .eq("campaign_label", campaignFilter)
+        .is("deleted_at", null)
         .order("section", { ascending: true })
         .order("nom", { ascending: true })
         .order("id", { ascending: true })
