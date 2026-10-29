@@ -226,13 +226,13 @@ export default function ExportPage() {
       if (mode === "connaissement") {
         if (!selectedConnaissement) { notifyError("Sélectionnez un connaissement"); setLoading(null); return; }
         const { data: shipment, error: shErr } = await supabase
-          .from("shipments").select("id").eq("connaissement", selectedConnaissement).eq("status", "active").maybeSingle();
+          .from("shipments").select("id").eq("connaissement", selectedConnaissement).eq("status", "active").is("deleted_at", null).maybeSingle();
         if (shErr) { notifyError("Erreur SQL lors de la recherche du connaissement", shErr); setLoading(null); return; }
         if (!shipment) { notifyError("Connaissement introuvable"); setLoading(null); return; }
         shipmentIdFilter = [shipment.id];
       } else if (selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS) {
         const campaignShipments = await fetchAllRows<{ id: string }>("shipments", "id", {
-          filters: (q) => q.eq("campaign_label", selectedCampaign).eq("status", "active"),
+          filters: (q) => q.eq("campaign_label", selectedCampaign).eq("status", "active").is("deleted_at", null),
           pageSize: 500,
         });
         shipmentIdFilter = campaignShipments.map((s) => s.id);
