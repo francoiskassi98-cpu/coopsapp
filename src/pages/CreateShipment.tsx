@@ -182,6 +182,7 @@ export default function CreateShipment() {
           .eq("registre_id", registreId)
           .eq("status", "active")
           .eq("campaign_label", campaign)
+          .is("deleted_at", null)
           .range(from, from + PAGE - 1);
         if (error) { console.error("[CreateShipment.stats.shipments]", error); break; }
         if (!data || data.length === 0) break;

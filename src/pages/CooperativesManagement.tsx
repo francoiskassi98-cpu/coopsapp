@@ -182,8 +182,8 @@ export default function CooperativesManagement() {
     let shipCount = 0;
     if (registreIds.length > 0) {
       const [{ count: pc }, { count: sc }] = await Promise.all([
-        supabase.from("producers").select("id", { count: "exact", head: true }).in("registre_id", registreIds),
-        supabase.from("shipments").select("id", { count: "exact", head: true }).in("registre_id", registreIds),
+        supabase.from("producers").select("id", { count: "exact", head: true }).in("registre_id", registreIds).is("deleted_at", null),
+        supabase.from("shipments").select("id", { count: "exact", head: true }).in("registre_id", registreIds).is("deleted_at", null),
       ]);
       prodCount = pc ?? 0;
       shipCount = sc ?? 0;
