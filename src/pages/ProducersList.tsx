@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
@@ -339,6 +340,7 @@ export default function Producers() {
       remaining_potential: p.remaining_potential,
       is_active: p.is_active !== false,
       carte_ccc: p.carte_ccc || "",
+      commentaire: p.commentaire || "",
     });
     setEditProducer(p);
   }
@@ -402,6 +404,7 @@ export default function Producers() {
       "Latitude polygone": p.latitude || 0,
       "Longitude polygone": p.longitude || 0,
       "Statut": p.is_active === false ? "INACTIF" : "ACTIF",
+      "Commentaire": p.commentaire || "",
       "Carte CCC": p.carte_ccc || "",
     }));
     if (forUpdate) {
@@ -587,6 +590,7 @@ export default function Producers() {
           num_women: p.num_women,
           is_active: p.is_active !== false,
           carte_ccc: p.carte_ccc,
+          commentaire: p.commentaire,
         }));
       if (toInsert.length === 0) {
         toast({ title: "Rien à reporter", description: `Ces producteurs existent déjà en ${activeCampaign}.` });
@@ -631,6 +635,7 @@ export default function Producers() {
       longitude: r.longitude || null,
       is_active: r.status !== "INACTIF",
       carte_ccc: r.carte_ccc ? String(r.carte_ccc) : null,
+      commentaire: r.commentaire ? String(r.commentaire) : null,
     };
   }
 
@@ -681,6 +686,7 @@ export default function Producers() {
           campaign_label: string;
           registre_id: string;
           carte_ccc: string | null;
+          commentaire: string | null;
           nom: string | null;
           prenom: string | null;
           producer_number: string | null;
@@ -700,7 +706,7 @@ export default function Producers() {
           const { data, error } = await supabase
             .from("producers")
             .select(
-              "id, plantation_code, campaign_label, registre_id, carte_ccc, nom, prenom, producer_number, national_id, producer_code, sexe, section, total_cocoa_area, num_plots, plantation_area, latitude, longitude"
+              "id, plantation_code, campaign_label, registre_id, carte_ccc, commentaire, nom, prenom, producer_number, national_id, producer_code, sexe, section, total_cocoa_area, num_plots, plantation_area, latitude, longitude"
             )
             .in("campaign_label", fileCampaigns)
             .in("registre_id", fileRegistres)
@@ -738,6 +744,7 @@ export default function Producers() {
             }
           };
           fillText("carte_ccc", src.carte_ccc);
+          fillText("commentaire", src.commentaire);
           fillText("nom", src.nom);
           fillText("prenom", src.prenom);
           fillText("producer_number", src.producer_number);
@@ -1031,6 +1038,7 @@ export default function Producers() {
                       />
                     </TableHead>
                     <TableHead>Statut</TableHead>
+                    <TableHead>Commentaire</TableHead>
                     <SortableHeader column="nom" label="Nom" sortConfig={sortConfig} onToggle={toggleSort} />
                     <SortableHeader column="prenom" label="Prénom" sortConfig={sortConfig} onToggle={toggleSort} />
                     <SortableHeader column="sexe" label="Sexe" sortConfig={sortConfig} onToggle={toggleSort} />
@@ -1046,7 +1054,7 @@ export default function Producers() {
                 <TableBody>
                   {filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={12} className="text-center text-muted-foreground">
+                      <TableCell colSpan={13} className="text-center text-muted-foreground">
                         Aucun producteur trouvé
                       </TableCell>
                     </TableRow>
@@ -1069,6 +1077,7 @@ export default function Producers() {
                             <Badge variant="default" className="text-xs bg-green-600">Actif</Badge>
                           )}
                         </TableCell>
+                        <TableCell className="max-w-[220px] truncate text-xs" title={p.commentaire || ""}>{p.commentaire || "—"}</TableCell>
                         <TableCell className="font-medium">{p.nom || p.full_name}</TableCell>
                         <TableCell>{p.prenom || "—"}</TableCell>
                         <TableCell>{p.sexe || "—"}</TableCell>
@@ -1390,6 +1399,10 @@ export default function Producers() {
             <div>
               <Label>Carte CCC</Label>
               <Input inputMode="text" value={editForm.carte_ccc || ""} onChange={(e) => setEditForm({ ...editForm, carte_ccc: e.target.value })} placeholder="ex : 00123456" />
+            </div>
+            <div className="space-y-2">
+              <Label>Commentaire</Label>
+              <Textarea value={editForm.commentaire || ""} maxLength={1000} onChange={(e) => setEditForm({ ...editForm, commentaire: e.target.value })} placeholder="Commentaire facultatif" />
             </div>
             <div>
               <Label>Sexe</Label>
