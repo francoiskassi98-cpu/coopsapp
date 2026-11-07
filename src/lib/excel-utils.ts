@@ -26,6 +26,8 @@ export interface ProducerRow {
   status: "ACTIF" | "INACTIF";
   /** Numéro de Carte CCC — toujours du texte brut (zéros initiaux conservés). */
   carte_ccc: string;
+  /** Commentaire libre (facultatif). */
+  commentaire: string;
 }
 
 export type ImportSeverity = "error" | "warning";
@@ -146,6 +148,7 @@ export const TEMPLATE_COLUMNS: { header: string; field: keyof ProducerRow }[] = 
   { header: "Latitude polygone", field: "latitude" },
   { header: "Longitude polygone", field: "longitude" },
   { header: "Statut", field: "status" },
+  { header: "Commentaire", field: "commentaire" },
   { header: "Carte CCC", field: "carte_ccc" },
 ];
 
@@ -400,6 +403,7 @@ export async function parseExcelFile(data: ArrayBuffer): Promise<ImportReport> {
       campaign_label: campaign.value,
       status: statut ?? "ACTIF",
       carte_ccc: cellToText(row.carte_ccc),
+      commentaire: cellToText(row.commentaire),
     });
   }
 
@@ -484,6 +488,7 @@ export async function downloadImportTemplate() {
     longitude: 0,
     status: "ACTIF",
     carte_ccc: "00123456",
+    commentaire: "",
   };
   ws.addRow(example);
   // Colonne Carte CCC forcée en format TEXTE pour préserver les zéros initiaux

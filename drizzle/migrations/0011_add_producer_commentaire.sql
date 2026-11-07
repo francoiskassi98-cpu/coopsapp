@@ -1,0 +1,1 @@
+ALTER TABLE public.producers ADD COLUMN IF NOT EXISTS commentaire text;

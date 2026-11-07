@@ -145,9 +145,9 @@ export default function ImportShipments() {
       const { data: regs } = await supabase.from("registres").select("name");
       const regNames = new Set((regs ?? []).map((r) => r.name.toLowerCase()));
       const missingZones = [...new Set(result.rows.map((r) => r.zone))].filter((z) => !regNames.has(z.toLowerCase()));
-      setZoneErrors(missingZones.map((z) => `Zone « ${z} » : aucun registre correspondant. Créez ce registre avant l'import.`));
+      setZoneErrors(missingZones.map((z) => `Registre « ${z} » : aucun registre correspondant. Créez ce registre avant l'import.`));
       if (missingZones.length > 0) {
-        toast({ title: "Registre introuvable", description: `${missingZones.length} zone(s) sans registre correspondant.`, variant: "destructive" });
+        toast({ title: "Registre introuvable", description: `${missingZones.length} registre(s) introuvable(s).`, variant: "destructive" });
       }
 
       const unmatchedCount = matched.filter((m) => !m.matched).length;
@@ -209,7 +209,7 @@ export default function ImportShipments() {
           registreId = regNameToId.get(first.zone.toLowerCase()) || null;
         }
         if (!registreId) {
-          throw new Error(`Registre introuvable pour la zone "${first.zone || "(vide)"}". Créez-le d'abord.`);
+          throw new Error(`Registre introuvable "${first.zone || "(vide)"}". Créez-le d'abord.`);
         }
 
         let partnerId: string | null = null;
@@ -505,7 +505,8 @@ export default function ImportShipments() {
                     <TableHead>N° Reçu</TableHead>
                     <TableHead>Connaissement</TableHead>
                     <TableHead>Partenaire</TableHead>
-                    <TableHead>Producteur</TableHead>
+                    <TableHead>Nom</TableHead>
+                    <TableHead>Prénom</TableHead>
                     <TableHead>Code plantation</TableHead>
                     <TableHead>Section</TableHead>
                     <TableHead>Poids net (kg)</TableHead>
@@ -522,7 +523,8 @@ export default function ImportShipments() {
                       <TableCell className="font-mono text-xs">{r.numero_recu}</TableCell>
                       <TableCell>{r.connaissement || "—"}</TableCell>
                       <TableCell>{r.partenaire || "—"}</TableCell>
-                      <TableCell>{r.nom_producteur}</TableCell>
+                      <TableCell>{r.nom}</TableCell>
+                      <TableCell>{r.prenom || "—"}</TableCell>
                       <TableCell>{r.code_plantation}</TableCell>
                       <TableCell>{r.section}</TableCell>
                       <TableCell>{r.poids_net.toLocaleString("fr-FR")}</TableCell>
