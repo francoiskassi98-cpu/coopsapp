@@ -78,6 +78,13 @@
       "when": 1792865253126,
       "tag": "0010_allow_import_over_15_bags",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794047466863,
+      "tag": "0011_add_producer_commentaire",
+      "breakpoints": true
     }
   ]
 }

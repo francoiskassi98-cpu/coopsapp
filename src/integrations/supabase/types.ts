@@ -826,6 +826,7 @@ export type Database = {
         Row: {
           campaign_label: string
           carte_ccc: string | null
+          commentaire: string | null
           created_at: string
           deleted_at: string | null
           delivery_potential: number
@@ -854,6 +855,7 @@ export type Database = {
         Insert: {
           campaign_label: string
           carte_ccc?: string | null
+          commentaire?: string | null
           created_at?: string
           deleted_at?: string | null
           delivery_potential?: number
@@ -882,6 +884,7 @@ export type Database = {
         Update: {
           campaign_label?: string
           carte_ccc?: string | null
+          commentaire?: string | null
           created_at?: string
           deleted_at?: string | null
           delivery_potential?: number
