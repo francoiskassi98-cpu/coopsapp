@@ -8,6 +8,8 @@ export interface ShipmentImportRow {
   zone: string;
   destination: string;
   nom_producteur: string;
+  nom: string;
+  prenom: string;
   code_plantation: string;
   section: string;
   poids_net: number;
@@ -40,9 +42,10 @@ export const SHIPMENT_TEMPLATE_COLUMNS: { header: string; field: keyof ShipmentI
   { header: "Connaissement", field: "connaissement" },
   { header: "Projet", field: "projet" },
   { header: "Partenaire", field: "partenaire" },
-  { header: "Zone", field: "zone" },
+  { header: "Registre", field: "zone" },
   { header: "Destination", field: "destination" },
-  { header: "Nom du producteur", field: "nom_producteur" },
+  { header: "Nom", field: "nom" },
+  { header: "Prénom", field: "prenom" },
   { header: "Code plantation", field: "code_plantation" },
   { header: "Section", field: "section" },
   { header: "Poids net (kg)", field: "poids_net" },
@@ -79,6 +82,12 @@ for (const col of SHIPMENT_TEMPLATE_COLUMNS) {
 }
 // Add aliases for flexible matching
 SHIPMENT_COLUMN_MAP["poids net"] = "poids_net";
+// Anciens fichiers : « Zone » et colonne combinée nom/prénom restent acceptés
+SHIPMENT_COLUMN_MAP["zone"] = "zone";
+SHIPMENT_COLUMN_MAP["nom du producteur"] = "nom_producteur";
+SHIPMENT_COLUMN_MAP["nom et prenom"] = "nom_producteur";
+SHIPMENT_COLUMN_MAP["nom et prenoms"] = "nom_producteur";
+SHIPMENT_COLUMN_MAP["prenoms"] = "prenom";
 SHIPMENT_COLUMN_MAP["poids net kg"] = "poids_net";
 SHIPMENT_COLUMN_MAP["poids (kg)"] = "poids_net";
 SHIPMENT_COLUMN_MAP["nombre de sacs"] = "nombre_sacs";
@@ -189,7 +198,15 @@ export async function parseShipmentExcel(data: ArrayBuffer): Promise<{ rows: Shi
 
     const rowErrors: string[] = [];
 
-    const nomProducteur = String(row.nom_producteur ?? "").trim();
+    let nom = String(row.nom ?? "").trim();
+    let prenom = String(row.prenom ?? "").trim();
+    const legacyFull = String(row.nom_producteur ?? "").replace(/\s+/g, " ").trim();
+    if (!nom && !prenom && legacyFull) {
+      const idx = legacyFull.indexOf(" ");
+      nom = idx === -1 ? legacyFull : legacyFull.slice(0, idx);
+      prenom = idx === -1 ? "" : legacyFull.slice(idx + 1);
+    }
+    const nomProducteur = [nom, prenom].filter(Boolean).join(" ");
     const codePlantation = String(row.code_plantation ?? "").trim();
     const numeroRecu = String(row.numero_recu ?? "").trim();
     const zone = String(row.zone ?? "").trim();
@@ -197,10 +214,10 @@ export async function parseShipmentExcel(data: ArrayBuffer): Promise<{ rows: Shi
     const projet = String(row.projet ?? "").trim();
     const dateLivraison = parseExcelDate(row.date_livraison);
 
-    if (!nomProducteur) rowErrors.push("Nom du producteur manquant");
+    if (!nomProducteur) rowErrors.push("Nom manquant");
     if (!codePlantation) rowErrors.push("Code plantation manquant");
     if (!numeroRecu) rowErrors.push("N° Reçu manquant");
-    if (!zone) rowErrors.push("Zone (registre) manquante");
+    if (!zone) rowErrors.push("Registre manquant");
     if (!projet) rowErrors.push("Projet manquant");
 
     // Destination : doit correspondre exactement aux valeurs acceptées par la base
@@ -255,6 +272,8 @@ export async function parseShipmentExcel(data: ArrayBuffer): Promise<{ rows: Shi
       zone,
       destination: destination as string,
       nom_producteur: nomProducteur,
+      nom,
+      prenom,
       code_plantation: codePlantation,
       section: String(row.section || "").trim(),
       poids_net: poids as number,
@@ -281,13 +300,13 @@ export async function downloadShipmentTemplate() {
   rules.columns = [{ header: "Règles d'importation", width: 110 }];
   rules.getRow(1).font = { bold: true };
   [
-    "Toutes les colonnes obligatoires doivent être renseignées : Projet, Zone, Destination, Nom du producteur, Code plantation, Poids net, Nombre de sacs, Date de livraison, N° Reçu.",
+    "Toutes les colonnes obligatoires doivent être renseignées : Projet, Registre, Destination, Nom, Code plantation, Poids net, Nombre de sacs, Date de livraison, N° Reçu.",
     "Poids net (kg) : nombre ENTIER strictement supérieur à 0 (aucune décimale).",
     "Nombre de sacs : nombre ENTIER supérieur ou égal à 1.",
     `Poids par sac (poids net / nombre de sacs) : maximum ${MAX_BAG_WEIGHT_KG} kg.`,
     "Date de livraison : format JJ/MM/AAAA, jamais dans le futur.",
     `Destination : exactement « ${VALID_DESTINATIONS.join(" » ou « ")} ».`,
-    "Zone : doit correspondre exactement au nom d'un registre existant dans le système.",
+    "Registre : doit correspondre exactement au nom d'un registre existant dans le système.",
     "Code plantation : doit exister dans le registre des producteurs.",
     "La campagne est déduite automatiquement de la date de livraison (1er septembre → 31 août).",
   ].forEach((r) => rules.addRow([r]));
