@@ -85,6 +85,13 @@
       "when": 1794047466863,
       "tag": "0011_add_producer_commentaire",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794246834237,
+      "tag": "0012_update_shipment_quantities_atomic",
+      "breakpoints": true
     }
   ]
 }

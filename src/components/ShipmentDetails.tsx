@@ -406,7 +406,17 @@ export default function ShipmentDetails() {
       window.dispatchEvent(new CustomEvent("shipment:saved"));
     } catch (err) {
       console.error(err);
-      toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
+      // Les messages de validation locaux sont explicites ; les erreurs serveur restent génériques.
+      const local = err instanceof Error && !("code" in err);
+      const raw = (err as { message?: string })?.message ?? "";
+      const description = local
+        ? raw
+        : raw.includes("bag_weight")
+          ? "Le poids moyen par sac dépasse 110 kg sur au moins un producteur."
+          : raw.includes("ne correspond pas")
+            ? "La répartition ne correspond pas exactement au poids et aux sacs déclarés."
+            : "Une erreur est survenue.";
+      toast({ title: "Modification impossible", description, variant: "destructive" });
     } finally {
       setSaving(false);
       setConfirmQty(false);
