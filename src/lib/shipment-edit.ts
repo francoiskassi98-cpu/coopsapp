@@ -9,6 +9,8 @@
 export const MAX_BAGS = 15;
 export const MIN_WEIGHT = 50;
 export const BAG_RANGE = 5;
+export const MIN_BAG_KG = 10;
+export const MAX_BAG_KG = 110;
 
 export interface EditRow {
   id: string;
@@ -56,12 +58,13 @@ export function redistributeShipment(rows: EditRow[], newWeight: number, newBags
   // 2) Poids : la différence est divisée par le nombre de producteurs et
   //    ajoutée/retirée au poids déjà enregistré de chacun (aucune plage ±5 kg).
   const active = rows.map((r, i) => ({ r, i })).filter(({ i }) => bags[i] > 0);
-  const lo = (_i: number) => MIN_WEIGHT;
-  const hi = (i: number) => Math.floor(rows[i].cap);
+  // Chaque ligne respecte 10–110 kg par sac (contrainte serveur), min 50 kg et son plafond.
+  const lo = (i: number) => Math.max(MIN_WEIGHT, bags[i] * MIN_BAG_KG);
+  const hi = (i: number) => Math.min(Math.floor(rows[i].cap), bags[i] * MAX_BAG_KG);
   for (const { i } of active) {
     if (hi(i) < lo(i)) throw new Error("Le potentiel disponible d'au moins un producteur ne permet pas cette répartition.");
   }
-  const sumLo = active.length * MIN_WEIGHT;
+  const sumLo = active.reduce((s, { i }) => s + lo(i), 0);
   const sumHi = active.reduce((s, { i }) => s + hi(i), 0);
   if (newWeight < sumLo || newWeight > sumHi) {
     throw new Error(`Poids impossible avec ces producteurs : il doit être compris entre ${sumLo} et ${sumHi} kg.`);
