@@ -74,11 +74,11 @@ export default function Trash() {
     if (ids.length === 0) { setProducerNames({}); return; }
     const { data } = await supabase
       .from("producers")
-      .select("id, last_name, first_name, plantation_code")
+      .select("id, full_name, nom, prenom, plantation_code")
       .in("id", ids);
     const map: Record<string, string> = {};
     (data ?? []).forEach((p) => {
-      map[p.id] = [p.last_name, p.first_name].filter(Boolean).join(" ") || p.plantation_code || p.id.slice(0, 8);
+      map[p.id] = [p.nom, p.prenom].filter(Boolean).join(" ") || p.full_name || p.plantation_code || p.id.slice(0, 8);
     });
     setProducerNames(map);
   };
