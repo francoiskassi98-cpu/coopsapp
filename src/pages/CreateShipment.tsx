@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { validateShipmentBagWeights } from "@/lib/shipment-save-validation";
 import { normalizeCampaign, currentCampaign as getCurrentCampaign } from "@/lib/campaign";
 import { distributeShipment, verifyDistributionTotals, splitBagsExactly, computeAverageBagWeight, bagWeightRange, isBagWeightInRange, MAX_BAGS_PER_PRODUCER, type DistributionResult } from "@/lib/shipment-utils";
 import { useSortableTable, SortableHeader } from "@/hooks/useSortableTable";
@@ -254,7 +255,8 @@ export default function CreateShipment() {
     if (totalWeight && (!Number.isFinite(w) || w <= 0)) errs.push("Le poids total doit être un nombre supérieur à 0.");
     if (totalWeight && Number.isFinite(w) && !Number.isInteger(w)) errs.push("Le poids total doit être un nombre entier (aucune décimale autorisée).");
     if (totalBags && (!Number.isInteger(b) || b <= 0)) errs.push("Le nombre de sacs doit être un entier supérieur à 0.");
-    // Le sac moyen est dynamique : aucune limite fixe (ni minimum, ni maximum).
+    const bagError = validateShipmentBagWeights(w, b);
+    if (totalWeight && totalBags && bagError) errs.push(bagError);
 
     const todayIso = new Date().toISOString().slice(0, 10);
     if ((startDate && startDate > todayIso) || (endDate && endDate > todayIso)) {
@@ -382,7 +384,9 @@ export default function CreateShipment() {
 
 
   const persistShipment = async (): Promise<string | null> => {
-    if (preview.length === 0) return null;
+    if (preview.length === 0) throw new Error("Aucune livraison à enregistrer.");
+    const bagError = validateShipmentBagWeights(Number(totalWeight), Number(totalBags), preview);
+    if (bagError) { setSaveDiagnostic(bagError); throw new Error(bagError); }
 
     const campaignLabel = normalizeCampaign(getCurrentCampaign());
     const selectedProject = projects.find((p) => p.id === project);
@@ -481,81 +485,30 @@ export default function CreateShipment() {
       client_request_id: clientRequestId,
     };
 
-    const { data: shipment, error: shipErr } = await supabase
-      .from("shipments")
-      .insert(shipmentPayload)
-      .select("id")
-      .single();
-
-    if (shipErr) {
-      // Contrainte d'unicité côté base : le chargement a déjà été enregistré (double-clic / double envoi).
-      if ((shipErr as { code?: string }).code === "23505") {
-        const { data: existing } = await supabase
-          .from("shipments")
-          .select("id")
-          .eq("client_request_id", clientRequestId)
-          .maybeSingle();
-        if (existing?.id) {
-          console.warn("[CreateShipment] duplicate submission ignored", { clientRequestId });
-          return existing.id;
-        }
-      }
-      const message = formatTechnicalError(shipErr, "Échec création du chargement");
-      console.error("[CreateShipment] shipments insert failed", { error: shipErr, payload: shipmentPayload });
-      setSaveDiagnostic(message);
-      throw shipErr;
-    }
-
     const deliveries = preview.map((d) => ({
-      shipment_id: shipment.id,
       producer_id: d.producer_id,
       receipt_number: d.receipt_number,
       delivery_date: d.delivery_date,
       net_weight: d.allocated_weight,
       num_bags: d.num_bags,
-      registre_id: selectedCoopId,
-      campaign_label: campaignLabel,
     }));
 
-    const { error: delErr } = await supabase.from("deliveries").insert(deliveries);
-    if (delErr) {
-      const message = formatTechnicalError(delErr, "Échec création des livraisons");
-      console.error("[CreateShipment] deliveries insert failed", { error: delErr, firstDelivery: deliveries[0], count: deliveries.length });
-      setSaveDiagnostic(message);
-      throw delErr;
+    // Une transaction unique : un rejet de livraison annule aussi l'entête.
+    const { data: shipmentId, error: saveErr } = await supabase.rpc("create_shipment_with_deliveries", {
+      p_shipment: shipmentPayload,
+      p_deliveries: deliveries,
+    });
+    if (saveErr || !shipmentId) {
+      setSaveDiagnostic(formatTechnicalError(saveErr, "Échec création du chargement et de ses livraisons"));
+      throw saveErr || new Error("Chargement non enregistré.");
     }
-
-    // Confirmation côté serveur : les livraisons enregistrées doivent totaliser exactement les quantités déclarées.
-    const { data: savedRows, error: verifyErr } = await supabase
-      .from("deliveries")
-      .select("net_weight, num_bags")
-      .eq("shipment_id", shipment.id);
-    if (verifyErr) {
-      console.error("[CreateShipment] totals verification read failed", verifyErr);
-      throw verifyErr;
-    }
-    const serverCheck = verifyDistributionTotals(
-      (savedRows || []).map((r) => ({ allocated_weight: Number(r.net_weight), num_bags: Number(r.num_bags) })),
-      Number(totalWeight),
-      Number(totalBags)
-    );
-    if (!serverCheck.ok) {
-      console.error("[CreateShipment] server totals mismatch, rolling back", serverCheck);
-      await supabase.from("deliveries").delete().eq("shipment_id", shipment.id);
-      await supabase.from("shipments").delete().eq("id", shipment.id);
-      requestIdRef.current = null;
-      throw new Error("La distribution ne correspond pas exactement aux quantités déclarées. Aucun enregistrement n'a été effectué.");
-    }
-
-
-
 
     // Le potentiel restant est recalculé automatiquement en base à partir des
     // livraisons réellement enregistrées (aucune décrémentation manuelle ici).
 
 
 
-    return shipment.id as string;
+    return shipmentId;
   };
 
   const resetForm = () => {

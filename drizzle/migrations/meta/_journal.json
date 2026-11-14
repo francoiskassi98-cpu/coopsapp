@@ -92,6 +92,13 @@
       "when": 1794246834237,
       "tag": "0012_update_shipment_quantities_atomic",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794650212643,
+      "tag": "0013_atomic_manual_shipment_creation",
+      "breakpoints": true
     }
   ]
 }
