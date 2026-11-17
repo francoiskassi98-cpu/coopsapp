@@ -186,10 +186,10 @@ export default function ExportPage() {
       }
 
       const shipmentMap = new Map(registreShipments.map((s) => [s.id, s]));
-      const rows = deliveries.map((d) => {
+      const rows = deliveries.map((d, idx) => {
         const s = shipmentMap.get(d.shipment_id);
         return {
-          "N°": "",
+          "N°": idx + 1,
           "Connaissement": s?.connaissement || "",
           "N° Reçu": d.receipt_number,
           "Nom": d.producers?.nom || "",
@@ -274,8 +274,8 @@ export default function ExportPage() {
         return;
       }
 
-      const rows = deliveries.map((d) => ({
-        "N°": "",
+      const rows = deliveries.map((d, idx) => ({
+        "N°": idx + 1,
         "Connaissement": d.shipments?.connaissement || "",
         "N° Reçu": d.receipt_number,
         "Nom": d.producers?.nom || "",
@@ -382,6 +382,7 @@ export default function ExportPage() {
       }
 
       rows.sort((a, b) => String(a["Registre"]).localeCompare(String(b["Registre"])));
+      rows = rows.map((r, idx) => ({ "N°": idx + 1, ...r }));
 
       const registreName = registreFilter
         ? (registres.find(r => r.id === registreFilter)?.name || "Registre")
