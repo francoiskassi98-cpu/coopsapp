@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,29 +11,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { Calculator, Download, Save, Coins } from "lucide-react";
 import { generatePrimeExcel } from "@/lib/prime-excel";
-import { currentCampaign } from "@/lib/campaign";
+import { useQueryClient } from "@tanstack/react-query";
+import { calculatePrimeRows, fetchPrimePages, primePlantationResults, type PrimeDateBasis, type PrimePlantation, type PrimeResult } from "@/lib/prime-calculation";
 import { useCampaignLabels } from "@/hooks/useCampaign";
 import { useRegistres } from "@/hooks/useRegistres";
 
 
 interface Coop { id: string; name: string; logo_path?: string | null }
 interface Campaign { id: string; nom: string }
-interface ProjectOpt { id: string; name: string }
+interface ProjectOpt { id: string; name: string; label: string }
 interface ProducerOpt { id: string; full_name: string; nom: string | null; prenom: string | null; section: string; registre_id: string | null }
 
-interface PrimeRow {
-  producer_id: string; // représentant (première plantation) pour l'enregistrement
-  producer_code: string;
-  full_name: string;
-  section: string;
-  cooperative: string;
-  num_plantations: number;
-  volume: number;
-  rate: number;
-  bonus: number;
+interface PrimeDelivery {
+  id: string; shipment_id: string; producer_id: string; net_weight: number; campaign_label: string;
+  shipments: { connaissement: string | null; project: string; departure_date: string | null };
 }
-
-
+interface IncludedShipment { id: string; name: string; project: string; volume: number }
 
 export default function PrimeProducer() {
   
@@ -56,7 +49,15 @@ export default function PrimeProducer() {
   const [bonusType, setBonusType] = useState<"total" | "per_kg">("per_kg");
   const [amount, setAmount] = useState<number>(0);
 
-  const [rows, setRows] = useState<PrimeRow[]>([]);
+  const [rows, setRows] = useState<PrimeResult[]>([]);
+  const [dateBasis, setDateBasis] = useState<PrimeDateBasis>("delivery");
+  const [included, setIncluded] = useState<IncludedShipment[]>([]);
+  const queryClient = useQueryClient();
+  const busy = useRef(false);
+  const filtersKey = JSON.stringify([coopId, campaignId, projectId, section, producerId, startDate, endDate, bonusType, amount, dateBasis]);
+  const currentFilters = useRef(filtersKey);
+  currentFilters.current = filtersKey;
+  useEffect(() => { setRows([]); setIncluded([]); }, [filtersKey]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -72,34 +73,37 @@ export default function PrimeProducer() {
   // Charge producteurs + sections + projets en fonction du filtre registre
   useEffect(() => {
     if (!coopId && coops.length === 0) { setSections([]); setProducersList([]); setProjects([]); return; }
+    let cancelled = false;
     (async () => {
       let all: ProducerOpt[] = [];
       let from = 0;
       while (true) {
         let q = supabase.from("producers")
           .select("id,full_name,nom,prenom,section,registre_id")
-          .order("nom")
-          .range(from, from + 999);
+          .order("nom").order("id")
+          .range(from, from + 499);
         if (coopId && coopId !== "all") q = q.eq("registre_id", coopId);
         if (campaignId !== "all") q = q.eq("campaign_label", campaignId);
-        const { data } = await q;
+        const { data, error } = await q;
+        if (error) { console.error("[PrimeProducer.options]", error); return; }
         if (!data || data.length === 0) break;
         all = all.concat(data);
-        if (data.length < 1000) break;
-        from += 1000;
+        from += data.length;
       }
+      if (cancelled) return;
       setProducersList(all);
       setSections([...new Set(all.map(p => p.section).filter(Boolean))].sort());
     })();
     (async () => {
       // Les projets sont partagés au niveau coopérative : pas de filtre par registre.
-      const { data, error } = await supabase.from("projects").select("id,name").order("name");
+      const { data, error } = await supabase.from("projects").select("id,name,cooperatives(name)").order("name");
       if (error) { console.error("[PrimeProducer.projects]", error); setProjects([]); return; }
-      setProjects(data ?? []);
+      if (!cancelled) setProjects((data ?? []).map((p) => ({ id: p.id, name: p.name, label: (data ?? []).filter((other) => other.name === p.name).length > 1 ? `${p.name} — ${p.cooperatives?.name ?? "Non renseigné"}` : p.name })));
     })();
     setSection("all");
     setProducerId("all");
     setProjectId("all");
+    return () => { cancelled = true; };
   }, [coopId, coops, campaignId]);
 
   const coopSelected = useMemo(() => coops.find(c => c.id === coopId), [coops, coopId]);
@@ -115,126 +119,58 @@ export default function PrimeProducer() {
       toast({ title: "Période invalide", description: "La date de début doit précéder la date de fin.", variant: "destructive" });
       return;
     }
+    if (busy.current) return;
+    busy.current = true;
+    const calculationKey = filtersKey;
     setLoading(true);
+    setRows([]);
+    setIncluded([]);
     try {
-      // 1) Charger toutes les livraisons de la période selon filtres
-      const deliveries: Array<{ producer_id: string | null; net_weight: number | null }> = [];
-      let from = 0;
-      while (true) {
-        let dq = supabase.from("deliveries")
-          .select("id,producer_id,net_weight,delivery_date,shipments!inner(registre_id,campaign_label,is_cancelled,project_id)")
-          .gte("delivery_date", startDate)
-          .lte("delivery_date", endDate)
-          .eq("shipments.is_cancelled", false)
-          .order("id", { ascending: true });
-        if (!isAllCoops) dq = dq.eq("shipments.registre_id", coopId);
-        if (campaignId !== "all") dq = dq.eq("shipments.campaign_label", campaignId);
-        if (projectId !== "all") dq = dq.eq("shipments.project_id", projectId);
-        if (producerId !== "all") dq = dq.eq("producer_id", producerId);
-        const { data, error } = await dq.range(from, from + 999);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        deliveries.push(...data);
-        if (data.length < 1000) break;
-        from += 1000;
-      }
-
-      if (deliveries.length === 0) {
-        setRows([]);
-        toast({ title: "Aucune livraison", description: "Aucune livraison ne correspond aux filtres sélectionnés.", variant: "destructive" });
-        return;
-      }
-
-      // 2) Regrouper les volumes par plantation (producer_id)
-      const volumeByPlantation = new Map<string, number>();
-      deliveries.forEach((d) => {
-        if (!d.producer_id) return;
-        volumeByPlantation.set(d.producer_id, (volumeByPlantation.get(d.producer_id) || 0) + Number(d.net_weight || 0));
+      // Date mode is explicit: receipts include only their dates; departure includes all lines of matching shipments.
+      const deliveries = await fetchPrimePages<PrimeDelivery>((from, to) => {
+        let q = supabase.from("deliveries")
+          .select("id,shipment_id,producer_id,net_weight,campaign_label,shipments!inner(registre_id,campaign_label,is_cancelled,project_id,deleted_at,departure_date,connaissement,project)")
+          .eq("shipments.is_cancelled", false).is("shipments.deleted_at", null)
+          .order("id");
+        const dateColumn = dateBasis === "delivery" ? "delivery_date" : "shipments.departure_date";
+        q = q.gte(dateColumn, startDate).lte(dateColumn, endDate);
+        if (!isAllCoops) q = q.eq("shipments.registre_id", coopId);
+        if (campaignId !== "all") q = q.eq("campaign_label", campaignId);
+        if (projectId !== "all") q = q.eq("shipments.project_id", projectId);
+        return q.range(from, to);
       });
-
-      const plantationIds = Array.from(volumeByPlantation.keys());
-
-      // 3) Charger les infos plantations (avec producer_code) — filtrer par section si demandé
-      const plantMap = new Map<string, { id: string; producer_code: string; full_name: string; section: string; cooperative: string }>();
-      const coopNameById = new Map(coops.map(c => [c.id, c.name]));
-      for (let i = 0; i < plantationIds.length; i += 500) {
-        const chunk = plantationIds.slice(i, i + 500);
-        let pq = supabase.from("producers")
-          .select("id,producer_code,full_name,nom,prenom,section,registre_id")
-          .in("id", chunk);
-        if (campaignId !== "all") pq = pq.eq("campaign_label", campaignId);
-        if (section !== "all") pq = pq.eq("section", section);
-        const { data, error } = await pq;
-        if (error) throw error;
-        (data ?? []).forEach((p) =>
-          plantMap.set(p.id, {
-            id: p.id,
-            producer_code: p.producer_code ?? "",
-            full_name: p.full_name,
-            section: p.section,
-            cooperative: coopNameById.get(p.registre_id) ?? "",
-          }),
-        );
+      const ids = [...new Set([...deliveries.map((d) => d.producer_id), ...(producerId === "all" ? [] : [producerId])])];
+      const plantations: PrimePlantation[] = [];
+      for (let i = 0; i < ids.length; i += 500) {
+        const chunk = ids.slice(i, i + 500);
+        const data = await fetchPrimePages<PrimePlantation>((from, to) => supabase.from("producers")
+          .select("id,producer_code,full_name,section,registre_id,campaign_label")
+          .in("id", chunk).order("id").range(from, to));
+        plantations.push(...data);
       }
-
-      // 4) Regrouper par producer_code
-      const byProducer = new Map<string, { producer_code: string; full_name: string; section: string; cooperative: string; volume: number; plantations: Set<string> }>();
-      volumeByPlantation.forEach((vol, plantationId) => {
-        const p = plantMap.get(plantationId);
-        if (!p) return; // filtré (section) ou introuvable
-        const key = (p.producer_code || "").trim() || `__NOCODE__${p.id}`;
-        const cur = byProducer.get(key);
-        if (cur) {
-          cur.volume += vol;
-          cur.plantations.add(plantationId);
-        } else {
-          byProducer.set(key, {
-            producer_code: p.producer_code || "",
-            full_name: p.full_name,
-            section: p.section,
-            cooperative: p.cooperative,
-            volume: vol,
-            plantations: new Set([plantationId]),
-          });
-        }
-      });
-
-      if (byProducer.size === 0) {
-        setRows([]);
-        toast({ title: "Aucun producteur éligible", description: "Des livraisons existent mais aucun producteur ne correspond aux filtres.", variant: "destructive" });
-        return;
+      // Delivery campaign is authoritative, even if plantation metadata was subsequently updated.
+      const deliveryCampaigns = new Map(deliveries.map((d) => [d.producer_id, d.campaign_label]));
+      const out = calculatePrimeRows(deliveries, plantations.map((p) => ({ ...p, campaign_label: deliveryCampaigns.get(p.id) ?? p.campaign_label })), new Map(coops.map((c) => [c.id, c.name])), amount, bonusType, section, producerId);
+      const accepted = new Set(out.flatMap((r) => r.plantations.map((p) => p.producer_id)));
+      const summary = new Map<string, IncludedShipment>();
+      for (const d of deliveries) {
+        if (!accepted.has(d.producer_id)) continue;
+        const entry = summary.get(d.shipment_id) ?? { id: d.shipment_id, name: d.shipments.connaissement || "Non renseigné", project: d.shipments.project, volume: 0 };
+        entry.volume += Number(d.net_weight);
+        summary.set(d.shipment_id, entry);
       }
-
-      // 5) Calcul du taux
-      const totalVolume = Array.from(byProducer.values()).reduce((s, r) => s + r.volume, 0);
-      const rate = bonusType === "per_kg" ? amount : (totalVolume > 0 ? amount / totalVolume : 0);
-
-      const out: PrimeRow[] = Array.from(byProducer.values())
-        .filter(r => r.volume > 0)
-        .map(r => ({
-          producer_id: Array.from(r.plantations)[0],
-          producer_code: r.producer_code,
-          full_name: r.full_name,
-          section: r.section,
-          cooperative: r.cooperative,
-          num_plantations: r.plantations.size,
-          volume: r.volume,
-          rate,
-          bonus: r.volume * rate,
-        }))
-        .sort((a, b) => b.volume - a.volume);
-
-
+      if (currentFilters.current !== calculationKey) return;
       setRows(out);
-      toast({ title: "Calcul terminé", description: `${out.length} producteur(s) éligible(s).` });
+      setIncluded([...summary.values()]);
+      toast({ title: out.length ? "Calcul terminé" : "Aucune livraison", description: out.length ? `${out.length} producteur(s), ${summary.size} chargement(s) pris en compte.` : "Aucune livraison ne correspond aux filtres sélectionnés. Vérifiez la période et le projet." });
     } catch (e) {
       console.error("[PrimeProducer.calculate]", e);
       toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
+      busy.current = false;
       setLoading(false);
     }
   }
-
 
 
   async function saveCalc() {
@@ -243,40 +179,36 @@ export default function PrimeProducer() {
       toast({ title: "Non disponible", description: "L'enregistrement n'est pas disponible en mode « Tous les registres ». Sélectionnez un registre.", variant: "destructive" });
       return;
     }
+    if (busy.current || campaignId === "all") return;
+    busy.current = true;
     setSaving(true);
     try {
       const { data: setting, error } = await supabase.from("producer_bonus_settings").insert({
         registre_id: coopId,
-        campaign_label: campaignId !== "all" ? campaignId : currentCampaign(),
+        campaign_label: campaignId,
         section: section !== "all" ? section : null,
         start_date: startDate,
         end_date: endDate,
         bonus_type: bonusType,
         amount,
-        label: `Prime ${startDate} → ${endDate}${projectSelected ? ` — Projet ${projectSelected.name}` : ""}`,
+        label: `Prime ${startDate} → ${endDate} — ${dateBasis === "delivery" ? "Dates de livraison" : "Dates de départ"} — Projet ${projectSelected?.name ?? "Tous"}`,
       }).select("id").single();
       if (error) throw error;
       const settingId = setting.id;
-      const results = rows.map(r => ({
-        setting_id: settingId,
-        producer_id: r.producer_id,
-        registre_id: coopId,
-        campaign_label: campaignId !== "all" ? campaignId : currentCampaign(),
-        volume_delivered: r.volume,
-        rate: r.rate,
-        calculated_bonus: r.bonus,
-        period_start: startDate,
-        period_end: endDate,
+      const results = primePlantationResults(rows).map((r) => ({
+        ...r, setting_id: settingId, period_start: startDate, period_end: endDate,
       }));
       for (let i = 0; i < results.length; i += 500) {
         const { error: ie } = await supabase.from("producer_bonus_results").insert(results.slice(i, i + 500));
         if (ie) throw ie;
       }
+      await queryClient.invalidateQueries({ queryKey: ["producer-detail"] });
       toast({ title: "Enregistré", description: "Le calcul de prime a été sauvegardé." });
     } catch (e) {
       console.error(e);
       toast({ title: "Erreur", description: "Une erreur est survenue.", variant: "destructive" });
     } finally {
+      busy.current = false;
       setSaving(false);
     }
   }
@@ -288,7 +220,7 @@ export default function PrimeProducer() {
         cooperativeName: isAllCoops ? "Tous les registres" : (coopSelected?.name ?? ""),
         projectName: projectSelected?.name ?? "Tous",
         logoUrl: isAllCoops ? null : (coopSelected?.logo_path ?? null),
-        startDate, endDate,
+        startDate, endDate, dateBasis,
         bonusType, amount,
         rows,
       });
@@ -317,7 +249,7 @@ export default function PrimeProducer() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <fieldset disabled={loading || saving} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div>
               <Label className="text-xs">Registre *</Label>
               <Select value={coopId} onValueChange={setCoopId} disabled={coops.length <= 1}>
@@ -344,13 +276,13 @@ export default function PrimeProducer() {
                 <SelectTrigger><SelectValue placeholder="Tous les projets" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous les projets</SelectItem>
-                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label className="text-xs">Section</Label>
-              <Select value={section} onValueChange={setSection}>
+              <Select value={section} onValueChange={(v) => { setSection(v); setProducerId("all"); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Toutes</SelectItem>
@@ -366,7 +298,6 @@ export default function PrimeProducer() {
                   <SelectItem value="all">Tous</SelectItem>
                   {producersList
                     .filter(p => section === "all" || p.section === section)
-                    .slice(0, 500)
                     .map(p => <SelectItem key={p.id} value={p.id}>{[p.nom, p.prenom].filter(Boolean).join(" ") || p.full_name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -382,12 +313,22 @@ export default function PrimeProducer() {
               </Select>
             </div>
             <div>
-              <Label className="text-xs">Date début *</Label>
-              <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+              <Label htmlFor="prime-date-basis" className="text-xs">Période basée sur</Label>
+              <Select value={dateBasis} onValueChange={(v) => setDateBasis(v as PrimeDateBasis)}>
+                <SelectTrigger id="prime-date-basis"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="delivery">Dates de livraison (reçus)</SelectItem>
+                  <SelectItem value="departure">Dates de départ des chargements</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <Label className="text-xs">Date fin *</Label>
-              <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+              <Label htmlFor="prime-start" className="text-xs">Date début *</Label>
+              <Input id="prime-start" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="prime-end" className="text-xs">Date fin *</Label>
+              <Input id="prime-end" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
             </div>
             <div>
               <Label className="text-xs">{bonusType === "per_kg" ? "Montant par kg (FCFA)" : "Montant total (FCFA)"} *</Label>
@@ -398,7 +339,7 @@ export default function PrimeProducer() {
                 <Calculator className="h-4 w-4" /> {loading ? "Calcul..." : "Calculer"}
               </Button>
             </div>
-          </div>
+          </fieldset>
         </CardContent>
       </Card>
 
@@ -426,14 +367,23 @@ export default function PrimeProducer() {
             </div>
           </div>
 
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold">Chargements pris en compte ({included.length}) — Projet : {projectSelected?.name ?? "Tous"}</h3>
+          <div className="max-h-48 overflow-auto">
+            <Table>
+              <TableHeader><TableRow><TableHead>Connaissement</TableHead><TableHead>Projet</TableHead><TableHead className="text-right">Volume retenu (kg)</TableHead></TableRow></TableHeader>
+              <TableBody>{included.map((s) => <TableRow key={s.id}><TableCell>{s.name}</TableCell><TableCell>{s.project}</TableCell><TableCell className="text-right">{s.volume.toLocaleString("fr-FR")}</TableCell></TableRow>)}</TableBody>
+            </Table>
+          </div>
+        </div>
         <Card className="shadow-glass">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><Coins className="h-4 w-4" /></span>
               Détail des primes
             </CardTitle>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={saveCalc} disabled={saving}><Save className="h-4 w-4 mr-2" />Enregistrer</Button>
+              <Button variant="outline" size="sm" onClick={saveCalc} disabled={saving || campaignId === "all" || isAllCoops} title={campaignId === "all" || isAllCoops ? "Sélectionnez un registre et une campagne pour enregistrer." : undefined}><Save className="h-4 w-4 mr-2" />Enregistrer</Button>
               <Button size="sm" onClick={exportXlsx}><Download className="h-4 w-4 mr-2" />Exporter Excel</Button>
             </div>
           </CardHeader>

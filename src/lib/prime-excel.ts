@@ -20,6 +20,7 @@ export interface PrimeExcelParams {
   projectName?: string | null;
   /** Path interne Storage (bucket cooperative-logos) ou URL legacy. */
   logoUrl?: string | null;
+  dateBasis?: "delivery" | "departure";
   startDate: string;
   endDate: string;
   bonusType: "total" | "per_kg";
@@ -97,7 +98,7 @@ export async function generatePrimeExcel(p: PrimeExcelParams) {
 
   ws.mergeCells("A2:H2");
   const subCell = ws.getCell("A2");
-  subCell.value = `Période : ${p.startDate} → ${p.endDate}    •    Projet : ${p.projectName || "Tous"}    •    ${p.bonusType === "per_kg" ? `Taux : ${p.amount} FCFA/kg` : `Enveloppe : ${p.amount.toLocaleString("fr-FR")} FCFA`}`;
+  subCell.value = `${p.dateBasis === "departure" ? "Dates de départ" : "Dates de livraison"} : ${p.startDate} → ${p.endDate}    •    Projet : ${p.projectName || "Tous"}    •    ${p.bonusType === "per_kg" ? `Taux : ${p.amount} FCFA/kg` : `Enveloppe : ${p.amount.toLocaleString("fr-FR")} FCFA`}`;
   subCell.font = { name: "Calibri", italic: true, size: 11, color: { argb: "FF475569" } };
   subCell.alignment = { horizontal: "center" };
   ws.getRow(2).height = 20;

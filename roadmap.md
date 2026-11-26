@@ -1,3 +1,5 @@
 - [x] Retirer uniquement le lot vide 4 de Toulepleu (corbeille, lot 2 préservé).
 - [x] Sécuriser la création atomique et contrôler le poids par sac avant calcul.
 - [x] Vérifier 39 tests, la page connectée et le rejet transactionnel sans entête restante. Aucun nouveau chargement commercial créé pendant la vérification.
+- [x] Fiabiliser les volumes de prime, les filtres et les parts par plantation sans modifier les anciens calculs.
+- [x] Vérifier 9 tests, le calcul connecté (122 555 kg tous projets / 43 000 kg RA), les deux critères de date et le téléchargement Excel. Aucun nouveau calcul commercial enregistré pendant la vérification.
