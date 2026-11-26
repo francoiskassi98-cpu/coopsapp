@@ -1016,6 +1016,7 @@ export default function CreateShipment() {
                     <SelectContent>
                       <SelectItem value="Abidjan">Abidjan</SelectItem>
                       <SelectItem value="San-Pedro">San-Pedro</SelectItem>
+                      <SelectItem value="Tiassalé">Tiassalé</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

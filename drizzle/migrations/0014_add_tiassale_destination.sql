@@ -1,0 +1,2 @@
+ALTER TABLE public.shipments DROP CONSTRAINT shipments_destination_check;
+ALTER TABLE public.shipments ADD CONSTRAINT shipments_destination_check CHECK (destination IN ('Abidjan','San-Pedro','Tiassalé'));

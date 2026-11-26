@@ -34,7 +34,7 @@ export interface MatchedProducer {
 }
 
 /** Destinations autorisées (identiques à la contrainte SQL shipments_destination_check). */
-export const VALID_DESTINATIONS = ["Abidjan", "San-Pedro"] as const;
+export const VALID_DESTINATIONS = ["Abidjan", "San-Pedro", "Tiassalé"] as const;
 /** Poids maximum par sac accepté par la base (deliveries_bag_weight_check). */
 export const MAX_BAG_WEIGHT_KG = 110;
 
