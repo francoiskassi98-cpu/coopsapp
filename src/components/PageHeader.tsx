@@ -18,13 +18,14 @@ export default function PageHeader({ icon: Icon, title, description, actions, cl
   return (
     <div
       className={cn(
-        "flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-4 pb-2",
+        "relative overflow-hidden flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/10 via-card to-accent/10 p-4 md:p-5 shadow-sm",
         className
       )}
     >
-      <div className="flex items-start gap-3 min-w-0">
+      <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/10 blur-2xl" />
+      <div className="relative flex items-start gap-3 min-w-0">
         {Icon && (
-          <div className="shrink-0 h-10 w-10 md:h-11 md:w-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-glass">
+          <div className="shrink-0 h-10 w-10 md:h-11 md:w-11 rounded-2xl bg-gradient-primary text-primary-foreground flex items-center justify-center shadow-glow">
             <Icon className="h-5 w-5" />
           </div>
         )}
@@ -38,7 +39,7 @@ export default function PageHeader({ icon: Icon, title, description, actions, cl
         </div>
       </div>
       {actions && (
-        <div className="flex flex-wrap items-center gap-2 md:justify-end w-full md:w-auto [&>*]:flex-1 sm:[&>*]:flex-none">
+        <div className="relative flex flex-wrap items-center gap-2 md:justify-end w-full md:w-auto [&>*]:flex-1 sm:[&>*]:flex-none">
           {actions}
         </div>
       )}
