@@ -101,6 +101,7 @@ html, body {
   .bg-gradient-primary { background-image: var(--gradient-primary); }
   .bg-gradient-sidebar { background-image: var(--gradient-sidebar); }
   .bg-gradient-hero    { background-image: var(--gradient-hero); }
+  .bg-gradient-harvest { background-image: linear-gradient(135deg, hsl(var(--warning)), hsl(28 85% 48%)); }
   .bg-gradient-card    { background-image: var(--gradient-card); }
   .shadow-glass { box-shadow: var(--shadow-glass); }
   .shadow-float { box-shadow: var(--shadow-float); }

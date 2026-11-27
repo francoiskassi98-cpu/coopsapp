@@ -10,11 +10,11 @@ type Props = {
 type KpiTone = "green" | "blue" | "orange" | "purple" | "red";
 
 const TONE: Record<KpiTone, { bg: string; ring: string; icon: string; bar: string; chip: string }> = {
-  green:  { bg: "bg-emerald-50/70", ring: "ring-emerald-100", icon: "bg-emerald-500 text-white", bar: "bg-emerald-500", chip: "text-emerald-600" },
-  blue:   { bg: "bg-blue-50/70",    ring: "ring-blue-100",    icon: "bg-blue-500 text-white",    bar: "bg-blue-500",    chip: "text-blue-600" },
-  orange: { bg: "bg-amber-50/70",   ring: "ring-amber-100",   icon: "bg-amber-500 text-white",   bar: "bg-amber-500",   chip: "text-amber-600" },
-  purple: { bg: "bg-violet-50/70",  ring: "ring-violet-100",  icon: "bg-violet-500 text-white",  bar: "bg-violet-500",  chip: "text-violet-600" },
-  red:    { bg: "bg-rose-50/70",    ring: "ring-rose-100",    icon: "bg-rose-500 text-white",    bar: "bg-rose-500",    chip: "text-rose-600" },
+  green:  { bg: "bg-card", ring: "ring-primary/15",     icon: "bg-gradient-primary text-primary-foreground", bar: "bg-primary",     chip: "text-primary" },
+  blue:   { bg: "bg-card", ring: "ring-success/15",     icon: "bg-success text-success-foreground",           bar: "bg-success",     chip: "text-success" },
+  orange: { bg: "bg-card", ring: "ring-warning/20",     icon: "bg-gradient-harvest text-primary-foreground",  bar: "bg-warning",     chip: "text-warning" },
+  purple: { bg: "bg-card", ring: "ring-accent-foreground/15", icon: "bg-accent text-accent-foreground",        bar: "bg-accent-foreground", chip: "text-accent-foreground" },
+  red:    { bg: "bg-card", ring: "ring-secondary-foreground/15", icon: "bg-secondary text-secondary-foreground", bar: "bg-secondary-foreground", chip: "text-secondary-foreground" },
 };
 
 export default function KpiCards({ totalPotential, totalDelivered, remaining, shipmentCount }: Props) {
@@ -35,7 +35,7 @@ export default function KpiCards({ totalPotential, totalDelivered, remaining, sh
       {cards.map((c) => {
         const t = TONE[c.tone];
         return (
-          <div key={c.label} className={`relative rounded-[20px] p-3 sm:p-4 md:p-5 ring-1 ${t.ring} ${t.bg} shadow-glass transition-all hover:shadow-float`}>
+          <div key={c.label} className={`relative rounded-[20px] p-3 sm:p-4 md:p-5 ring-1 ${t.ring} ${t.bg} shadow-glass transition-all duration-200 hover:-translate-y-0.5 hover:shadow-float`}>
             <div className="flex items-start justify-between gap-2 mb-3 md:mb-4">
               <div className={`h-9 w-9 md:h-11 md:w-11 rounded-full flex items-center justify-center shadow-sm ${t.icon}`}>
                 <c.icon className="h-4 w-4 md:h-5 md:w-5" />
@@ -46,7 +46,7 @@ export default function KpiCards({ totalPotential, totalDelivered, remaining, sh
             </div>
             <div className="text-lg md:text-[22px] font-bold tracking-tight leading-none mb-1 break-words">{c.value}</div>
             <div className={`text-[10px] md:text-[11px] font-medium ${t.chip} mb-2 md:mb-3 truncate`}>{c.sub}</div>
-            <div className="h-1.5 w-full rounded-full bg-white/70 overflow-hidden">
+            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
               <div className={`h-full rounded-full ${t.bar} transition-all`} style={{ width: `${c.progress}%` }} />
             </div>
           </div>

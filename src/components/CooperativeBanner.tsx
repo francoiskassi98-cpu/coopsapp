@@ -7,9 +7,9 @@ function Segment({ label, value, tone }: { label: string; value: React.ReactNode
   const toneCls: Record<string, string> = {
     muted:   "text-foreground",
     primary: "text-primary",
-    success: "text-emerald-600",
-    warning: "text-amber-600",
-    danger:  "text-rose-600",
+    success: "text-success",
+    warning: "text-warning",
+    danger:  "text-destructive",
   };
   return (
     <div className="flex flex-col shrink-0 px-3 sm:px-4 border-l border-border/60 first:border-l-0 first:pl-0">
@@ -34,12 +34,12 @@ export default function CooperativeBanner() {
     subscription.days_remaining <= 30 ? "warning" : "success";
 
   return (
-    <div className="flex items-center gap-3 min-w-0 flex-1">
-      <div className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 rounded-xl bg-muted flex items-center justify-center overflow-hidden ring-1 ring-border">
+    <div className="flex items-center gap-3 min-w-0 flex-1 rounded-2xl border border-primary/15 bg-gradient-to-r from-accent/70 via-card/80 to-secondary/60 px-2 py-1 shadow-glass">
+      <div className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 rounded-xl bg-gradient-primary flex items-center justify-center overflow-hidden ring-2 ring-primary/20 shadow-glow">
         {logoUrl ? (
           <img src={logoUrl} alt={cooperative.name} className="h-full w-full object-cover" />
         ) : (
-          <Building2 className="h-5 w-5 text-muted-foreground" />
+          <Building2 className="h-5 w-5 text-primary-foreground" />
         )}
       </div>
       <div className="flex items-stretch gap-0 min-w-0 overflow-x-auto scrollbar-none">
