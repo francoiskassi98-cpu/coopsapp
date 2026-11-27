@@ -3,3 +3,4 @@
 - AI assistant: edge function `ai-assistant` answers with read-only tools using the caller's JWT (RLS scopes data to their cooperative); conversations persist per user in ai_chat_threads/ai_chat_messages — keeps coop isolation without service-role access.
 - Manual shipment creation uses the invoker RPC `create_shipment_with_deliveries` for header and deliveries in one transaction; this prevents orphan headers after a rejected delivery and serializes idempotent retries.
 - Prime calculations use `prime-calculation.ts`, exhaustive fail-closed pagination, register/campaign-scoped producer grouping and per-plantation persistence; this avoids missing weights and duplicated bonuses.
+- AuthProvider clears queries and remounts account-owned UI on identity changes, gates profile loading, and ignores outdated auth responses; this prevents previous-account data surviving a new login without disrupting token refreshes.

@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 import { useVersionGuard } from "@/hooks/useVersionGuard";
@@ -43,13 +44,28 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
+  const identity = useRef<string | null | undefined>(undefined);
+  const generation = useRef(0);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<AppRole | null>(null);
   const [cooperativeRefs, setCooperativeRefs] = useState<CoopRef[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
 
-  const fetchProfile = async (userId: string) => {
+  const resetIdentity = (userId: string | null) => {
+    identity.current = userId;
+    generation.current += 1;
+    setRole(null);
+    setCooperativeRefs([]);
+    setProfile(null);
+    void queryClient.cancelQueries();
+    queryClient.clear();
+    sessionStorage.removeItem("knf-update-session");
+  };
+
+  const fetchProfile = async (userId: string, requestGeneration: number) => {
+    const isCurrent = () => generation.current === requestGeneration && identity.current === userId;
     try {
       const [{ data: roleRow }, { data: ucRows }, { data: profileRow }] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
@@ -61,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq("user_id", userId)
           .maybeSingle(),
       ]);
+      if (!isCurrent()) return;
       setRole(((roleRow?.role as AppRole) ?? "agent"));
       const refs = ((ucRows as Array<{ cooperatives: { id: string; name: string } | null }> | null) ?? [])
         .map((r) => r.cooperatives)
@@ -69,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile((profileRow as Profile | null) ?? null);
     } catch (e) {
       console.error("[useAuth] fetchProfile", e);
+      if (!isCurrent()) return;
       setRole("agent");
       setCooperativeRefs([]);
       setProfile(null);
@@ -76,11 +94,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+    let active = true;
+    let authEventReceived = false;
+    const applySession = (newSession: Session | null, event?: string) => {
+      if (!active) return;
+      const userId = newSession?.user.id ?? null;
+      const changed = identity.current !== userId;
+      if (changed) resetIdentity(userId);
       setSession(newSession);
+      // Token refreshes must not unmount the current user's pages or clear their cache.
+      if (!changed) return;
       if (newSession?.user) {
+        setLoading(true);
+        const requestGeneration = generation.current;
         setTimeout(async () => {
-          await fetchProfile(newSession.user.id);
+          if (!active || generation.current !== requestGeneration) return;
+          await fetchProfile(newSession.user.id, requestGeneration);
+          if (!active || generation.current !== requestGeneration) return;
           setLoading(false);
           if (event === "SIGNED_IN") {
             try {
@@ -89,27 +119,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }, 0);
       } else {
-        setRole(null);
-        setCooperativeRefs([]);
-        setProfile(null);
         setLoading(false);
       }
+    };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      authEventReceived = true;
+      applySession(newSession, event);
     });
 
-    supabase.auth.getSession().then(async ({ data: { session: existing } }) => {
-      setSession(existing);
-      if (existing?.user) {
-        await fetchProfile(existing.user.id);
-      }
-      setLoading(false);
+    supabase.auth.getSession().then(({ data: { session: existing } }) => {
+      // A late bootstrap response cannot overwrite a newer login/logout event.
+      if (!authEventReceived) applySession(existing);
+    }).catch((error: unknown) => {
+      console.error("[useAuth] getSession", error);
+      if (!authEventReceived) applySession(null);
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      active = false;
+      generation.current += 1;
+      identity.current = undefined;
+      subscription.unsubscribe();
+    };
+  }, [queryClient]);
 
   useVersionGuard(!!session);
 
-  const signOut = async () => { await supabase.auth.signOut(); };
+  const signOut = async () => {
+    resetIdentity(null);
+    setSession(null);
+    setLoading(false);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("[useAuth] signOut", error);
+      await supabase.auth.signOut({ scope: "local" });
+    }
+  };
 
   const isSuperAdmin = role === "super_admin";
   const isCoopAdmin = role === "coop_admin";
@@ -128,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: isSuperAdmin || isCoopAdmin,
       signOut,
     }}>
-      {children}
+      <Fragment key={session?.user.id ?? "signed-out"}>{children}</Fragment>
     </AuthContext.Provider>
   );
 }
