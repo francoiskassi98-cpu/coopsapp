@@ -10,9 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Building2, Loader2, Plus, Pencil, PauseCircle, PlayCircle, Trash2, CreditCard } from "lucide-react";
+import { Building2, Loader2, Plus, Pencil, PauseCircle, PlayCircle, Trash2, CreditCard, BookPlus } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import ImageUploader from "@/components/ui/ImageUploader";
+import AddRegistreDialog from "@/components/cooperatives/AddRegistreDialog";
 
 type Status = "trial" | "active" | "expired" | "suspended";
 
@@ -64,6 +65,8 @@ export default function CooperativesManagement() {
   const [editing, setEditing] = useState<Row | null>(null);
   const [subEdit, setSubEdit] = useState<Row | null>(null);
   const [saving, setSaving] = useState(false);
+  const [registreOpen, setRegistreOpen] = useState(false);
+  const [registreCoop, setRegistreCoop] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     name: "", acronym: "", city: "", region: "", country: "", phone: "",
     official_email: "", manager_name: "", logo_path: null as string | null,
@@ -204,9 +207,14 @@ export default function CooperativesManagement() {
         title="Gestion des coopératives"
         description="Créer, modifier, suspendre ou supprimer les coopératives clientes."
         actions={
-          <Button asChild>
-            <Link to="/gestion/cooperatives/nouvelle"><Plus className="h-4 w-4 mr-2" /> Nouvelle coopérative</Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => { setRegistreCoop(null); setRegistreOpen(true); }}>
+              <BookPlus className="h-4 w-4 mr-2" /> Nouveau registre
+            </Button>
+            <Button asChild>
+              <Link to="/gestion/cooperatives/nouvelle"><Plus className="h-4 w-4 mr-2" /> Nouvelle coopérative</Link>
+            </Button>
+          </div>
         }
       />
 
@@ -254,6 +262,7 @@ export default function CooperativesManagement() {
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
                             <Button size="sm" variant="ghost" onClick={() => openEdit(r)} title="Modifier"><Pencil className="h-4 w-4" /></Button>
+                            <Button size="sm" variant="ghost" onClick={() => { setRegistreCoop(r.id); setRegistreOpen(true); }} title="Ajouter un registre"><BookPlus className="h-4 w-4" /></Button>
                             <Button size="sm" variant="ghost" onClick={() => openSub(r)} title="Abonnement"><CreditCard className="h-4 w-4" /></Button>
                             <Button size="sm" variant="ghost" onClick={() => toggleSuspend(r)} title={r.status === "suspended" ? "Réactiver" : "Suspendre"}>
                               {r.status === "suspended" ? <PlayCircle className="h-4 w-4 text-emerald-600" /> : <PauseCircle className="h-4 w-4 text-amber-600" />}
@@ -334,6 +343,13 @@ export default function CooperativesManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AddRegistreDialog
+        open={registreOpen}
+        onOpenChange={setRegistreOpen}
+        cooperatives={rows.map((r) => ({ id: r.id, name: r.name }))}
+        defaultCoopId={registreCoop}
+      />
     </div>
   );
 }
