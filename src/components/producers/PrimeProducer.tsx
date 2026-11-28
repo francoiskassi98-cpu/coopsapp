@@ -12,7 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { Calculator, Download, Save, Coins } from "lucide-react";
 import { generatePrimeExcel } from "@/lib/prime-excel";
 import { useQueryClient } from "@tanstack/react-query";
-import { calculatePrimeRows, fetchPrimePages, primePlantationResults, type PrimeDateBasis, type PrimePlantation, type PrimeResult } from "@/lib/prime-calculation";
+import { calculatePrimeRows, fetchPrimePages, primePeriodError, primePlantationResults, type PrimeDateBasis, type PrimePlantation, type PrimeResult } from "@/lib/prime-calculation";
 import { useCampaignLabels } from "@/hooks/useCampaign";
 import { useRegistres } from "@/hooks/useRegistres";
 
@@ -24,7 +24,7 @@ interface ProducerOpt { id: string; full_name: string; nom: string | null; preno
 
 interface PrimeDelivery {
   id: string; shipment_id: string; producer_id: string; net_weight: number; campaign_label: string;
-  shipments: { connaissement: string | null; project: string; departure_date: string | null };
+  shipments: { connaissement: string | null; project: string; delivery_start: string; delivery_end: string };
 }
 interface IncludedShipment { id: string; name: string; project: string; volume: number }
 
@@ -50,7 +50,7 @@ export default function PrimeProducer() {
   const [amount, setAmount] = useState<number>(0);
 
   const [rows, setRows] = useState<PrimeResult[]>([]);
-  const [dateBasis, setDateBasis] = useState<PrimeDateBasis>("delivery");
+  const dateBasis: PrimeDateBasis = "delivery";
   const [included, setIncluded] = useState<IncludedShipment[]>([]);
   const queryClient = useQueryClient();
   const busy = useRef(false);
@@ -115,8 +115,9 @@ export default function PrimeProducer() {
       toast({ title: "Champs requis", description: "Registre, période et montant sont requis.", variant: "destructive" });
       return;
     }
-    if (startDate > endDate) {
-      toast({ title: "Période invalide", description: "La date de début doit précéder la date de fin.", variant: "destructive" });
+    const periodError = primePeriodError(startDate, endDate, campaignId);
+    if (periodError) {
+      toast({ title: "Période invalide", description: periodError, variant: "destructive" });
       return;
     }
     if (busy.current) return;
@@ -126,16 +127,16 @@ export default function PrimeProducer() {
     setRows([]);
     setIncluded([]);
     try {
-      // Date mode is explicit: receipts include only their dates; departure includes all lines of matching shipments.
+      // Shipments are selected by their delivery period start.
       const deliveries = await fetchPrimePages<PrimeDelivery>((from, to) => {
         let q = supabase.from("deliveries")
-          .select("id,shipment_id,producer_id,net_weight,campaign_label,shipments!inner(registre_id,campaign_label,is_cancelled,project_id,deleted_at,departure_date,connaissement,project)")
+          .select("id,shipment_id,producer_id,net_weight,campaign_label,shipments!inner(registre_id,campaign_label,is_cancelled,project_id,deleted_at,delivery_start,delivery_end,connaissement,project)")
           .eq("shipments.is_cancelled", false).is("shipments.deleted_at", null)
           .order("id");
-        const dateColumn = dateBasis === "delivery" ? "delivery_date" : "shipments.departure_date";
-        q = q.gte(dateColumn, startDate).lte(dateColumn, endDate);
+        // Période de livraison du chargement (début de livraison), jamais la date de départ.
+        q = q.gte("shipments.delivery_start", startDate).lte("shipments.delivery_start", endDate);
         if (!isAllCoops) q = q.eq("shipments.registre_id", coopId);
-        if (campaignId !== "all") q = q.eq("campaign_label", campaignId);
+        if (campaignId !== "all") q = q.eq("campaign_label", campaignId).eq("shipments.campaign_label", campaignId);
         if (projectId !== "all") q = q.eq("shipments.project_id", projectId);
         return q.range(from, to);
       });
@@ -191,7 +192,7 @@ export default function PrimeProducer() {
         end_date: endDate,
         bonus_type: bonusType,
         amount,
-        label: `Prime ${startDate} → ${endDate} — ${dateBasis === "delivery" ? "Dates de livraison" : "Dates de départ"} — Projet ${projectSelected?.name ?? "Tous"}`,
+        label: `Prime ${startDate} → ${endDate} — Période de livraison — Projet ${projectSelected?.name ?? "Tous"}`,
       }).select("id").single();
       if (error) throw error;
       const settingId = setting.id;
@@ -313,21 +314,11 @@ export default function PrimeProducer() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="prime-date-basis" className="text-xs">Période basée sur</Label>
-              <Select value={dateBasis} onValueChange={(v) => setDateBasis(v as PrimeDateBasis)}>
-                <SelectTrigger id="prime-date-basis"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="delivery">Dates de livraison (reçus)</SelectItem>
-                  <SelectItem value="departure">Dates de départ des chargements</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="prime-start" className="text-xs">Date début *</Label>
+              <Label htmlFor="prime-start" className="text-xs">Début de livraison *</Label>
               <Input id="prime-start" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
             </div>
             <div>
-              <Label htmlFor="prime-end" className="text-xs">Date fin *</Label>
+              <Label htmlFor="prime-end" className="text-xs">Fin de livraison *</Label>
               <Input id="prime-end" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
             </div>
             <div>

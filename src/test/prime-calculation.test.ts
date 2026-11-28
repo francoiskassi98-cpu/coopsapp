@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculatePrimeRows, fetchPrimePages, primePlantationResults, type PrimePlantation } from "@/lib/prime-calculation";
+import { calculatePrimeRows, fetchPrimePages, primePeriodError, primePlantationResults, type PrimePlantation } from "@/lib/prime-calculation";
 
 const plant = (id: string, code = id, register = "r1"): PrimePlantation => ({ id, producer_code: code, registre_id: register, campaign_label: "2026-2027", full_name: id, section: "A" });
 const names = new Map([["r1", "Registre 1"]]);
@@ -41,5 +41,16 @@ describe("Calcul des primes sans perte de poids", () => {
   });
   it("rejette une erreur sur une page suivante sans rendre un résultat partiel", async () => {
     await expect(fetchPrimePages<number>(async (from) => from ? { data: null, error: new Error("offline") } : { data: [1, 2], error: null })).rejects.toThrow("offline");
+  });
+  it("2025-2026 : enveloppe répartie en FCFA entiers avec total exact", () => {
+    const p = (id: string) => ({ ...plant(id), campaign_label: "2025-2026" });
+    const rows = calculatePrimeRows([{ producer_id: "a", net_weight: 100 }, { producer_id: "b", net_weight: 100 }, { producer_id: "c", net_weight: 100 }], [p("a"), p("b"), p("c")], names, 1000, "total");
+    expect(rows.reduce((s, r) => s + r.bonus, 0)).toBe(1000);
+    rows.forEach((r) => expect(Number.isInteger(r.bonus)).toBe(true));
+  });
+  it("refuse une période hors de la campagne 2025-2026", () => {
+    expect(primePeriodError("2025-09-01", "2026-08-31", "2025-2026")).toBeNull();
+    expect(primePeriodError("2025-08-31", "2026-01-31", "2025-2026")).not.toBeNull();
+    expect(primePeriodError("2026-09-01", "2026-10-01", "2025-2026")).not.toBeNull();
   });
 });
