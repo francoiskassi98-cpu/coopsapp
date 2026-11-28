@@ -5,4 +5,4 @@
 - Prime calculations use `prime-calculation.ts`, exhaustive fail-closed pagination, register/campaign-scoped producer grouping and per-plantation persistence; this avoids missing weights and duplicated bonuses.
 - AuthProvider clears queries and remounts account-owned UI on identity changes, gates profile loading, and ignores outdated auth responses; this prevents previous-account data surviving a new login without disrupting token refreshes.
 - Manual shipments are limited to the current campaign; the only exception is SOPA (lib/backdated-campaign.ts) on 2025-2026, enforced in create_shipment_with_deliveries — server-side guard so no other coop can backdate.
-- Super admins create registres from Gestion → Coopératives (AddRegistreDialog) via direct inserts allowed by existing RLS, linking at least one coop user; the registre is removed if linking fails — avoids unassigned registres without a new RPC.
+- Super admins import registres from Gestion → Coopératives (AddRegistreDialog): pick coop + users, upload the standard producer Excel; registres come from its « Registre » column, new empty registres are removed on failure — no manual registre form.

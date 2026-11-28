@@ -2,14 +2,16 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { FileSpreadsheet, Loader2 } from "lucide-react";
+import { parseExcelFile, joinFullName, type ProducerRow, type ImportReport } from "@/lib/excel-utils";
+import { normalizeCampaign } from "@/lib/campaign";
+import { useCampaignLabels } from "@/hooks/useCampaign";
 
 interface CoopOption { id: string; name: string }
 interface CoopUser { user_id: string; label: string; email: string }
@@ -22,24 +24,27 @@ interface Props {
   defaultCoopId?: string | null;
 }
 
-/** Création d'un registre par le super administrateur, avec rattachement à des utilisateurs de la coopérative. */
+/**
+ * Import d'un registre par le super administrateur : choix de la coopérative et des utilisateurs,
+ * puis import du fichier Excel standard des producteurs (même format que l'import classique).
+ * Le registre est identifié par la colonne « Registre » du fichier.
+ */
 export default function AddRegistreDialog({ open, onOpenChange, cooperatives, defaultCoopId }: Props) {
   const qc = useQueryClient();
+  const { activeCampaign } = useCampaignLabels();
   const [coopId, setCoopId] = useState("");
-  const [name, setName] = useState("");
-  const [responsable, setResponsable] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
   const [users, setUsers] = useState<CoopUser[]>([]);
   const [existing, setExisting] = useState<ExistingRegistre[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [report, setReport] = useState<ImportReport | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setCoopId(defaultCoopId ?? "");
-    setName(""); setResponsable(""); setPhone(""); setAddress(""); setSelected([]);
+    setSelected([]); setFile(null); setReport(null);
   }, [open, defaultCoopId]);
 
   useEffect(() => {
@@ -72,33 +77,101 @@ export default function AddRegistreDialog({ open, onOpenChange, cooperatives, de
     return () => { cancelled = true; };
   }, [open, coopId]);
 
-  const submit = async () => {
-    const trimmed = name.trim();
-    if (!coopId) { toast.error("Choisissez une coopérative."); return; }
-    if (!trimmed) { toast.error("Le nom du registre est obligatoire."); return; }
-    if (selected.length === 0) { toast.error("Choisissez au moins un utilisateur."); return; }
-    if (existing.some((r) => r.name.trim().toLowerCase() === trimmed.toLowerCase())) {
-      toast.error(`Le registre « ${trimmed} » existe déjà dans cette coopérative.`); return;
+  const onFile = async (f: File | undefined) => {
+    if (!f) return;
+    setFile(f);
+    try {
+      setReport(await parseExcelFile(await f.arrayBuffer()));
+    } catch (e) {
+      console.error("[AddRegistreDialog] parse", e);
+      setReport(null);
+      toast.error("Fichier illisible. Utilisez le modèle d'import des producteurs.");
     }
+  };
+
+  const toDbRow = (r: ProducerRow, registreId: string) => ({
+    registre_id: registreId,
+    campaign_label: normalizeCampaign(r.campaign_label) || activeCampaign,
+    nom: r.nom,
+    prenom: r.prenom || null,
+    full_name: joinFullName(r.nom, r.prenom),
+    producer_number: r.producer_number || null,
+    national_id: r.national_id || null,
+    producer_code: r.producer_code || null,
+    sexe: r.sexe || null,
+    section: r.section,
+    total_cocoa_area: r.total_cocoa_area || null,
+    num_plots: r.num_plots || null,
+    plantation_code: r.plantation_code,
+    delivery_potential: r.delivery_potential || 0,
+    remaining_potential: r.delivery_potential || 0,
+    plantation_area: r.plantation_area || null,
+    latitude: r.latitude || null,
+    longitude: r.longitude || null,
+    is_active: r.status !== "INACTIF",
+    carte_ccc: r.carte_ccc ? String(r.carte_ccc) : null,
+    commentaire: r.commentaire ? String(r.commentaire) : null,
+  });
+
+  const submit = async () => {
+    if (!coopId) { toast.error("Choisissez une coopérative."); return; }
+    if (selected.length === 0) { toast.error("Choisissez au moins un utilisateur."); return; }
+    if (!report || report.rows.length === 0) { toast.error("Importez un fichier de registre valide."); return; }
+    if (report.blockingErrors > 0) { toast.error("Le fichier contient des erreurs. Corrigez-les puis réessayez."); return; }
     if (saving) return;
     setSaving(true);
+    const created: string[] = [];
     try {
-      const { data: reg, error } = await supabase.from("registres").insert({
-        name: trimmed, cooperative_id: coopId, status: "active",
-        responsable: responsable.trim() || null, phone: phone.trim() || null, address: address.trim() || null,
-      }).select("id").single();
-      if (error || !reg) throw error ?? new Error("insert registre");
-      const { error: linkErr } = await supabase.from("user_registres")
-        .insert(selected.map((user_id) => ({ user_id, registre_id: reg.id })));
-      if (linkErr) {
-        await supabase.from("registres").delete().eq("id", reg.id);
-        throw linkErr;
+      const names = Array.from(new Set(report.rows.map((r) => r.cooperative.trim()).filter(Boolean)));
+      const byName = new Map(existing.map((r) => [r.name.trim().toLowerCase(), r.id]));
+      const regMap = new Map<string, string>();
+      for (const n of names) {
+        let id = byName.get(n.toLowerCase());
+        if (!id) {
+          const { data: reg, error } = await supabase.from("registres")
+            .insert({ name: n, cooperative_id: coopId, status: "active" }).select("id").single();
+          if (error || !reg) throw error ?? new Error("insert registre");
+          id = reg.id; created.push(reg.id);
+        }
+        regMap.set(n.toLowerCase(), id);
       }
-      toast.success(`Registre « ${trimmed} » créé et attribué.`);
+      // Liaison des utilisateurs choisis (sans doublon)
+      const regIds = Array.from(new Set(regMap.values()));
+      const { data: links } = await supabase.from("user_registres").select("user_id,registre_id").in("registre_id", regIds);
+      const has = new Set((links ?? []).map((l) => `${l.user_id}|${l.registre_id}`));
+      const toLink = regIds.flatMap((rid) => selected.filter((u) => !has.has(`${u}|${rid}`)).map((user_id) => ({ user_id, registre_id: rid })));
+      if (toLink.length) {
+        const { error } = await supabase.from("user_registres").insert(toLink);
+        if (error) throw error;
+      }
+      // Producteurs : on n'ajoute que ceux absents (même registre, campagne, code plantation)
+      const rows = report.rows.map((r) => toDbRow(r, regMap.get(r.cooperative.trim().toLowerCase())!));
+      const campaigns = Array.from(new Set(rows.map((r) => r.campaign_label)));
+      const seen = new Set<string>();
+      const codes = rows.map((r) => r.plantation_code);
+      for (let i = 0; i < codes.length; i += 500) {
+        const { data, error } = await supabase.from("producers").select("registre_id,campaign_label,plantation_code")
+          .in("registre_id", regIds).in("campaign_label", campaigns).in("plantation_code", codes.slice(i, i + 500));
+        if (error) throw error;
+        (data ?? []).forEach((p) => seen.add(`${p.registre_id}|${p.campaign_label}|${p.plantation_code}`));
+      }
+      const toInsert = rows.filter((r) => !seen.has(`${r.registre_id}|${r.campaign_label}|${r.plantation_code}`));
+      for (let i = 0; i < toInsert.length; i += 200) {
+        const { error } = await supabase.from("producers").insert(toInsert.slice(i, i + 200) as never);
+        if (error) throw error;
+      }
+      toast.success(`Registre importé : ${toInsert.length} producteur(s) ajouté(s)${rows.length - toInsert.length ? `, ${rows.length - toInsert.length} déjà présent(s)` : ""}.`);
       qc.invalidateQueries({ queryKey: ["registres"] });
+      qc.invalidateQueries({ queryKey: ["producers"] });
+      qc.invalidateQueries({ queryKey: ["campaign-labels"] });
       onOpenChange(false);
     } catch (e) {
       console.error("[AddRegistreDialog] submit", e);
+      // Ne laisse aucun registre vide créé par cette tentative
+      for (const id of created) {
+        const { count } = await supabase.from("producers").select("id", { count: "exact", head: true }).eq("registre_id", id);
+        if (!count) await supabase.from("registres").delete().eq("id", id);
+      }
       toast.error("Une erreur est survenue.");
     } finally {
       setSaving(false);
@@ -109,8 +182,8 @@ export default function AddRegistreDialog({ open, onOpenChange, cooperatives, de
     <Dialog open={open} onOpenChange={(o) => !saving && onOpenChange(o)}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nouveau registre</DialogTitle>
-          <DialogDescription>Créez un registre pour une coopérative et liez-le à ses utilisateurs.</DialogDescription>
+          <DialogTitle>Importer un registre</DialogTitle>
+          <DialogDescription>Choisissez la coopérative et les utilisateurs, puis importez le fichier du registre.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
@@ -122,15 +195,6 @@ export default function AddRegistreDialog({ open, onOpenChange, cooperatives, de
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="reg-name">Nom du registre</Label>
-            <Input id="reg-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex. Section Daloa" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label htmlFor="reg-resp">Responsable</Label><Input id="reg-resp" value={responsable} onChange={(e) => setResponsable(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label htmlFor="reg-phone">Téléphone</Label><Input id="reg-phone" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
-          </div>
-          <div className="space-y-1.5"><Label htmlFor="reg-addr">Adresse</Label><Input id="reg-addr" value={address} onChange={(e) => setAddress(e.target.value)} /></div>
 
           <div className="space-y-1.5">
             <Label>Utilisateurs liés à ce registre</Label>
@@ -156,6 +220,22 @@ export default function AddRegistreDialog({ open, onOpenChange, cooperatives, de
             )}
           </div>
 
+          <div className="space-y-1.5">
+            <Label>Fichier du registre</Label>
+            <label className="flex items-center justify-center gap-2 rounded-md border border-dashed px-3 py-4 cursor-pointer hover:bg-muted/50 text-sm">
+              <FileSpreadsheet className="h-4 w-4" />
+              {file ? file.name : "Sélectionner un fichier Excel"}
+              <input type="file" accept=".xlsx" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+            </label>
+            {report && (
+              <p className={`text-xs ${report.blockingErrors ? "text-destructive" : "text-muted-foreground"}`}>
+                {report.validRows} ligne(s) valide(s) sur {report.totalRows}
+                {report.blockingErrors ? ` — ${report.blockingErrors} erreur(s) à corriger` : ""}
+                {report.rows.length ? ` — registre(s) : ${Array.from(new Set(report.rows.map((r) => r.cooperative.trim()))).join(", ")}` : ""}
+              </p>
+            )}
+          </div>
+
           {coopId && existing.length > 0 && (
             <div className="space-y-1.5">
               <Label>Registres existants</Label>
@@ -171,7 +251,7 @@ export default function AddRegistreDialog({ open, onOpenChange, cooperatives, de
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Annuler</Button>
-          <Button onClick={submit} disabled={saving}>{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Créer le registre</Button>
+          <Button onClick={submit} disabled={saving}>{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Importer le registre</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

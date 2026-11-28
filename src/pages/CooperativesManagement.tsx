@@ -209,7 +209,7 @@ export default function CooperativesManagement() {
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => { setRegistreCoop(null); setRegistreOpen(true); }}>
-              <BookPlus className="h-4 w-4 mr-2" /> Nouveau registre
+              <BookPlus className="h-4 w-4 mr-2" /> Importer un registre
             </Button>
             <Button asChild>
               <Link to="/gestion/cooperatives/nouvelle"><Plus className="h-4 w-4 mr-2" /> Nouvelle coopérative</Link>
