@@ -20,6 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { TemplatePreview, type TemplatePreviewData } from "@/components/shipments/TemplatePreview";
 import PageHeader from "@/components/PageHeader";
+import { SOPA_COOPERATIVE_ID, SOPA_BACKDATED_CAMPAIGN, campaignBounds } from "@/lib/backdated-campaign";
 
 const ImportShipments = lazyWithRetry(() => import("@/pages/ImportShipments"));
 const ShipmentDetails = lazyWithRetry(() => import("@/components/ShipmentDetails"));
@@ -102,7 +103,7 @@ export default function CreateShipment() {
   const [editWeight, setEditWeight] = useState("");
   const [editBags, setEditBags] = useState("");
   const { sortConfig, toggleSort, sortData } = useSortableTable();
-  const { role } = useAuth();
+  const { role, cooperativeRefs, isSuperAdmin } = useAuth();
   const canCreateProject = role === "super_admin" || role === "coop_admin" || role === "agent";
 
   const [coopStats, setCoopStats] = useState<{ potentiel: number; delivered: number; remaining: number } | null>(null);
@@ -111,8 +112,17 @@ export default function CreateShipment() {
   const [receiptNumber, setReceiptNumber] = useState<string>("");
   const [selectedCoopId, setSelectedCoopId] = useState<string>("");
 
-  const activeCampaign = normalizeCampaign(getCurrentCampaign());
-  const { registres: campaignRegistres, loading: registresLoading } = useCampaignRegistres(activeCampaign);
+  const currentLoadingCampaign = normalizeCampaign(getCurrentCampaign());
+  // Permission dédiée SOPA : chargement sur la campagne antérieure 2025-2026.
+  const canBackdate = isSuperAdmin || cooperativeRefs.some((c) => c.id === SOPA_COOPERATIVE_ID);
+  const [loadingCampaign, setLoadingCampaign] = useState(currentLoadingCampaign);
+  const isBackdated = loadingCampaign !== currentLoadingCampaign;
+  const activeCampaign = loadingCampaign;
+  const { registres: allCampaignRegistres, loading: registresLoading } = useCampaignRegistres(activeCampaign);
+  const campaignRegistres = useMemo(
+    () => (isBackdated ? allCampaignRegistres.filter((r) => r.cooperative_id === SOPA_COOPERATIVE_ID) : allCampaignRegistres),
+    [allCampaignRegistres, isBackdated]
+  );
 
   // Les registres de la campagne sont une donnée dérivée : aucun état ni effet.
   const cooperatives = useMemo(
@@ -162,7 +172,7 @@ export default function CreateShipment() {
 
   /** Statistiques du seul registre sélectionné, strictement limitées à la campagne active. */
   const loadCoopStats = useCallback(async (registreId: string, registreName: string) => {
-    const campaign = normalizeCampaign(getCurrentCampaign());
+    const campaign = activeCampaign;
     if (!registreId) { setCoopStats(null); return; }
     setCoopStats(null);
     const PAGE = 1000;
@@ -195,7 +205,7 @@ export default function CreateShipment() {
     };
     const [pot, delivered] = await Promise.all([loadProducers(), loadDelivered()]);
     setCoopStats({ potentiel: pot.potentiel, remaining: pot.remaining, delivered });
-  }, []);
+  }, [activeCampaign]);
 
   const loadNextReceiptForCooperative = useCallback(async (registreId: string) => {
     if (!registreId) { setSuggestedReceipt(""); setReceiptNumber(""); return; }
@@ -262,6 +272,12 @@ export default function CreateShipment() {
     if ((startDate && startDate > todayIso) || (endDate && endDate > todayIso)) {
       errs.push("Pas possible d'effectuer un chargement avec cette date.");
     }
+    if (isBackdated) {
+      const b = campaignBounds(activeCampaign);
+      if ((startDate && (startDate < b.start || startDate > b.end)) || (endDate && (endDate < b.start || endDate > b.end))) {
+        errs.push(`Les dates de livraison doivent être comprises dans la campagne ${activeCampaign} (du 01/09 au 31/08).`);
+      }
+    }
     if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
       errs.push("La date de fin doit être postérieure ou égale à la date de début.");
     }
@@ -272,7 +288,7 @@ export default function CreateShipment() {
       errs.push(`Le poids total (${w.toLocaleString("fr-FR")} kg) dépasse le potentiel restant du registre (${coopStats.remaining.toLocaleString("fr-FR")} kg).`);
     }
     return errs;
-  }, [totalWeight, totalBags, startDate, endDate, departureDate, coopStats]);
+  }, [totalWeight, totalBags, startDate, endDate, departureDate, coopStats, isBackdated, activeCampaign]);
 
 
   // Les détails techniques restent uniquement dans la console; l'utilisateur voit un message générique.
@@ -297,7 +313,7 @@ export default function CreateShipment() {
     // Construction automatique de la liste des producteurs éligibles (règles métier)
     let eligibility;
     try {
-      eligibility = await buildEligibleProducers(selectedCoopId, new Date(startDate));
+      eligibility = await buildEligibleProducers(selectedCoopId, new Date(startDate), activeCampaign);
     } catch (error) {
       console.error("[CreateShipment] eligibility build failed", error);
       toast({ title: "Erreur chargement producteurs", description: "Une erreur est survenue.", variant: "destructive" });
@@ -388,7 +404,7 @@ export default function CreateShipment() {
     const bagError = validateShipmentBagWeights(Number(totalWeight), Number(totalBags), preview);
     if (bagError) { setSaveDiagnostic(bagError); throw new Error(bagError); }
 
-    const campaignLabel = normalizeCampaign(getCurrentCampaign());
+    const campaignLabel = activeCampaign;
     const selectedProject = projects.find((p) => p.id === project);
 
     if (!selectedProject) {
@@ -839,6 +855,21 @@ export default function CreateShipment() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {canBackdate && (
+                  <div className="space-y-2">
+                    <Label>Campagne du chargement</Label>
+                    <Select value={loadingCampaign} onValueChange={(v) => { setLoadingCampaign(v); setSelectedCoopId(""); setCoopStats(null); setPreview([]); }}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={currentLoadingCampaign}>{currentLoadingCampaign} (en cours)</SelectItem>
+                        <SelectItem value={SOPA_BACKDATED_CAMPAIGN}>{SOPA_BACKDATED_CAMPAIGN} (rattrapage SOPA)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {isBackdated && (
+                      <p className="text-xs text-muted-foreground">Rattrapage autorisé uniquement pour SOPA : dates entre le 01/09/2025 et le 31/08/2026.</p>
+                    )}
+                  </div>
+                )}
                 {/* 1. Registre */}
                 <div className="space-y-2">
                   <Label>Registre *</Label>

@@ -4,3 +4,4 @@
 - Manual shipment creation uses the invoker RPC `create_shipment_with_deliveries` for header and deliveries in one transaction; this prevents orphan headers after a rejected delivery and serializes idempotent retries.
 - Prime calculations use `prime-calculation.ts`, exhaustive fail-closed pagination, register/campaign-scoped producer grouping and per-plantation persistence; this avoids missing weights and duplicated bonuses.
 - AuthProvider clears queries and remounts account-owned UI on identity changes, gates profile loading, and ignores outdated auth responses; this prevents previous-account data surviving a new login without disrupting token refreshes.
+- Manual shipments are limited to the current campaign; the only exception is SOPA (lib/backdated-campaign.ts) on 2025-2026, enforced in create_shipment_with_deliveries — server-side guard so no other coop can backdate.
